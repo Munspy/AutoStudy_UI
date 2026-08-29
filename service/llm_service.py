@@ -1,4 +1,14 @@
-# service/llm_service.py
+"""LLM(대규모 언어 모델) 작업 오케스트레이션 및 프롬프트 관리 서비스 모듈.
+
+이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
+의학 학습 자료 생성 파이프라인의 핵심 지능(Intelligence) 역할을 수행하며, 
+Controller나 Worker 계층으로부터 받은 텍스트 데이터(원본 PDF 내용, Whisper 추출 음성 등)를 
+구조화된 프롬프트로 가공하여 하위 통신 유틸리티(`utils/llm_client.py`)를 통해 Gemini API로 전송합니다. 
+
+이 서비스는 API 호출 로직 자체(네트워크, 에러 파싱 등)는 `llm_client`에 위임하고, 
+'교정본 생성', '요약본 도출', 'Anki CSV 추출'과 같은 비즈니스 도메인(의학 교육)에 특화된 
+시스템 프롬프트 관리와 비동기 태스크 상태 추적(START/DONE/ERROR 로깅)에만 집중하는 단일 책임을 가집니다.
+"""
 import time
 import uuid
 import threading
@@ -12,18 +22,40 @@ from service.api_key_tracker import api_mgr
 from utils.llm_client import call_gemini_api
 
 class LlmService(BaseService):
-    """
-    LLM 프롬프트를 구성하고 작업을 할당 및 추적하는 도메인 서비스입니다.
-    실제 프롬프트를 조립하여 utils.llm_client를 통해 API 호출을 수행합니다.
+    """LLM 프롬프트를 구성하고 작업을 할당 및 추적하는 도메인 서비스 클래스.
+
+    단일 책임 원칙(SRP)에 따라, 이 클래스는 네트워크 통신 로직을 직접 구현하지 않으며 
+    오직 의학 도메인 지식이 반영된 프롬프트 조합(Prompt Engineering)과 
+    멀티스레드 환경에서의 LLM 작업(Task) 상태 로깅 및 생명주기 관리에 집중합니다. 
+
+    의존성:
+    - API 키 동시성 제어 및 쿨타임 관리를 위해 `api_mgr(APIManager)`와 통신합니다[cite: 1].
+    - 순수 API 네트워크 통신을 위해 `utils.llm_client.call_gemini_api`를 호출합니다.
     """
     def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+        """LlmService 인스턴스를 초기화합니다.
+
+        Args:
+            logger_callback (Optional[Callable[[str], None]], optional): 비동기 Worker 환경에서 
+                발생하는 상태 로그를 메인 UI 스레드로 안전하게 전달하기 위한 콜백 함수. Defaults to None.
+        """
         # BaseService 초기화 시 콜백을 등록하여 내부에서 self._log()로 일괄 처리
         super().__init__(logger_callback=logger_callback)
         self.active_processes: Dict[str, str] = {}
         self.process_lock = threading.Lock()
 
     def _update_process_status(self, task_id: str, task_name: str, status: str = "START") -> None:
-        """내부적으로 진행 중인 AI 태스크의 상태를 로깅합니다."""
+        """내부적으로 진행 중인 동시다발적인 비동기 AI 태스크의 상태를 추적하고 로깅합니다.
+
+        여러 파일이 동시에 병렬(Worker Pool)로 Gemini 파이프라인을 통과할 때, 
+        어떤 태스크가 현재 진행 중인지, 성공했는지, 실패했는지를 파악하여 UI(로그 창)에 반영하기 위한 
+        스레드 안전(Thread-safe) 상태 관리 로직입니다. 
+
+        Args:
+            task_id (str): 작업을 고유하게 식별하는 UUID 문자열.
+            task_name (str): 수행 중인 작업의 이름과 모델 정보를 포함한 문자열.
+            status (str, optional): 작업의 현재 상태 플래그 ("START", "DONE", "ERROR"). Defaults to "START".
+        """
         with self.process_lock:
             if status == "START":
                 self.active_processes[task_id] = task_name
@@ -48,7 +80,23 @@ class LlmService(BaseService):
         user_prompt: str, 
         task_id: Optional[str] = None
     ) -> Optional[str]:
-        """LLM 호출 시 반복되는 상태 로깅 및 예외 처리를 전담하는 내부 래퍼입니다."""
+        """LLM 호출 시 반복되는 락킹, 로깅 및 예외 처리를 전담하는 내부 템플릿(Wrapper) 메서드입니다.
+
+        개별 비즈니스 로직(교정본, 요약본 등)이 직접 API를 호출하고 예외 처리를 중복 작성하는 것을 방지합니다. 
+        이 메서드는 API 호출 전 `api_mgr`로부터 사용 가능한 API 키를 안전하게 대여(Checkout) 받고, 
+        `llm_client`를 통해 통신을 시도하며, 작업 완료(또는 실패) 시 
+        성공 여부 및 에러 코드를 포함하여 키를 반드시 반납(Checkin)하도록 `finally` 블록으로 강제합니다. 
+
+        Args:
+            task_title (str): 로깅 및 사용자 안내 목적의 작업 제목 (예: "Gemini 요약 작업").
+            model_name (str): 사용할 Gemini 모델 이름 (예: "gemini-2.5-flash").
+            system_instruction (str): LLM의 페르소나 및 출력 형식을 정의하는 시스템 프롬프트.
+            user_prompt (str): 모델에 전달할 실제 데이터가 담긴 사용자 프롬프트.
+            task_id (Optional[str], optional): 작업 추적용 고유 ID. 입력하지 않으면 자동으로 UUID 8자리를 생성합니다.
+
+        Returns:
+            Optional[str]: LLM이 생성한 응답 텍스트. 통신 에러나 예기치 못한 시스템 오류 발생 시 None 반환.
+        """
         if task_id is None: 
             task_id = str(uuid.uuid4())[:8]
             
@@ -97,7 +145,22 @@ class LlmService(BaseService):
         model_name: str, 
         task_id: Optional[str] = None
     ) -> Optional[str]:
-        """음성 스크립트와 강의록을 비교하여 강사의 발화를 보존하며 오타를 교정합니다."""
+        """음성 스크립트와 강의록을 비교하여 강사의 발화를 보존하며 오타를 교정하는 비즈니스 메서드입니다.
+
+        Whisper AI가 음성을 텍스트로 변환할 때 흔히 발생하는 전문 의학 용어의 오인식(Hallucination)을 
+        해결하기 위해 설계되었습니다. 원본 PDF(강의록) 텍스트를 Ground Truth(참조 데이터)로 제공하여 
+        LLM이 발음이 유사한 단어를 문맥과 강의록에 맞게 추론하여 교정하도록 프롬프트 엔지니어링이 적용되어 있습니다. 
+        강사의 팁이나 중요도(시험 관련) 발언이 훼손되지 않도록 엄격한 '삭제/생략 금지' 규칙이 포함되어 있습니다.
+
+        Args:
+            audio_text (str): Whisper AI를 통해 추출된 불완전한 원본 음성 스크립트.
+            pdf_text (str): PDF에서 추출된 강의록 텍스트 (참조용 정답지 역할).
+            model_name (str): 사용할 모델 이름.
+            task_id (Optional[str], optional): 작업 식별용 ID. Defaults to None.
+
+        Returns:
+            Optional[str]: 페이지별(`[Slide 00X]`) 맵핑 규칙에 따라 엄격하게 교정된 스크립트 텍스트.
+        """
         system_instruction = """당신은 본과 의학 강의 전문 속기사입니다.
 목적: Whisper로 추출된 [음성 스크립트]의 발음 오타를 [강의록(PDF) 텍스트]를 참고하여 교정하되, 강사의 실제 발화를 절대 손실 없이 보존하는 것이 최우선입니다.
 
@@ -163,7 +226,22 @@ class LlmService(BaseService):
         model_name: str, 
         task_id: Optional[str] = None
     ) -> Optional[str]:
-        """강의록과 교정본을 바탕으로 핵심 단권화 노트를 생성합니다."""
+        """강의록과 교정본을 바탕으로 핵심 단권화(Summary) 노트를 생성하는 비즈니스 메서드입니다.
+
+        교정이 완료된 스크립트와 강의록 텍스트를 입력받아, 의학 교육 전문가 수준의 
+        구조화된 핵심 요약본을 도출합니다. 단순 요약이 아닌, 시험 출제 시그널 식별, 감별 진단 표 구성, 
+        임상적 의사 결정 흐름(Decision Flow) 작성을 강제하는 고도화된 프롬프트가 적용되어 
+        학습자의 실전 지식 향상을 돕습니다.
+
+        Args:
+            corrected_text (str): 선행 작업(correct_script)을 통해 오타가 수정된 깨끗한 음성 스크립트.
+            pdf_text (str): 참조용 강의록 원문 텍스트.
+            model_name (str): 사용할 모델 이름.
+            task_id (Optional[str], optional): 작업 식별용 ID. Defaults to None.
+
+        Returns:
+            Optional[str]: 프롬프트 규칙에 따라 마크다운(Markdown) 형태로 생성된 고품질 요약본 텍스트.
+        """
         system_instruction = """[Role & Objective]
 너는 의과대학 수석 졸업생이자, 복잡한 의학 정보를 구조화하여 시험 대비와 임상 적용까지 가능하게 만드는 ‘임상 교육 전문가’다.
 목표는 제공된 [강의록] + [강의 스크립트]만으로 시험 대비가 가능한 수준의 단권화 노트를 만드는 것이다.
@@ -241,7 +319,22 @@ Definitive Treatment (최종 치료)
         model_name: str, 
         task_id: Optional[str] = None
     ) -> Optional[str]:
-        """강의록과 교정본을 바탕으로 Anki 카드 생성을 위한 파이프(|) 구분 CSV 텍스트를 생성합니다."""
+        """강의록과 교정본을 바탕으로 Anki 카드 생성을 위한 파이프(|) 구분 CSV 원시 텍스트를 생성합니다.
+
+        AnkiGenerationService(Anki 팀)가 `.apkg` 파일을 패키징하기 전, 필요한 핵심 데이터를 LLM을 통해 
+        추출해내는 전처리 단계입니다. 프롬프트 내에 Basic, Cloze(빈칸뚫기), MCQ(객관식) 카드를 생성하는 
+        구체적인 문법(`{{c1::}}` 등)과 CSV 포맷(`|` 구분)을 엄격하게 제한하여 기계가 쉽게 파싱할 수 있는 
+        형태로 출력하도록 통제합니다.
+
+        Args:
+            corrected_text (str): 선행 작업으로 오타가 교정된 깨끗한 음성 스크립트 텍스트.
+            pdf_text (str): 참조용 강의록 원문 텍스트.
+            model_name (str): 사용할 모델 이름.
+            task_id (Optional[str], optional): 작업 식별용 ID. Defaults to None.
+
+        Returns:
+            Optional[str]: 마크다운 코드블록 마커(````csv`)가 제거된 순수한 4열 CSV 문자열 텍스트 데이터.
+        """
         system_instruction = """너는 의대생의 학습을 돕는 최고 수준의 의학 튜터야. 내가 제공하는 [강의록 텍스트]를 바탕으로, 복습 및 암기를 위한 Anki 카드를 생성해 줘.
 
 [절대 규칙 - 엄수할 것]

@@ -1,3 +1,14 @@
+"""PDF 내용 기반 매칭 및 병합 분석 서비스 모듈.
+
+이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
+단순한 물리적 파일 병합을 넘어, OCR 텍스트 분석과 시각적 해시(Image Hash) 비교 알고리즘을 활용하여 
+'줄필기(학생 개인 필기)' PDF와 '야붙(족보/기출)' PDF의 페이지를 논리적으로 1:1 매칭해주는 핵심 비즈니스 로직을 제공합니다.
+
+비동기 자동화 파이프라인에서 수많은 학습 자료가 쏟아져 들어올 때, 
+페이지 수가 서로 다르거나 중간에 불필요한 슬라이드가 끼어있는 이기종 PDF 문서들을 
+인간의 개입을 최소화하며 지능적으로 병합하기 위해 설계되었습니다.
+"""
+
 import os
 import re
 import unicodedata
@@ -12,13 +23,28 @@ from base.base_service import BaseService
 from service.pdf_ocr_service import PdfOcrService
 from service.file_naming_service import FileNamingService
 
+
 class PdfAnalysisService(BaseService):
-    """
-    의학 강의 자료 중 '줄필기(학생 필기)'와 '야붙(족보/기출)' PDF의 페이지를 
-    텍스트 유사도 및 시각적 해시 분석을 통해 논리적으로 매칭해주는 비즈니스 서비스입니다.
+    """의학 강의 자료 PDF의 페이지 간 유사도를 분석하고 병합 레시피를 생성하는 서비스 클래스.
+
+    단일 책임 원칙(SRP)에 따라, 이 클래스는 파일의 물리적 저장 경로 관리나 UI 렌더링에 관여하지 않으며, 
+    오로지 두 PDF 문서 간의 페이지 맵핑(Mapping) 알고리즘과 병합 규칙(Domain Logic)을 
+    평가하고 조립하는 책임만 가집니다.
+
+    의존성:
+    - 텍스트 추출 및 유사도 계산, 이미지 해싱 처리를 위해 `PdfOcrService`에 강하게 의존합니다.
+    - 파일명의 도메인 규칙 파싱을 위해 `FileNamingService`와 통신합니다.
+    - 결과물은 Controller로 반환되어 UI의 수동 검수 테이블에 바인딩됩니다.
     """
     
     def __init__(self, sim_threshold: float = 0.8, hash_threshold: int = 12, lookahead: int = 5):
+        """매칭 알고리즘 튜닝 파라미터 및 의존성 서비스를 초기화합니다.
+
+        Args:
+            sim_threshold (float, optional): 두 페이지가 동일하다고 판정할 텍스트 일치율 임계값 (0.0 ~ 1.0). 기본값은 0.8(80%).
+            hash_threshold (int, optional): OCR이 실패했을 때 대체제로 사용하는 시각적 해시(pHash)의 최대 허용 차이(Hamming Distance). 값이 작을수록 엄격합니다. 기본값은 12.
+            lookahead (int, optional): 현재 페이지가 불일치할 때, 매칭되는 페이지를 찾기 위해 앞/뒤로 탐색할 최대 페이지 수 (Look-ahead Window). 슬라이드 삽입/누락으로 인한 오프셋(Offset)을 교정합니다. 기본값은 5.
+        """
         super().__init__()
         # 매칭 알고리즘 튜닝 파라미터
         self.sim_threshold = sim_threshold
@@ -36,13 +62,24 @@ class PdfAnalysisService(BaseService):
         self.ocr_service = PdfOcrService(logger_callback=self._log)
         
         # [최적화] 정규식 사전 컴파일 캐싱 (성능 향상)
+        # 자동화 파이프라인에서 수백 개의 파일을 스캔할 때 매번 정규식 엔진을 번역하지 않도록 캐싱하여 CPU 부하를 줄입니다.
         self._jul_pattern = re.compile(r'_?줄필기\.pdf$')
         self._yaboot_pattern = re.compile(r'_?야붙\.pdf$')
 
     def get_matched_file_groups(self, folder_path: str | Path) -> Dict[str, Dict[str, Any]]:
-        """
-        [도메인 로직]
-        지정된 폴더에서 '줄필기'와 '야붙' 태그가 붙은 PDF를 찾아, 같은 교시(Base Name)를 공유하는 파일끼리 그룹화합니다.
+        """지정된 폴더에서 '줄필기'와 '야붙' 태그가 붙은 PDF를 찾아, 같은 교시를 공유하는 파일끼리 그룹화합니다.
+
+        비동기 Watchdog 스레드나 사용자가 업로드한 폴더 내에는 다양한 교시의 파일이 무작위로 섞여 있을 수 있습니다. 
+        이 함수는 이기종 OS(Mac/Win) 환경에서 발생할 수 있는 유니코드 자소 분리(NFD/NFC) 문제를 선제적으로 
+        정규화(Normalize)하여 매칭 실패를 방지하고, 정규식을 통해 파일명에서 교시 식별자(Base Name)를 추출하여 
+        분석 대상이 되는 페어(Pair)를 안전하게 구축합니다.
+
+        Args:
+            folder_path (str | Path): PDF 파일들을 탐색할 로컬 디렉토리 경로.
+
+        Returns:
+            Dict[str, Dict[str, Any]]: Base Name(교시 식별자)을 Key로 가지고, 해당 교시의 줄필기 파일명, 야붙 파일명, 
+                그리고 저장될 최종 표시명(save_name)을 Value 딕셔너리로 갖는 매핑 객체.
         """
         p = Path(folder_path)
         groups: Dict[str, Dict[str, Any]] = {}
@@ -80,9 +117,29 @@ class PdfAnalysisService(BaseService):
         selected_keys: List[str], 
         matched_groups: Dict[str, Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """
-        [도메인 로직]
-        선택된 파일 쌍(줄필기/야붙)을 순회하며 페이지별 텍스트/이미지를 분석하여 병합 레시피를 생성합니다.
+        """선택된 파일 쌍(Pair)의 페이지별 텍스트 및 이미지를 분석하여 최종 병합 레시피(Recipe)를 생성합니다.
+
+        이 메서드는 의학 강의 자료 자동화의 핵심 지능(Intelligence)입니다.
+        줄필기와 야붙 PDF는 강의 슬라이드를 기반으로 하지만, 필기 공간 추가나 요약 페이지 삽입 등으로 인해 
+        페이지 번호가 1:1로 일치하지 않는 경우가 매우 흔합니다. 
+
+        이를 해결하기 위해 Two-Pointer 알고리즘을 기반으로 두 문서를 순회하며 다음 단계를 거칩니다:
+        1. OCR 텍스트를 추출하고 불필요한 필기 앱 전용 폰트(`ignore_fonts`)를 배제하여 순수 슬라이드 텍스트 유사도를 비교합니다.
+        2. 불일치 발생 시 슬라이딩 윈도우(`lookahead`) 기법을 통해 몇 페이지 앞/뒤에 동일한 슬라이드가 있는지 탐색하여 오프셋(Offset)을 교정합니다.
+        3. 이미지가 많아 OCR 텍스트가 빈약한 슬라이드의 경우, Perceptual Hash(시각적 해시) 알고리즘을 통해 
+           슬라이드의 레이아웃 실루엣을 비교하는 Fallback 로직을 수행합니다.
+        
+        대용량 분석 시 메모리 부족(OOM)이나 파일 핸들 누수가 발생하지 않도록 철저히 컨텍스트 매니저(`with`) 안에서 
+        객체의 생명주기를 통제합니다.
+
+        Args:
+            folder_path (str | Path): 분석할 파일들이 위치한 루트 디렉토리.
+            selected_keys (List[str]): `get_matched_file_groups`에서 반환된 그룹 중 실제로 분석을 실행할 그룹의 Key 목록.
+            matched_groups (Dict[str, Dict[str, Any]]): 전체 파일 그룹 정보가 담긴 딕셔너리.
+
+        Returns:
+            List[Dict[str, Any]]: 어느 파일의 몇 페이지를 가져올지, 혹은 어떻게 병합할지 명시된 조립 레시피 리스트. 
+                이 데이터는 Controller로 전달되어 UI 테이블의 행(Row)으로 렌더링됩니다.
         """
         base_data: List[Dict[str, Any]] = []
         folder_p = Path(folder_path)
@@ -185,7 +242,18 @@ class PdfAnalysisService(BaseService):
         return base_data
 
     def prepare_edit_data(self, base_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """UI 수동 검수용 데이터 상태 매핑"""
+        """생성된 매칭 레시피를 기반으로 UI 수동 검수 테이블에 바인딩할 데이터 상태를 초기화합니다.
+
+        자동화 알고리즘이 100% 완벽할 수 없으므로, 사용자가 병합 결과를 눈으로 확인하고(Human-in-the-loop) 
+        체크박스를 통해 페이지를 선택/해제할 수 있도록 각 레코드의 초기 체크 상태(Boolean)를 부여합니다. 
+        알고리즘의 결과를 기본값으로 신뢰하되, 언제든 사용자가 오버라이드할 수 있는 유연성을 제공합니다.
+
+        Args:
+            base_data (List[Dict[str, Any]]): `generate_matching_data`에서 도출된 원본 병합 레시피.
+
+        Returns:
+            List[Dict[str, Any]]: `jul_checked`와 `yaboot_checked` 플래그가 주입된 UI 편집용 데이터 배열.
+        """
         edit_data: List[Dict[str, Any]] = []
         for item in base_data:
             new_item = item.copy()
@@ -202,7 +270,18 @@ class PdfAnalysisService(BaseService):
         return edit_data
 
     def save_edits(self, edit_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """변경 상태 최종 확정"""
+        """사용자의 체크박스 수정 사항을 반영하여 최종적으로 병합에 사용될 확정 레시피를 도출합니다.
+
+        UI 레이어에서 발생한 사용자의 상호작용 결과를 Service 레이어의 데이터 구조로 다시 정제합니다. 
+        체크 해제된 항목(병합에서 제외할 페이지)을 필터링하여 실제 디스크 I/O 단계로 넘어갈 
+        순도 높은 데이터만 남깁니다.
+
+        Args:
+            edit_data (List[Dict[str, Any]]): 사용자의 수동 검수를 거친 상태 데이터 배열.
+
+        Returns:
+            List[Dict[str, Any]]: 병합 대상에서 제외된 항목들이 필터링된 최종 확정 레시피.
+        """
         new_base: List[Dict[str, Any]] = []
         for item in edit_data:
             if item["type"] == "matched" and item.get("jul_checked"):
@@ -214,7 +293,18 @@ class PdfAnalysisService(BaseService):
         return new_base
 
     def split_item_on_yaboot_check(self, item: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """체크 상태 변경에 따른 단일 항목 분할"""
+        """사용자가 'matched' 상태의 페이지에서 특정 이벤트를 발생시켰을 때 하나의 항목을 두 개로 분할합니다.
+
+        알고리즘이 '유사하다'고 판단하여 하나의 행(Row)으로 묶어둔 페이지 쌍(Pair)에 대해, 
+        사용자가 "이 두 페이지는 다르니 분리해서 개별적으로 넣고 싶다"고 체크를 변경했을 때 대응하는 로직입니다. 
+        하나의 레코드를 두 개의 독립적인 단일 소스 레코드(`jul_only`, `yaboot_only`)로 분할 반환합니다.
+
+        Args:
+            item (Dict[str, Any]): 분할할 원본 'matched' 상태의 레코드.
+
+        Returns:
+            Tuple[Dict[str, Any], Dict[str, Any]]: 분리되어 새로 생성된 줄필기 전용 레코드와 야붙 전용 레코드의 튜플.
+        """
         item_jul = {
             "type": "jul_only",
             "save_name": item["save_name"],
@@ -232,14 +322,46 @@ class PdfAnalysisService(BaseService):
         return item_jul, item_yaboot
 
     def swap_items(self, edit_data: List[Dict[str, Any]], idx: int, direction: int) -> List[Dict[str, Any]]:
-        """배열 순서 변경"""
+        """레시피 배열 내에서 특정 항목의 위치를 위/아래로 변경합니다.
+
+        UI의 위/아래 화살표 버튼을 클릭했을 때 호출되어, 최종 병합본에 삽입될 페이지의 순서(Order)를 
+        수동으로 조작하는 유틸리티 메서드입니다. 배열 인덱스 바운더리를 안전하게 검사하여 크래시를 방지합니다.
+
+        Args:
+            edit_data (List[Dict[str, Any]]): 순서를 변경할 전체 레시피 데이터 리스트.
+            idx (int): 이동시킬 대상 항목의 현재 인덱스.
+            direction (int): 이동 방향 (보통 위로 이동은 -1, 아래로 이동은 1).
+
+        Returns:
+            List[Dict[str, Any]]: 순서 변경(Swap)이 반영된 새로운 데이터 리스트.
+        """
         target_idx = idx + direction
         if 0 <= target_idx < len(edit_data):
             edit_data[idx], edit_data[target_idx] = edit_data[target_idx], edit_data[idx]
         return edit_data
 
     def execute_merge(self, base_data: List[Dict[str, Any]], output_folder: str | Path) -> List[str]:
-        """[도메인 로직] 최종 PDF 병합 및 디스크 저장"""
+        """확정된 레시피를 바탕으로 실제 물리적 PDF 병합을 수행하고 디스크에 저장합니다.
+
+        분석 서비스의 종착점이자 가장 무거운 디스크 I/O 작업이 일어나는 메서드입니다. 
+        `base_data` 레시피에 명시된 순서와 페이지 번호대로 여러 PDF 파일에서 단일 페이지들을 발췌하여 
+        하나의 거대한 PDF로 조립합니다. 
+
+        수십~수백 번 동일한 원본 파일을 열고 닫는 오버헤드를 막기 위해 파이썬의 `ExitStack`을 사용하여 
+        동적으로 열린 파일 핸들(`opened_pdfs`)을 캐싱하고, 작업이 끝난 후 또는 예외 발생 시 안전하고 
+        일괄적으로 메모리에서 해제(Close)합니다. 이는 장시간 실행되는 Worker 환경에서 
+        OS의 "Too many open files" 에러를 원천 차단하는 매우 중요한 방어 메커니즘입니다.
+
+        Args:
+            base_data (List[Dict[str, Any]]): `save_edits` 등을 통해 정제 및 확정된 병합 레시피 데이터.
+            output_folder (str | Path): 조립이 완료된 PDF 파일들을 저장할 대상 로컬 디렉토리.
+
+        Returns:
+            List[str]: 성공적으로 병합 및 저장 완료된 결과물들의 파일명(`save_name`) 리스트.
+
+        Raises:
+            Exception: 파일 시스템 쓰기 권한 부족 등 I/O 통신 중 치명적인 에러 발생 시 로그를 남기고 다음 파일로 넘어갑니다.
+        """
         out_folder_p = Path(output_folder)
         out_folder_p.mkdir(parents=True, exist_ok=True)
             
@@ -277,6 +399,7 @@ class PdfAnalysisService(BaseService):
                             src_pdf = opened_pdfs[path]
                             out_pdf.insert_pdf(src_pdf, from_page=page_num, to_page=page_num)
                             
+                    # 병합 결과물의 용량 최적화 (가비지 컬렉트 및 압축 활성화)
                     out_pdf.save(str(out_path), garbage=4, deflate=True)
             except Exception as e:
                 self._log(f"병합 저장 중 오류 발생 ({save_name}): {str(e)}")
