@@ -1,0 +1,17 @@
+# OS files
+
+# Virtual Environment & Python
+venv/
+__pycache__/
+*.pyc
+
+# extra
+codebase.json
+cookies.txt
+credentials.json
+current_structure.png
+playlists.csv
+project_map.md
+token.json
+UI-code.xml
+visualize_all.py
