@@ -1,29 +1,44 @@
+# controller/youtube_playlist_controller.py
+from PyQt6.QtCore import pyqtSignal
+
 from base.base_controller import BaseController
 from worker.youtube_worker import PlaylistFetchWorker, YoutubeUploadWorker, PlaylistUpdateCheckerWorker
 from service.youtube_playlist_service import YoutubePlaylistService
-from PyQt6.QtCore import pyqtSignal
-
-# (CSV 래퍼 함수들은 기존처럼 외부 함수로 두거나 Controller 내부 메서드로 편하게 쓰셔도 무방합니다)
-_yt_service = YoutubePlaylistService()
-
-def load_csv_data(): return _yt_service.load_playlists()
-def parse_playlist_id(url): return _yt_service.parse_playlist_id(url)
-def add_playlist_to_csv(name, url, pid): _yt_service.add_playlist(name, url, pid)
-def delete_playlist(pid): _yt_service.delete_playlist(pid)
-def rename_playlist(pid, name): _yt_service.rename_playlist(pid, name)
-def get_playlist_title(url): return _yt_service.get_playlist_title(url)
-
+from service.playlist_repository import PlaylistRepository
 
 class YoutubePlaylistController(BaseController):
-    """UI와 Worker 스레드를 연결하는 얇은 컨트롤러입니다."""
+    """UI와 Worker 스레드 및 로컬 리포지토리를 연결하는 컨트롤러 클래스."""
     
     fetch_completed = pyqtSignal(list)
     checker_completed = pyqtSignal(list)
     upload_completed = pyqtSignal()
     progress_val_signal = pyqtSignal(int)
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, ui_view=None):
+        super().__init__(ui_view=ui_view)
+        self.repository = PlaylistRepository(logger_callback=self.emit_log)
+        self.yt_service = YoutubePlaylistService(logger_callback=self.emit_log)
+
+    def init_csv(self):
+        self.repository._init_csv()
+
+    def load_csv_data(self):
+        return self.repository.load_playlists()
+
+    def parse_playlist_id(self, url):
+        return self.yt_service.parse_playlist_id(url)
+
+    def add_playlist_to_csv(self, name, url, pid):
+        self.repository.add_playlist(name, url, pid)
+
+    def delete_playlist(self, pid):
+        self.repository.delete_playlist(pid)
+
+    def rename_playlist(self, pid, name):
+        self.repository.rename_playlist(pid, name)
+
+    def get_playlist_title(self, url):
+        return self.yt_service.get_playlist_title(url)
 
     def start_fetch_playlist(self, playlist_id: str):
         self.cleanup_worker()

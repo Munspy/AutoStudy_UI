@@ -12,8 +12,8 @@ from base.base_controller import BaseController
 from worker.pdf_worker import PdfSimpleOperationThread
 
 from utils.file_util import list_local_files
+from utils.auth_util import get_drive_service
 from utils.drive_api import (
-    get_drive_service, 
     get_all_drive_files, 
     download_from_drive,
 )
@@ -85,7 +85,7 @@ class PdfMergeController(BaseController):
         else:
             self.emit_log("🔄 구글 드라이브에서 조건에 맞는 PDF 파일을 조회 중입니다...")
             try:
-                drive_service, _ = get_drive_service()
+                drive_service = get_drive_service()
                 
                 try:
                     folder_id = Config.TARGET_DRIVE_DIR
@@ -144,7 +144,7 @@ class PdfMergeController(BaseController):
         drive_service = None
         
         if is_drive and selected:
-            drive_service, _ = get_drive_service()
+            drive_service = get_drive_service()
             
         for name, path_or_id in selected: 
             file_group_frame = QFrame()
@@ -330,7 +330,7 @@ class PdfMergeController(BaseController):
             drive_service = None
             
             if is_drive:
-                drive_service, _ = get_drive_service()
+                drive_service = get_drive_service()
                 for name, file_id in selected:
                     if file_id in self.drive_cache:
                         paths_to_merge.append(self.drive_cache[file_id])

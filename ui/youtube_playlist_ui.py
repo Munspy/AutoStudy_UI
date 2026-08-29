@@ -65,7 +65,7 @@ class PlaylistManagerDialog(QDialog):
         
     def load_data(self):
         self.combo.clear()
-        playlists = backend.load_csv_data()
+        playlists = self.parent().controller.load_csv_data()
         for p in playlists:
             self.combo.addItem(p['name'], p['playlist_id'])
             
@@ -75,7 +75,7 @@ class PlaylistManagerDialog(QDialog):
             return
         new_name, ok = QInputDialog.getText(self, "이름 변경", "새 이름을 입력하세요:", text=self.combo.currentText())
         if ok and new_name.strip():
-            backend.rename_playlist(pid, new_name.strip())
+            self.parent().controller.rename_playlist(pid, new_name.strip())
             self.load_data()
             QMessageBox.information(self, "성공", "이름이 변경되었습니다.")
             
@@ -88,7 +88,7 @@ class PlaylistManagerDialog(QDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
-            backend.delete_playlist(pid)
+            self.parent().controller.delete_playlist(pid)
             self.load_data()
             QMessageBox.information(self, "성공", "삭제되었습니다.")
 
@@ -99,7 +99,15 @@ class Tab8YoutubePlaylist(QWidget):
 
     def __init__(self):
         super().__init__()
-        backend.init_csv()
+        self.controller = backend.YoutubePlaylistController(self)
+        self.controller.log_signal.connect(self.emit_log)
+        self.controller.fetch_completed.connect(self.populate_table)
+        self.controller.checker_completed.connect(self.on_checker_finished)
+        self.controller.upload_completed.connect(self.on_upload_finished)
+        self.controller.progress_val_signal.connect(self.global_progress_signal.emit)
+        self.controller.error_signal.connect(self.on_controller_error)
+        
+        self.controller.init_csv()
         self.videos_data = [] 
         self.init_ui()
 
@@ -295,7 +303,7 @@ class Tab8YoutubePlaylist(QWidget):
         self.playlist_combo.clear()
         self.playlist_combo.addItem("⏳ 유튜브 업데이트 상태 확인 중...")
         
-        playlists = backend.load_csv_data()
+        playlists = self.controller.load_csv_data()
         
         if not playlists:
             self.playlist_combo.clear()
@@ -303,10 +311,7 @@ class Tab8YoutubePlaylist(QWidget):
             self.playlist_combo.blockSignals(False)
             return
 
-        self.checker = backend.AllPlaylistUpdateChecker(playlists)
-        self.checker.log_signal.connect(self.emit_log)
-        self.checker.finished_signal.connect(self.on_checker_finished)
-        self.checker.start()
+        self.controller.start_update_checker(playlists)
 
     def on_checker_finished(self, sorted_playlists):
         self.playlist_combo.clear()
@@ -330,19 +335,19 @@ class Tab8YoutubePlaylist(QWidget):
     def add_playlist_dialog(self):
         text, ok = QInputDialog.getText(self, '재생목록 추가', 'YouTube 재생목록 URL을 입력하세요:')
         if ok and text:
-            playlist_id = backend.parse_playlist_id(text)
+            playlist_id = self.controller.parse_playlist_id(text)
             if not playlist_id:
                 QMessageBox.warning(self, "오류", "유효한 YouTube 재생목록 URL이 아닙니다.")
                 return
             
             self.emit_log("재생목록 기본 이름을 유튜브에서 조회 중입니다...")
-            default_name = backend.get_playlist_title(text)
+            default_name = self.controller.get_playlist_title(text)
             
             name, ok2 = QInputDialog.getText(self, '재생목록 이름 지정', '목록을 구별할 이름을 입력하세요:', text=default_name)
             if not ok2 or not name.strip():
                 return
 
-            backend.add_playlist_to_csv(name.strip(), text, playlist_id)
+            self.controller.add_playlist_to_csv(name.strip(), text, playlist_id)
             self.emit_log(f"새로운 재생목록 '{name.strip()}' 추가 완료.")
             self.refresh_combo_box()
 
@@ -355,11 +360,7 @@ class Tab8YoutubePlaylist(QWidget):
         self.table.setRowCount(0)
         self.videos_data.clear()
         
-        self.fetcher = backend.PlaylistFetcher(playlist_id)
-        self.fetcher.log_signal.connect(self.emit_log)
-        self.fetcher.finished_signal.connect(self.populate_table)
-        self.fetcher.error_signal.connect(lambda e: self.emit_log(f"로드 실패: {e}"))
-        self.fetcher.start()
+        self.controller.start_fetch_playlist(playlist_id)
 
     def toggle_all_rows_smart(self):
         total = self.table.rowCount()
@@ -477,15 +478,7 @@ class Tab8YoutubePlaylist(QWidget):
 
         self.upload_btn.setEnabled(False)
         self.emit_log(f"총 {len(target_videos)}개의 영상 추출 및 업로드를 시작합니다...")
-        self.global_progress_signal.emit(0)
-        
-        self.upload_worker = backend.UploadWorker(target_videos)
-        self.upload_worker.progress_signal.connect(self.emit_log)
-        self.upload_worker.progress_val_signal.connect(self.global_progress_signal.emit)
-        
-        self.upload_worker.error_signal.connect(self.on_upload_error)
-        self.upload_worker.finished_signal.connect(self.on_upload_finished)
-        self.upload_worker.start()
+        self.controller.start_upload_videos(target_videos)
 
     def on_upload_error(self, err_msg):
         self.emit_log(f"업로드 오류: {err_msg}")
@@ -493,6 +486,10 @@ class Tab8YoutubePlaylist(QWidget):
 
     def on_upload_finished(self):
         self.emit_log("🎉 모든 업로드 작업이 완료되었습니다! '영상 새로고침'을 눌러 상태를 확인하세요.")
+        self.upload_btn.setEnabled(True)
+
+    def on_controller_error(self, err_msg):
+        self.emit_log(f"🔴 오류: {err_msg}")
         self.upload_btn.setEnabled(True)
 
     def create_badge(self, text):

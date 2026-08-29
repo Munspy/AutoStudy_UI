@@ -15,23 +15,6 @@ STATE_BUSY = "BUSY"          # 🟡 사용 중
 STATE_COOLDOWN = "COOLDOWN"  # 🩶 짧은 쿨타임
 STATE_DAILY_LIMIT = "DAILY"  # 🔴 일일 한도 초과
 
-class ScanWorker(QThread):
-    result_ready = pyqtSignal(list, bool)
-    error_occurred = pyqtSignal(str)
-
-    def __init__(self, is_force_rerun, target_mmdd):
-        super().__init__()
-        self.is_force_rerun = is_force_rerun
-        self.target_mmdd = target_mmdd
-
-    def run(self):
-        try:
-            # 드라이브 스캔 작업을 백그라운드에서 실행
-            real_data = backend.fetch_gemini_tasks_from_drive(self.is_force_rerun, self.target_mmdd)
-            self.result_ready.emit(real_data, self.is_force_rerun)
-        except Exception as e:
-            self.error_occurred.emit(str(e))
-
 class KeyBadge(QWidget):
     """쿨타임 애니메이션 API 키/모델 뱃지"""
     def __init__(self, name):
@@ -108,6 +91,13 @@ class Tab7GeminiProcessing(QWidget):
         self.models = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"] 
         
         self.badge_widgets = {}
+        
+        self.controller = backend.GeminiProcessingController(self)
+        self.controller.scan_completed.connect(self.handle_scan_result)
+        self.controller.cell_updated.connect(self.update_task_cell)
+        self.controller.log_signal.connect(self.emit_log)
+        self.controller.error_signal.connect(lambda msg: self.emit_log(f"🔴 {msg}"))
+        
         self.init_ui()
 
         self.status_timer = QTimer(self)
@@ -320,12 +310,7 @@ class Tab7GeminiProcessing(QWidget):
         target_date = self.date_picker.date()
         target_mmdd = target_date.toString("MMdd") # 예: "0409"
         
-        # 워커 스레드 생성 및 실행
-        self.scan_worker = ScanWorker(is_force_rerun, target_mmdd)
-        self.scan_worker.result_ready.connect(self.handle_scan_result)
-        self.scan_worker.error_occurred.connect(self.handle_scan_error)
-        self.scan_worker.finished.connect(self.scan_worker.deleteLater)
-        self.scan_worker.start()
+        self.controller.start_scan(is_force_rerun, target_mmdd)
 
     def handle_scan_result(self, real_data, is_force_rerun):
         # UI 상태 복구 및 테이블 렌더링
@@ -498,10 +483,7 @@ class Tab7GeminiProcessing(QWidget):
                             
         # 워커 스레드를 실행하여 UI 멈춤 방지
         if task_queue:
-            self.worker = backend.GeminiTaskWorker(task_queue)
-            self.worker.log_signal.connect(self.emit_log)
-            self.worker.cell_update_signal.connect(self.update_task_cell)
-            self.worker.start()
+            self.controller.start_tasks(task_queue)
         else:
             self.emit_log("실행할 작업이 선택되지 않았습니다.")
 

@@ -1,9 +1,7 @@
-# Threads/pdf_thread.py
+from base.base_worker import BaseWorker
+from service.pdf_analysis_service import PdfAnalysisService
 
-from base.base_worker import BaseThread
-import func.func2_combine_notes as backend_combine
-
-class PdfInspectionThread(BaseThread):
+class PdfInspectionThread(BaseWorker):
     """
     [Tab 2] 선택된 줄필기와 야붙필기 PDF들을 분석하고 매칭 검수 데이터를 생성하는 스레드
     수십 페이지의 PDF를 렌더링하고 이미지 해시/OCR을 비교하는 무거운 연산을 백그라운드에서 처리합니다.
@@ -13,8 +11,9 @@ class PdfInspectionThread(BaseThread):
         self.folder_path = folder_path
         self.selected_keys = selected_keys
         self.matched_groups = matched_groups
+        self.pdf_service = PdfAnalysisService()
 
-    def _task(self):
+    def do_work(self):
         self.log_signal.emit("🔍 PDF 파일 분석 및 페이지 매칭을 진행 중입니다. 잠시만 기다려주세요...")
         
         # 🛑 스위치 확인
@@ -22,8 +21,7 @@ class PdfInspectionThread(BaseThread):
             return []
             
         # 연산량이 많은 데이터 제너레이션 작업 실행
-        # (추후 backend_combine 내부에 콜백을 넘겨 세밀한 progress_signal(int)을 쏘게 고도화할 수 있습니다)
-        base_data = backend_combine.generate_real_data(
+        base_data = self.pdf_service.generate_matching_data(
             self.folder_path, 
             self.selected_keys, 
             self.matched_groups
@@ -37,7 +35,7 @@ class PdfInspectionThread(BaseThread):
         return base_data
 
 
-class PdfCombineSaveThread(BaseThread):
+class PdfCombineSaveThread(BaseWorker):
     """
     [Tab 2] 검수가 완료된 데이터를 바탕으로 최종 PDF를 병합하고 로컬에 저장하는 스레드
     I/O 병목으로 인한 멈춤을 방지합니다.
@@ -46,15 +44,16 @@ class PdfCombineSaveThread(BaseThread):
         super().__init__()
         self.base_data = base_data
         self.folder_path = folder_path
+        self.pdf_service = PdfAnalysisService()
 
-    def _task(self):
+    def do_work(self):
         self.log_signal.emit("💾 최종 PDF 병합 및 저장을 시작합니다...")
         
         if not self._is_running:
             return []
             
         # 실제 병합 후 저장된 파일 리스트 반환
-        saved_files = backend_combine.execute_merge(self.base_data, self.folder_path)
+        saved_files = self.pdf_service.execute_merge(self.base_data, self.folder_path)
         
         if not self._is_running:
             return []
@@ -63,7 +62,7 @@ class PdfCombineSaveThread(BaseThread):
         return saved_files
 
 
-class PdfSimpleOperationThread(BaseThread):
+class PdfSimpleOperationThread(BaseWorker):
     """
     [Tab 3, 4 공통] 단순 PDF 병합(Merge) 및 분할(Split) 작업을 처리하는 범용 스레드
     """
@@ -72,7 +71,7 @@ class PdfSimpleOperationThread(BaseThread):
         self.controller = controller
         self.action_type = action_type  # 'MERGE' 또는 'SPLIT'
 
-    def _task(self):
+    def do_work(self):
         if not self._is_running:
             return None
             

@@ -221,3 +221,62 @@ def bytes_to_pixmap(image_data: bytes | None) -> QPixmap | None:
     pixmap = QPixmap()
     pixmap.loadFromData(image_data)
     return pixmap
+
+
+def bytes_to_thumbnail_frame(image_data: bytes | None, text: str, width: int, height: int, is_empty: bool = False) -> QFrame:
+    """
+    PDF 페이지 바이너리 데이터를 직접 받아 QPixmap으로 변환하고 썸네일 QFrame을 생성/스타일링합니다.
+    
+    Args:
+        image_data (bytes | None): PDF 페이지의 렌더링된 이미지 바이너리 데이터.
+        text (str): 렌더링 실패나 빈 프레임일 때 표시할 안내 텍스트.
+        width (int): 프레임의 고정 너비.
+        height (int): 프레임의 고정 높이.
+        is_empty (bool): 빈 프레임(또는 렌더링 실패)으로 처리할지 여부.
+        
+    Returns:
+        QFrame: 생성 및 스타일링이 완료된 QFrame 객체.
+    """
+    from PyQt6.QtWidgets import QVBoxLayout
+    
+    frame = QFrame()
+    frame.setFixedSize(width, height)
+    
+    layout = QVBoxLayout(frame)
+    layout.setContentsMargins(4, 4, 4, 4)
+    layout.setSpacing(0)
+    
+    label = QLabel(frame)
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    
+    if is_empty or not image_data:
+        frame.setStyleSheet("""
+            QFrame {
+                border: 2px dashed #CBD5E1;
+                border-radius: 4px;
+                background-color: #F8FAFC;
+            }
+        """)
+        label.setText(text)
+        label.setStyleSheet("color: #64748B; font-size: 11px;")
+        label.setWordWrap(True)
+    else:
+        frame.setStyleSheet("""
+            QFrame {
+                border: 1px solid #CBD5E1;
+                border-radius: 4px;
+                background-color: #FFFFFF;
+            }
+        """)
+        pixmap = QPixmap()
+        if pixmap.loadFromData(image_data):
+            # AspectRatio를 유지하며 크기 조정
+            scaled_pixmap = pixmap.scaled(
+                width - 10, height - 10,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            label.setPixmap(scaled_pixmap)
+            
+    layout.addWidget(label)
+    return frame

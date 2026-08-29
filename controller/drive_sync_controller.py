@@ -14,6 +14,7 @@ class DriveSyncController(BaseController):
         super().__init__()
 
     def execute_sync(self, search_mode, filter_value, local_path):
+        self.cleanup_worker()
         self.worker = DriveSyncThread(search_mode, filter_value, local_path)
         
         # BaseThread의 정석 시그널에 직접 연결합니다.

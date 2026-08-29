@@ -94,6 +94,22 @@ class Config:
     ]
 
     @classmethod
+    def reload(cls) -> None:
+        """환경 변수 파일을 다시 로드하여 Config 클래스 변수들을 최신 값으로 갱신합니다."""
+        load_dotenv(dotenv_path=BASE_DIR / ".env", override=True)
+        cls.TARGET_DRIVE_DIR = cls.extract_drive_id(os.getenv("TARGET_DRIVE_DIR", ""))
+        cls.PDF_RENDER_FONT_PATH = os.getenv(
+            "PDF_RENDER_FONT_PATH", 
+            "/System/Library/Fonts/Supplemental/AppleGothic.ttf"
+        )
+        cls.GEMINI_KEYS = [
+            os.environ[k].strip() 
+            for k in sorted(os.environ.keys()) 
+            if k.startswith("GEMINI_KEY_") and os.environ[k].strip()
+        ]
+        cls.NOTION_TOKEN = os.getenv("NOTION_TOKEN")
+
+    @classmethod
     def validate(cls) -> None:
         """애플리케이션 구동에 필수적인 전역 설정값들의 유효성을 사전 검증합니다.
 

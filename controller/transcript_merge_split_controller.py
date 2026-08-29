@@ -11,12 +11,20 @@ from utils.auth_util import get_drive_service
 from utils.config import Config
 
 
+from service.file_naming_service import FileNamingService
+
 class TranscriptController(BaseController):
-    def __init__(self, view):
-        super().__init__()
-        self.view = view
+    def __init__(self, view=None):
+        super().__init__(ui_view=view)
         self.text_service = TextProcessingService()
+        self.naming_service = FileNamingService()
         self.drive_files_cache = {}  # 드라이브 파일 ID를 기억해둘 캐시
+
+    def generate_split_filenames(self, filename: str):
+        return self.naming_service.generate_split_filenames(filename)
+
+    def generate_merged_filename(self, filenames: list):
+        return self.naming_service.generate_merged_filename(filenames)
 
     # ==========================================
     # 1. 파일 목록 조회 (Utils 직접 활용)

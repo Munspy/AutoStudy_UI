@@ -16,8 +16,7 @@ import controller.combine_notes_controller as backend
 # ==========================================
 # (수정) 순수 바이트를 반환하는 함수로 변경
 from utils.pdf_core_util import get_page_image_bytes
-# (수정) 바이트를 픽스맵으로 변환해주는 헬퍼 함수 추가
-from base.base_ui_components import create_pdf_thumbnail_frame, bytes_to_pixmap
+from base.base_ui_components import bytes_to_thumbnail_frame
 
 # ==========================================
 # 헬퍼 함수: UI 프레임 조립기
@@ -25,27 +24,24 @@ from base.base_ui_components import create_pdf_thumbnail_frame, bytes_to_pixmap
 def build_pdf_frame(page_info, is_empty, is_large=False):
     """
     utils의 공구를 활용해 PDF 페이지를 바이트로 추출하고, 
-    UI 레벨에서 픽스맵으로 변환하여 썸네일 프레임을 씌워 반환합니다.
+    UI 레벨에서 직접 썸네일 프레임을 조립하여 반환합니다.
     """
     width, height = (250, 176) if is_large else (212, 150)
     
     if is_empty or not page_info:
-        return create_pdf_thumbnail_frame(None, "", width, height, is_empty=True)
+        return bytes_to_thumbnail_frame(None, "", width, height, is_empty=True)
         
     path = page_info["path"]
     page_num = page_info["page"]
     zoom_level = 0.8 if is_large else 0.5
     
-    # 1. 백엔드 로직: 순수 바이트(Bytes) 데이터 추출
+    # 백엔드 로직: 순수 바이트(Bytes) 데이터 추출
     image_bytes = get_page_image_bytes(path, page_num, zoom=zoom_level)
     
     if not image_bytes:
-        return create_pdf_thumbnail_frame(None, f"렌더링 실패\n{Path(path).name}\n{page_num+1}p", width, height, is_empty=True)
+        return bytes_to_thumbnail_frame(None, f"렌더링 실패\n{Path(path).name}\n{page_num+1}p", width, height, is_empty=True)
         
-    # 2. UI 로직: 바이트 데이터를 QPixmap으로 변환
-    pixmap = bytes_to_pixmap(image_bytes)
-    
-    return create_pdf_thumbnail_frame(pixmap, "", width, height, is_empty=False)
+    return bytes_to_thumbnail_frame(image_bytes, "", width, height, is_empty=False)
 
 # ==========================================
 # (이하 팝업(FullScreenEditDialog) 및 Tab2CombineNotes 클래스 코드는 기존과 완벽히 동일합니다.)
@@ -61,7 +57,8 @@ class FullScreenEditDialog(QDialog):
             QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
         """)
         
-        self.edit_data = backend.prepare_edit_data(base_data)
+        self.controller = parent.controller if parent else None
+        self.edit_data = self.controller.prepare_edit_data(base_data) if self.controller else prepare_edit_data(base_data)
         
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(28, 28, 28, 28)
@@ -207,19 +204,19 @@ class FullScreenEditDialog(QDialog):
         self.preview_layout.addWidget(column)
 
     def move_item(self, idx, direction):
-        self.edit_data = backend.swap_items(self.edit_data, idx, direction)
+        self.edit_data = self.controller.swap_items(self.edit_data, idx, direction)
         self.render_preview()
-
+ 
     def update_check_state(self, idx, role, state):
         item = self.edit_data[idx]
         is_checked = (state == 2)
-
+ 
         if role == 'jul':
             item["jul_checked"] = is_checked
         elif role == 'yaboot':
             item["yaboot_checked"] = is_checked
             if item["type"] == "matched" and is_checked:
-                item_jul, item_yaboot = backend.split_item_on_yaboot_check(item)
+                item_jul, item_yaboot = self.controller.split_item_on_yaboot_check(item)
                 self.edit_data = self.edit_data[:idx] + [item_jul, item_yaboot] + self.edit_data[idx+1:]
                 
         self.render_preview()
@@ -248,6 +245,12 @@ class Tab2CombineNotes(BaseTab):
         
         self.base_data = [] 
         self.matched_groups = {} 
+        
+        self.controller = backend.CombineNotesController(self)
+        self.controller.inspection_completed.connect(self.on_inspection_completed)
+        self.controller.merge_completed.connect(self.on_merge_completed)
+        self.controller.log_signal.connect(self.emit_log)
+        self.controller.error_signal.connect(lambda msg: self.show_error("오류", msg))
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(28, 28, 28, 28)
@@ -330,30 +333,30 @@ class Tab2CombineNotes(BaseTab):
 
         mid_bar_layout.addStretch()
 
-        auto_run_btn = QPushButton("🚀 선택 파일 알아서 진행하기")
-        auto_run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        auto_run_btn.setStyleSheet("""
+        self.auto_run_btn = QPushButton("🚀 선택 파일 알아서 진행하기")
+        self.auto_run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.auto_run_btn.setStyleSheet("""
             QPushButton {
                 background-color: #2EA043; color: white; 
                 font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 8px; border: none;
             }
             QPushButton:hover { background-color: #238636; }
         """)
-        auto_run_btn.clicked.connect(self.run_auto_merge)
+        self.auto_run_btn.clicked.connect(self.run_auto_merge)
         
-        manual_run_btn = QPushButton("👀 선택 파일 검수하기")
-        manual_run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        manual_run_btn.setStyleSheet("""
+        self.manual_run_btn = QPushButton("👀 선택 파일 검수하기")
+        self.manual_run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.manual_run_btn.setStyleSheet("""
             QPushButton {
                 background-color: #2383E2; border: none; 
                 border-radius: 8px; padding: 10px 20px; color: white; font-weight: bold; font-size: 14px;
             }
             QPushButton:hover { background-color: #1A6FB0; }
         """)
-        manual_run_btn.clicked.connect(self.run_manual_inspection)
+        self.manual_run_btn.clicked.connect(self.run_manual_inspection)
         
-        mid_bar_layout.addWidget(auto_run_btn)
-        mid_bar_layout.addWidget(manual_run_btn)
+        mid_bar_layout.addWidget(self.auto_run_btn)
+        mid_bar_layout.addWidget(self.manual_run_btn)
         
         self.main_layout.addLayout(mid_bar_layout)
 
@@ -430,7 +433,7 @@ class Tab2CombineNotes(BaseTab):
     def refresh_file_list(self, folder_path):
         self.file_list.blockSignals(True)
         self.file_list.clear()
-        self.matched_groups = backend.get_matched_file_groups(folder_path)
+        self.matched_groups = self.controller.get_matched_file_groups(folder_path)
         
         for base_name, group in self.matched_groups.items():
             save_name = group["save_name"]
@@ -500,9 +503,8 @@ class Tab2CombineNotes(BaseTab):
             return
         
         folder_path = self.folder_input.text()
-        self.base_data = backend.generate_real_data(folder_path, selected_keys, self.matched_groups)
-        self.render_main_preview()
-        self.show_info("알림", "검수 데이터 생성이 완료되었습니다.\n하단의 미리보기를 확인하세요.")
+        self.set_buttons_enabled(False)
+        self.controller.start_inspection(folder_path, selected_keys, self.matched_groups)
 
     def run_auto_merge(self):
         selected_keys = self.get_selected_keys()
@@ -511,8 +513,9 @@ class Tab2CombineNotes(BaseTab):
             return
             
         folder_path = self.folder_input.text()
-        self.base_data = backend.generate_real_data(folder_path, selected_keys, self.matched_groups)
-        self.execute_final_save()
+        self.set_buttons_enabled(False)
+        self.auto_merge_mode = True
+        self.controller.start_inspection(folder_path, selected_keys, self.matched_groups)
 
     def execute_final_save(self):
         if not self.base_data:
@@ -520,12 +523,29 @@ class Tab2CombineNotes(BaseTab):
             return
             
         folder_path = self.folder_input.text()
+        self.set_buttons_enabled(False)
+        self.controller.start_merge(self.base_data, folder_path)
+
+    def on_inspection_completed(self, base_data):
+        self.base_data = base_data
+        self.render_main_preview()
         
-        try:
-            saved_files = backend.execute_merge(self.base_data, folder_path)
-            self.show_info("저장 완료", f"총 {len(saved_files)}개의 파일이 병합되어 저장되었습니다.\n\n[저장 위치]\n{folder_path}")
-        except Exception as e:
-            self.show_error("오류", f"저장 중 오류가 발생했습니다:\n{str(e)}")
+        if getattr(self, 'auto_merge_mode', False):
+            self.auto_merge_mode = False
+            self.execute_final_save()
+        else:
+            self.set_buttons_enabled(True)
+            self.show_info("알림", "검수 데이터 생성이 완료되었습니다.\n하단의 미리보기를 확인하세요.")
+
+    def on_merge_completed(self, saved_files):
+        self.set_buttons_enabled(True)
+        self.show_info("저장 완료", f"총 {len(saved_files)}개의 파일이 병합되어 저장되었습니다.\n\n[저장 위치]\n{self.folder_input.text()}")
+
+    def set_buttons_enabled(self, enabled: bool):
+        self.auto_run_btn.setEnabled(enabled)
+        self.manual_run_btn.setEnabled(enabled)
+        self.approve_btn.setEnabled(enabled)
+        self.edit_btn.setEnabled(enabled)
 
     def open_fullscreen_editor(self):
         if not self.base_data:
@@ -534,7 +554,7 @@ class Tab2CombineNotes(BaseTab):
             
         dialog = FullScreenEditDialog(self.base_data, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.base_data = backend.save_edits(dialog.edit_data)
+            self.base_data = self.controller.save_edits(dialog.edit_data)
             self.render_main_preview()
 
     def render_main_preview(self):

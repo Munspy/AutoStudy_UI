@@ -12,7 +12,7 @@ class PlaylistFetchWorker(BaseWorker):
         self.yt_service = YoutubePlaylistService()
         self.naming_service = FileNamingService()
 
-    def _task(self):
+    def do_work(self):
         drive_folder_id = Config.TARGET_DRIVE_DIR
         
         self.log_signal.emit("구글 계정 연동 확인 및 드라이브 상태를 조회합니다...")
@@ -31,7 +31,7 @@ class YoutubeUploadWorker(BaseWorker):
         self.target_videos = target_videos
         self.media_service = YoutubeMediaService()
 
-    def _task(self):
+    def do_work(self):
         drive_folder_id = Config.TARGET_DRIVE_DIR
         total_videos = len(self.target_videos)
         
@@ -40,7 +40,7 @@ class YoutubeUploadWorker(BaseWorker):
             
             prefix = item['prefix']
             self.log_signal.emit(f"📥 다운로드 및 드라이브 업로드 중 ({idx+1}/{total_videos}): {prefix}")
-            self.progress_signal.emit(int((idx / total_videos) * 100))
+            self.progress_signal.emit(int((idx / total_videos) * 100), f"{prefix} 업로드 중...")
             
             try:
                 self.media_service.download_and_upload_audio(item['video_url'], prefix, drive_folder_id)
@@ -48,7 +48,7 @@ class YoutubeUploadWorker(BaseWorker):
             except Exception as e:
                 self.log_signal.emit(f"❌ {str(e)}")
                 
-        self.progress_signal.emit(100)
+        self.progress_signal.emit(100, "업로드 완료")
         return "UPLOAD_DONE"
 
 
@@ -58,7 +58,7 @@ class PlaylistUpdateCheckerWorker(BaseWorker):
         self.playlists = playlists
         self.yt_service = YoutubePlaylistService()
 
-    def _task(self):
+    def do_work(self):
         self.log_signal.emit(f"유튜브 서버에 접속하여 {len(self.playlists)}개 재생목록의 업데이트 날짜를 확인합니다...")
         updated_playlists = self.yt_service.check_playlists_updates(self.playlists)
         return updated_playlists

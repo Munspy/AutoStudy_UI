@@ -20,7 +20,7 @@ class Tab1DriveSync(BaseTab):
         # 👈 UI를 위한 컨트롤러 생성 및 시그널 연결
         self.controller = DriveSyncController()
         self.controller.sync_completed.connect(self.update_table)
-        self.controller.sync_error.connect(self.handle_worker_error)
+        self.controller.error_signal.connect(self.handle_worker_error)
         self.controller.sync_finished.connect(self.reset_search_btn)
         self.controller.log_signal.connect(self.emit_log)
         

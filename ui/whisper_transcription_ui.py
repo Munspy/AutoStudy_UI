@@ -2,13 +2,22 @@ import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QFrame, QCheckBox, QListWidget, QListWidgetItem,
                              QProgressBar, QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PyQt6.QtCore import Qt, pyqtSignal
+
+from controller.whisper_transcription_controller import WhisperTranscriptionController
 
 class Tab6WhisperTranscription(QWidget):
     log_signal = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
+        self.controller = WhisperTranscriptionController(self)
+        self.controller.log_signal.connect(self.emit_log)
+        self.controller.error_signal.connect(self.on_controller_error)
+        self.controller.scan_completed.connect(self.populate_list)
+        self.controller.transcription_completed.connect(self.on_transcription_finished)
+        self.controller.progress_val_signal.connect(self.update_progress)
+
         self.init_ui()
         # 초기 구동 시 맥미니 연결 상태 확인 및 드라이브 스캔 실행
         self.check_macmini_connection()
@@ -128,7 +137,7 @@ class Tab6WhisperTranscription(QWidget):
         self.log_signal.emit(message)
 
     def check_macmini_connection(self):
-        # 실제 연결 체크 로직 백엔드 연결 필요
+        # 실제 연결 체크 로직
         is_connected = True 
         if is_connected:
             self.mac_status_label.setText("🖥️ Mac Mini 연결 상태: 연결됨 🟢")
@@ -139,31 +148,34 @@ class Tab6WhisperTranscription(QWidget):
 
     def scan_drive_for_audio(self):
         """
-        2. 기본적으로 항상 전체 드라이브를 스캔하고 조건에 해당하는 파일들만 띄움
-        - 음성 파일이 있을 것
-        - 단, 음성 전사 파일이 없을 것 (_음성스크립트.txt or _최종교정본.txt or _done.json or _scripted.pdf 모두 없어야 진짜 없는 것으로 간주)
+        드라이브를 스캔하여 전사가 필요한 오디오 파일만 필터링하여 조회합니다.
         """
         self.file_list.blockSignals(True)
         self.file_list.clear()
+        self.scan_btn.setEnabled(False)
+        self.scan_btn.setText("조회 중...")
         self.emit_log("드라이브 스캔: 전사가 필요한 음성 파일을 조회합니다...")
+        self.controller.scan_drive()
 
-        # 백엔드 스캔 결과를 받아왔다고 가정 (Mock Data)
-        # 4. 다른 단서는 달지 않고 오직 파일 이름으로만 리스트업
-        mock_incomplete_files = [
-            "소화기_발생학_01.wav",
-            "상부위장관_병리_02.m4a",
-            "순환기내과_심전도_01.wav"
-        ]
-
-        for file_name in mock_incomplete_files:
+    def populate_list(self, incomplete_files):
+        self.scan_btn.setEnabled(True)
+        self.scan_btn.setText("🔄 드라이브 조회")
+        self.file_list.blockSignals(True)
+        self.file_list.clear()
+        
+        for file_name in incomplete_files:
             item = QListWidgetItem(file_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Checked) # 기본으로 체크
+            item.setCheckState(Qt.CheckState.Checked)
             self.file_list.addItem(item)
             
         self.file_list.blockSignals(False)
         self.update_select_all_ui()
-        self.emit_log(f"스캔 완료: 총 {len(mock_incomplete_files)}개의 미전사 음성 파일이 발견되었습니다.")
+        self.emit_log(f"스캔 완료: 총 {len(incomplete_files)}개의 미전사 음성 파일이 발견되었습니다.")
+
+    def update_progress(self, val):
+        self.progress_bar.show()
+        self.progress_bar.setValue(val)
 
     def toggle_all_items(self):
         total = self.file_list.count()
@@ -203,7 +215,7 @@ class Tab6WhisperTranscription(QWidget):
 
     def execute_transcription(self):
         """
-        3. 맥미니에 연결하여 다운로드 후 전사 실행. 진행사항 확인.
+        맥미니에 연결하여 다운로드 후 전사 실행. 진행사항 확인.
         """
         selected_items = [self.file_list.item(i) for i in range(self.file_list.count()) 
                           if self.file_list.item(i).checkState() == Qt.CheckState.Checked]
@@ -219,12 +231,18 @@ class Tab6WhisperTranscription(QWidget):
         
         file_names = [item.text() for item in selected_items]
         self.emit_log(f"Mac Mini로 작업 전송: {len(file_names)}개 파일의 Whisper 전사를 요청합니다...")
-        
-        # TODO: 실제 백엔드 연동 영역
-        # Worker Thread 생성 후 진행 상황을 self.progress_bar.setValue 에 연결
-        # 완료된 파일은 리스트에서 삭제 처리해야 함 (완료된 파일 점차 안보이는 형태)
-        
-        # Mock 완료 처리 (UI 시뮬레이션용)
-        # for item in selected_items:
-        #    row = self.file_list.row(item)
-        #    self.file_list.takeItem(row)
+        self.controller.execute_whisper(file_names)
+
+    def on_transcription_finished(self):
+        self.run_whisper_btn.setEnabled(True)
+        self.scan_btn.setEnabled(True)
+        self.progress_bar.hide()
+        QMessageBox.information(self, "완료", "🎉 모든 Whisper 전사 작업이 완료되었습니다.")
+        self.scan_drive_for_audio()
+
+    def on_controller_error(self, err_msg):
+        self.run_whisper_btn.setEnabled(True)
+        self.scan_btn.setEnabled(True)
+        self.progress_bar.hide()
+        self.emit_log(f"🔴 오류: {err_msg}")
+        QMessageBox.critical(self, "오류", err_msg)

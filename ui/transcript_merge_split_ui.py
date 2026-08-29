@@ -8,14 +8,14 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt6.QtCore import Qt, pyqtSignal, QDate
 from PyQt6.QtGui import QKeySequence, QTextCursor, QShortcut
 
-import controller.transcript_merge_split_controller as backend
+from controller.transcript_merge_split_controller import TranscriptController
 
 class Tab5TranscriptMergeSplit(QWidget):
     log_signal = pyqtSignal(str)
 
     def __init__(self):
         super().__init__()
-        self.controller = backend.TranscriptController(self)
+        self.controller = TranscriptController(self)
         self.current_text_edits = []
         self.init_ui()
 
@@ -312,7 +312,7 @@ class Tab5TranscriptMergeSplit(QWidget):
                 content = self.controller.read_drive_file(filename) if is_drive else self.controller.read_local_file(folder_path, filename)
                 
                 self.add_text_edit(filename, content, mode="split")
-                split_names = backend.generate_split_filenames(filename)
+                split_names = self.controller.generate_split_filenames(filename)
                 self.split_name_1.setText(split_names[0])
                 self.split_name_2.setText(split_names[1])
                 self.bottom_stack.setCurrentIndex(1)
@@ -325,7 +325,7 @@ class Tab5TranscriptMergeSplit(QWidget):
                     content = self.controller.read_drive_file(filename) if is_drive else self.controller.read_local_file(folder_path, filename)
                     self.add_text_edit(filename, content, mode="merge", min_width=350)
                     
-                self.merge_name_input.setText(backend.generate_merged_filename(filenames))
+                self.merge_name_input.setText(self.controller.generate_merged_filename(filenames))
                 self.bottom_stack.setCurrentIndex(2)
                 
         except Exception as e:

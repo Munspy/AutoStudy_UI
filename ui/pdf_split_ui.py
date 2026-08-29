@@ -5,7 +5,7 @@ from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QFileDialog, QScrollArea, QFrame, 
                              QCheckBox, QListWidget, QListWidgetItem,
-                             QDateEdit, QAbstractSpinBox, QSizePolicy)
+                             QDateEdit, QAbstractSpinBox, QSizePolicy, QMessageBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QDate
 
 # 새로 작성한 컨트롤러 임포트
@@ -23,6 +23,11 @@ class Tab4PdfSplit(QWidget):
         # 선 그리기 객체를 UI에서 직접 관리
         self.split_lines = {} 
         self.controller = backend.PdfSplitController(self)
+        
+        self.controller.log_signal.connect(self.emit_log)
+        self.controller.split_completed.connect(self.on_split_completed)
+        self.controller.error_signal.connect(self.on_split_error)
+        
         self.init_ui()
 
     # ... (init_ui 내부 코드는 기존과 동일하되, 시그널 연결부만 아래와 같이 수정) ...
@@ -204,12 +209,12 @@ class Tab4PdfSplit(QWidget):
         self.save_name_2.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; min-width: 120px;")
         bottom_layout.addWidget(self.save_name_2)
         
-        save_btn = QPushButton("💾 선택 파일 분할 및 저장")
-        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_btn.setStyleSheet("QPushButton { background-color: #E03E3E; color: white; font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 8px; border: none; } QPushButton:hover { background-color: #C93434; }")
-        save_btn.clicked.connect(self.controller.split_and_save)
+        self.save_btn = QPushButton("💾 선택 파일 분할 및 저장")
+        self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.save_btn.setStyleSheet("QPushButton { background-color: #E03E3E; color: white; font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 8px; border: none; } QPushButton:hover { background-color: #C93434; }")
+        self.save_btn.clicked.connect(self.run_split)
         
-        bottom_layout.addWidget(save_btn)
+        bottom_layout.addWidget(self.save_btn)
         layout.addLayout(bottom_layout)
 
     # ====================================================
@@ -337,3 +342,22 @@ class Tab4PdfSplit(QWidget):
                 line_widget.show()
             else:
                 line_widget.hide()
+
+    def run_split(self):
+        self.save_btn.setEnabled(False)
+        self.save_btn.setText("분할 중...")
+        self.controller.split_and_save()
+
+    def on_split_completed(self, msg):
+        self.save_btn.setEnabled(True)
+        self.save_btn.setText("💾 선택 파일 분할 및 저장")
+        QMessageBox.information(self, "완료", msg)
+
+    def on_split_error(self, err):
+        self.save_btn.setEnabled(True)
+        self.save_btn.setText("💾 선택 파일 분할 및 저장")
+        self.emit_log(f"🔴 오류: {err}")
+        QMessageBox.critical(self, "오류", err)
+
+    def emit_log(self, msg):
+        self.log_signal.emit(msg)

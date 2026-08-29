@@ -1,20 +1,19 @@
-# Threads/drive_thread.py
-from base.base_worker import BaseThread
+# worker/drive_worker.py
+from base.base_worker import BaseWorker
 from service.drive_sync_service import DriveSyncService
 
-class DriveSyncThread(BaseThread):
+class DriveSyncThread(BaseWorker):
     """드라이브 동기화 및 상태 조회를 백그라운드에서 전담하는 스레드"""
-
     def __init__(self, search_mode: str, filter_value, local_path: str):
         super().__init__()
         self.search_mode = search_mode
         self.filter_value = filter_value
         self.local_path = local_path
 
-    def _task(self):
+    def do_work(self):
         # 1. 서비스 초기화 (인증 및 타겟 폴더 획득은 서비스 내부에서 처리)
         self.log_signal.emit("구글 드라이브 인증 및 폴더 정보를 가져오는 중입니다...")
-        sync_service = DriveSyncService()
+        sync_service = DriveSyncService(logger_callback=self.log_signal.emit)
 
         # 2. 파일 전체 스캔
         self.log_signal.emit("로컬 및 드라이브의 파일 목록을 스캔하고 있습니다...")
@@ -46,12 +45,12 @@ class DriveSyncThread(BaseThread):
                 
             # 📈 진행률 및 로그 업데이트
             self.log_signal.emit(f"[{index + 1}/{total_lessons}] 교시 데이터({lesson_id}) 상태 판별 중...")
-            progress = int(((index + 1) / total_lessons) * 100)
-            self.progress_signal.emit(progress)
+            progress = int(((index + 1) / total_lessons) * 100) if total_lessons > 0 else 100
+            self.progress_signal.emit(progress, f"{lesson_id} 상태 판별 중...")
 
             # 비즈니스 로직 위임 (상태 판별)
             lesson_data = sync_service.build_lesson_status_data(
-                lesson_id, 
+                lesson_id,
                 drive_files, 
                 drive_filenames, 
                 json_cache

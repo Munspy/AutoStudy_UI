@@ -1,0 +1,2234 @@
+﻿file_name,class_name,func_name,docstring
+visualize_all.py,,extract_code_info,
+main.py,AutomationDashboard,__class__,
+main.py,AutomationDashboard,__init__,
+main.py,AutomationDashboard,log_msg,
+main.py,AutomationDashboard,init_tabs,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,__class__,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,__init__,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,init_ui,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,toggle_search_mode,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,browse_folder,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,clear_preview,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,populate_file_list,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,on_file_selection_changed,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,add_text_edit,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,find_text,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,execute_split_save,
+ui/transcript_merge_split_ui.py,Tab5TranscriptMergeSplit,execute_merge_save,
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,__class__,
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,__init__,
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,init_ui,
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,emit_log,
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,check_macmini_connection,
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,scan_drive_for_audio,"2. 기본적으로 항상 전체 드라이브를 스캔하고 조건에 해당하는 파일들만 띄움
+- 음성 파일이 있을 것
+- 단, 음성 전사 파일이 없을 것 (_음성스크립트.txt or _최종교정본.txt or _done.json or _scripted.pdf 모두 없어야 진짜 없는 것으로 간주)"
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,toggle_all_items,
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,update_select_all_ui,
+ui/whisper_transcription_ui.py,Tab6WhisperTranscription,execute_transcription,3. 맥미니에 연결하여 다운로드 후 전사 실행. 진행사항 확인.
+ui/pdf_merge_ui.py,Tab3PdfMerge,__class__,
+ui/pdf_merge_ui.py,Tab3PdfMerge,__init__,
+ui/pdf_merge_ui.py,Tab3PdfMerge,init_ui,
+ui/pdf_merge_ui.py,Tab3PdfMerge,select_scripted_items,
+ui/pdf_merge_ui.py,Tab3PdfMerge,toggle_all_items,
+ui/pdf_merge_ui.py,Tab3PdfMerge,on_item_changed,
+ui/pdf_merge_ui.py,Tab3PdfMerge,update_select_all_ui,
+ui/pdf_merge_ui.py,Tab3PdfMerge,toggle_search_mode,
+ui/pdf_merge_ui.py,Tab3PdfMerge,browse_folder,
+ui/gemini_processing_ui.py,ScanWorker,__class__,
+ui/gemini_processing_ui.py,ScanWorker,__init__,
+ui/gemini_processing_ui.py,ScanWorker,run,
+ui/gemini_processing_ui.py,KeyBadge,__class__,쿨타임 애니메이션 API 키/모델 뱃지
+ui/gemini_processing_ui.py,KeyBadge,__init__,
+ui/gemini_processing_ui.py,KeyBadge,set_cooldown,
+ui/gemini_processing_ui.py,KeyBadge,set_state,
+ui/gemini_processing_ui.py,KeyBadge,paintEvent,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,__class__,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,__init__,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,init_ui,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,toggle_force_rerun,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,update_token_status_ui,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,scan_tasks,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,render_table_data,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,populate_real_data,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,handle_scan_result,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,handle_scan_error,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,create_check_label,체크박스 대신 표시할 라벨 생성
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,create_centered_checkbox,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,create_task_checkbox,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,update_row_dependencies,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,toggle_row,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,toggle_all_items,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,execute_auto_run,
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,update_task_cell,작업이 끝난 후 테이블 셀을 파란색 체크(완료)로 업데이트
+ui/gemini_processing_ui.py,Tab7GeminiProcessing,emit_log,
+ui/youtube_playlist_ui.py,PlaylistManagerDialog,__class__,
+ui/youtube_playlist_ui.py,PlaylistManagerDialog,__init__,
+ui/youtube_playlist_ui.py,PlaylistManagerDialog,load_data,
+ui/youtube_playlist_ui.py,PlaylistManagerDialog,rename_pl,
+ui/youtube_playlist_ui.py,PlaylistManagerDialog,delete_pl,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,__class__,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,__init__,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,init_ui,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,emit_log,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,open_manage_dialog,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,refresh_combo_box,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,on_checker_finished,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,add_playlist_dialog,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,load_playlist_data,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,toggle_all_rows_smart,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,check_individual_row_state,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,update_select_all_ui,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,select_unextracted,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,populate_table,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,execute_upload,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,on_upload_error,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,on_upload_finished,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,create_badge,
+ui/youtube_playlist_ui.py,Tab8YoutubePlaylist,create_link_button,
+ui/json_editer_ui.py,Tab9JsonEditer,__class__,
+ui/json_editer_ui.py,Tab9JsonEditer,__init__,
+ui/combine_notes_ui.py,,build_pdf_frame,"utils의 공구를 활용해 PDF 페이지를 바이트로 추출하고, 
+UI 레벨에서 픽스맵으로 변환하여 썸네일 프레임을 씌워 반환합니다."
+ui/combine_notes_ui.py,FullScreenEditDialog,__class__,
+ui/combine_notes_ui.py,FullScreenEditDialog,__init__,
+ui/combine_notes_ui.py,FullScreenEditDialog,render_preview,
+ui/combine_notes_ui.py,FullScreenEditDialog,add_edit_column,
+ui/combine_notes_ui.py,FullScreenEditDialog,move_item,
+ui/combine_notes_ui.py,FullScreenEditDialog,update_check_state,
+ui/combine_notes_ui.py,Tab2CombineNotes,__class__,
+ui/combine_notes_ui.py,Tab2CombineNotes,__init__,
+ui/combine_notes_ui.py,Tab2CombineNotes,init_top_panel,
+ui/combine_notes_ui.py,Tab2CombineNotes,init_file_selection_area,
+ui/combine_notes_ui.py,Tab2CombineNotes,init_preview_area,
+ui/combine_notes_ui.py,Tab2CombineNotes,init_bottom_panel,
+ui/combine_notes_ui.py,Tab2CombineNotes,browse_folder,
+ui/combine_notes_ui.py,Tab2CombineNotes,refresh_file_list,
+ui/combine_notes_ui.py,Tab2CombineNotes,toggle_all_items,
+ui/combine_notes_ui.py,Tab2CombineNotes,check_individual_row_state,
+ui/combine_notes_ui.py,Tab2CombineNotes,update_select_all_ui,
+ui/combine_notes_ui.py,Tab2CombineNotes,get_selected_keys,
+ui/combine_notes_ui.py,Tab2CombineNotes,run_manual_inspection,
+ui/combine_notes_ui.py,Tab2CombineNotes,run_auto_merge,
+ui/combine_notes_ui.py,Tab2CombineNotes,execute_final_save,
+ui/combine_notes_ui.py,Tab2CombineNotes,open_fullscreen_editor,
+ui/combine_notes_ui.py,Tab2CombineNotes,render_main_preview,
+ui/drive_sync_ui.py,Tab1DriveSync,__class__,
+ui/drive_sync_ui.py,Tab1DriveSync,__init__,
+ui/drive_sync_ui.py,Tab1DriveSync,init_ui,
+ui/drive_sync_ui.py,Tab1DriveSync,set_local_folder,
+ui/drive_sync_ui.py,Tab1DriveSync,toggle_date_inputs,
+ui/drive_sync_ui.py,Tab1DriveSync,execute_search_log,🔄 변경점: 직접 Thread를 부르는 대신 Controller(Func)에게 지시를 내립니다.
+ui/drive_sync_ui.py,Tab1DriveSync,reset_search_btn,
+ui/drive_sync_ui.py,Tab1DriveSync,handle_worker_error,
+ui/drive_sync_ui.py,Tab1DriveSync,toggle_all_rows_smart,
+ui/drive_sync_ui.py,Tab1DriveSync,check_individual_row_state,
+ui/drive_sync_ui.py,Tab1DriveSync,update_select_all_ui,
+ui/drive_sync_ui.py,Tab1DriveSync,create_badge,
+ui/drive_sync_ui.py,Tab1DriveSync,create_readonly_checkbox,
+ui/drive_sync_ui.py,Tab1DriveSync,update_table,
+ui/drive_sync_ui.py,Tab1DriveSync,on_header_clicked,
+ui/pdf_split_ui.py,Tab4PdfSplit,__class__,
+ui/pdf_split_ui.py,Tab4PdfSplit,__init__,
+ui/pdf_split_ui.py,Tab4PdfSplit,init_ui,
+ui/pdf_split_ui.py,Tab4PdfSplit,toggle_search_mode,
+ui/pdf_split_ui.py,Tab4PdfSplit,browse_folder,
+ui/pdf_split_ui.py,Tab4PdfSplit,on_item_changed,파일 리스트 체크박스 변경 시 단일 선택으로 제한하고 썸네일을 로드합니다.
+ui/pdf_split_ui.py,Tab4PdfSplit,clear_preview,미리보기 영역 초기화
+ui/pdf_split_ui.py,Tab4PdfSplit,load_preview,선택된 PDF 파일의 썸네일을 렌더링합니다.
+ui/pdf_split_ui.py,Tab4PdfSplit,update_split_lines,
+utils/config.py,Config,__class__,"애플리케이션 전역 설정 값 관리 및 검증 클래스.
+
+단일 책임 원칙(SRP)에 따라 시스템 전반의 환경 변수 및 주요 상수 값들을 파싱하고 
+저장 및 제공하는 단일 창구(SSOT) 역할만 수행합니다. Google API 권한 스코프, 
+대상 드라이브 디렉토리, PDF 렌더링 폰트 경로, 다중 Gemini API 키 목록, Notion 토큰, 
+API 쿨타임 및 지원 모델 목록 등 시스템 전체가 공유하는 핵심 상태를 보유합니다.
+
+의존성 측면에서 Service 계층(DriveSyncService, LLMService, NotionSyncService 등)과 
+Worker 계층(백그라운드 처리 모듈)에서 폭넓게 참조되어, 각 비즈니스 로직 및 비동기 작업이 
+외부 API에 안전하게 접근할 수 있도록 환경을 제공합니다."
+utils/config.py,Config,extract_drive_id,"주어진 문자열(Google Drive URL 또는 ID)에서 실제 Drive 폴더나 파일의 고유 ID만 추출합니다.
+
+Google Drive의 URL은 `/folders/`, `/file/d/`, 혹은 쿼리스트링 `?id=` 등 매우 다양한 형태로 
+제공될 수 있습니다. 사용자가 `.env` 파일에 전체 URL을 그대로 복사하여 붙여넣는 경우가 빈번하게 발생하므로, 
+API 호출에 필요한 순수 식별자(ID)만을 추출하도록 정규식을 통해 유연하고 안전하게 파싱해야 합니다. 
+이 과정은 설정 값을 불러오는 시점에 자동화되어 사용자 편의성과 프로그램의 안정성을 높입니다.
+만약 입력값이 이미 순수 ID 형태인 경우에는 정규식에 매칭되지 않아 원래의 값을 그대로 반환합니다.
+
+비동기 드라이브 동기화 워커(Worker)나 서비스(Service)가 이 값을 기반으로 폴더 탐색 및 파일 관리를 
+수행하므로, 런타임 에러를 방지하기 위해 초기 로드 시점에서 무결한 ID를 확보하는 핵심 유틸리티입니다.
+
+Args:
+    id_or_url (str): 사용자가 입력한 Google Drive의 폴더/파일 URL 문자열 또는 순수 ID 문자열.
+
+Returns:
+    str: 정규식을 통해 파싱된 15~33자리 수준의 Google Drive 고유 ID. 
+         입력값이 비어있거나 None일 경우 빈 문자열("""")을 반환합니다."
+utils/config.py,Config,validate,"애플리케이션 구동에 필수적인 전역 설정값들의 유효성을 사전 검증합니다.
+
+이 메서드는 애플리케이션 또는 파이프라인의 초기화 단계에서 명시적으로 호출되어야 합니다.
+파이프라인이 본격적으로 실행되어 중간 과정에서 API 키나 토큰이 누락된 것이 발견되면, 
+동기화 실패, 비동기 큐잉 작업 중단, API 호출 에러 등 연쇄적인 시스템 장애가 생길 수 있습니다. 
+따라서 이를 방지하고자 Fail-Fast(빠른 실패) 전략을 도입하여 런타임 에러를 미연에 원천 차단하는 역할을 합니다.
+
+필수 설정(Drive 디렉토리, Gemini API 키) 누락 시 즉각 예외를 발생시켜 관리자에게 문제를 알리며, 
+선택적 기능(Notion 토큰)의 경우 경고 로그만 남기고 시스템 실행은 유지되도록 유연하게 분기 처리됩니다.
+
+Args:
+    없음 (클래스 메서드이므로 외부에서 인자를 받지 않고 cls 내부 상태를 검증합니다.)
+
+Returns:
+    None: 모든 검증이 무사히 통과될 경우 반환값 없이 메서드를 종료합니다.
+
+Raises:
+    ValueError: 'TARGET_DRIVE_DIR' 환경 변수가 설정되지 않았거나 유효한 Drive ID를 추출하지 못한 경우.
+    ValueError: 'GEMINI_KEY_' 접두사로 시작하는 API 키가 환경 변수에서 단 하나도 로드되지 않은 경우."
+utils/auth_util.py,,get_credentials,"Google API 접근을 위한 유효한 OAuth 2.0 자격 증명(Credentials)을 가져옵니다.
+
+이 함수는 전체 시스템에서 단일 자격 증명 객체를 유지(Singleton)하여 불필요한 파일 I/O 및 인증 플로우 재실행을 방지합니다.
+특히, AutoStudy_UI의 Worker 계층(백그라운드 스레드 및 Watchdog)이 사용자 개입 없이 자동화된 파이프라인을 
+지속적으로 실행할 수 있도록 보장하는 핵심 로직을 포함합니다. 
+
+장기 실행되는 백그라운드 작업 중 토큰이 만료될 경우, 파이프라인이 중단되지 않도록 `refresh_token`을 사용해 
+백그라운드에서 자동으로 토큰을 갱신합니다. 또한 멀티스레드 환경에서 여러 Worker가 동시에 이 함수를 호출할 때 
+발생할 수 있는 Race Condition(다중 인증 플로우 실행 및 파일 덮어쓰기 등)을 방지하기 위해 `_auth_lock`을 통해 임계 영역을 보호합니다.
+
+로직 실행 순서:
+1. 메모리에 캐시된 유효한 인증 객체가 있다면 즉시 반환(성능 최적화).
+2. 캐시가 없으면 로컬 파일(token.json)에서 복원 시도.
+3. 토큰이 만료되었고 갱신 토큰이 있다면 백그라운드 자동 갱신.
+4. 유효한 토큰이 전무한 경우 로컬 웹서버 기반 최초 OAuth 인증 플로우 실행.
+5. 신규 및 갱신 토큰을 로컬에 안전하게 캐싱.
+
+Args:
+    없음
+
+Returns:
+    google.oauth2.credentials.Credentials: 
+        Google API를 호출할 수 있는 유효한 인증 정보가 담긴 자격 증명 객체.
+
+Raises:
+    FileNotFoundError: 
+        최초 인증에 필요한 클라이언트 시크릿(`credentials.json`) 파일이 지정된 경로에 존재하지 않아 
+        인증 플로우를 시작할 수 없는 경우 발생합니다."
+utils/auth_util.py,,get_drive_service,"Google Drive API (v3) 서비스 객체를 반환합니다.
+
+이 함수는 Service 계층(예: DriveSyncService) 및 Worker 계층에서 Google Drive 상호작용(파일 업로드, 다운로드, 동기화)을 
+수행할 수 있도록 빌드된 서비스 클라이언트를 싱글톤 형태로 제공합니다. 
+
+자동화된 백그라운드 파이프라인 특성상 대용량 PDF 분석이나 Whisper AI 변환과 같은 장기 실행 작업(Long-running tasks) 이후에 
+Drive API가 호출될 가능성이 높습니다. 따라서 호출 시점마다 `get_credentials()`를 통해 크레덴셜 유효성을 강제로 재확인하고, 
+토큰 만료로 인한 API 호출 실패(예외 발생)를 원천 차단합니다. 여러 스레드가 동시에 서비스 객체를 요청하더라도 
+내부 락(Lock)을 통해 안전하게 하나의 유효한 객체만 반환하도록 보장합니다.
+
+Args:
+    없음
+
+Returns:
+    googleapiclient.discovery.Resource: 
+        Google Drive API(v3)와 안전하게 통신할 수 있는 빌드된 서비스 객체."
+utils/auth_util.py,,get_youtube_service,"Google YouTube Data API (v3) 서비스 객체를 반환합니다.
+
+이 함수는 Service 계층에서 YouTube Data API(예: 플레이리스트 정보 수집, 자막(Transcript) 처리 등)와 
+연동하기 위한 클라이언트 서비스 객체를 빌드하여 반환합니다. 
+
+YouTube API 연동 역시 대규모 배치 데이터 처리나 큐(Queue) 기반 비동기 Worker 환경에서 수행되므로, 
+토큰 만료 방지 및 스레드 안전성 확보가 필수적입니다. 이 함수는 싱글톤 패턴과 스레드 락을 활용해 
+안정적인 YouTube 리소스 객체 상태를 유지하며, 만료된 크레덴셜을 감지하면 즉시 갱신된 크레덴셜로 
+서비스 객체를 재생성합니다.
+
+Args:
+    없음
+
+Returns:
+    googleapiclient.discovery.Resource: 
+        Google YouTube Data API(v3)와 안전하게 상호작용할 수 있는 빌드된 서비스 객체."
+utils/filename_util.py,GeminiAPIError,__class__,"LLM API 통신 중 발생한 에러를 캡슐화하는 커스텀 예외 클래스입니다.
+
+이 클래스는 기본 Exception을 상속받아, API 호출 중 발생하는 다양한 오류(HTTP 오류, 
+네트워크 연결 끊김, 타임아웃 등)를 애플리케이션 내부의 통일된 예외 타입으로 정의하는 
+책임을 가집니다. 에러 메시지와 함께 구체적인 에러 코드를 상태로 보관하여, 
+상위 로직에서 에러 원인에 따른 분기 처리나 재시도 로직을 쉽게 구현할 수 있도록 지원합니다."
+utils/filename_util.py,GeminiAPIError,__init__,"Args:
+    message (str): 발생한 에러에 대한 상세 설명 및 로깅용 메시지.
+    code (str): HTTP 상태 코드(예: '404', '500') 또는 에러의 종류를 나타내는 식별 문자열(예: 'network_error')."
+utils/filename_util.py,,call_gemini_api,"Google Gemini API를 호출하여 텍스트를 생성하는 코어 유틸리티 함수입니다.
+
+이 함수는 사용자 프롬프트와 시스템 인스트럭션을 조합하여 제미나이 모델에 텍스트 생성을 요청합니다.
+시스템의 복잡한 비즈니스 로직(예: 사용량 추적, DB 저장, 키 할당 등)과는 완전히 격리되어 작동하도록 
+설계되었습니다. 이러한 격리 설계는 API 통신이라는 본연의 목적에만 집중하게 함으로써 코드의 응집도를 
+높이고, 향후 SDK 버전 업데이트나 인증 방식이 변경되더라도 수정 범위를 이 함수 내부로만 
+제한할 수 있게(유지보수성 향상) 합니다.
+내부적으로 `google.genai.Client`를 초기화하고 주어진 환경 설정값(`temperature`)을 바탕으로 
+콘텐츠 생성 요청(generate_content)을 보낸 뒤, 응답 객체에서 텍스트 결과물만 안전하게 추출하여 반환합니다.
+
+Args:
+    api_key (str): Gemini API 서비스에 접근하고 인증하기 위한 사용자의 API 키.
+    model_name (str): 텍스트 생성에 사용할 대상 Gemini 모델의 이름 (예: 'gemini-1.5-pro').
+    system_instruction (str): 모델의 페르소나, 역할, 어조 및 전반적인 행동 지침을 정의하는 시스템 프롬프트.
+    user_prompt (str): 모델에게 전달하여 실제 답변 생성을 유도하는 사용자의 구체적인 질문 또는 입력 텍스트.
+    temperature (float, optional): 모델 응답의 창의성과 무작위성을 제어하는 하이퍼파라미터. 
+        0.0에 가까울수록 결정론적이고 일관된 응답을, 높은 값일수록 다양하고 예상치 못한 응답을 
+        생성합니다. 기본값은 0.1로 안정적이고 사실적인 텍스트 생성에 맞춰져 있습니다.
+
+Returns:
+    str: 제미나이 모델이 성공적으로 생성하여 반환한 순수 텍스트 결과물(response.text).
+
+Raises:
+    GeminiAPIError: 아래와 같은 다양한 원인으로 인해 정상적인 API 통신이 실패할 경우, 
+        구체적인 에러 메시지와 에러 코드를 담아 발생시킵니다.
+        - API 통신 오류: 잘못된 API 키, 할당량 초과, 서버 내부 오류 등 (errors.APIError)
+        - 네트워크 오류: 인터넷 연결 단절 또는 요청 시간 초과 (TimeoutError, ConnectionError)
+        - 기타 알 수 없는 오류 (Exception)"
+utils/file_util.py,,ensure_parent_dir,"대상 파일 경로의 상위(부모) 디렉토리가 존재하는지 확인하고, 없다면 자동으로 생성합니다.
+
+비동기 Worker가 백그라운드에서 백업 파일, 임시 오디오 추출본, 혹은 Gemini 분석 결과(JSON)를 
+저장할 때, 대상 디렉토리 트리가 존재하지 않으면 `FileNotFoundError`로 인해 파이프라인이 즉각 
+중단될 수 있습니다. 이를 방지하기 위해 파일 쓰기(Write) 작업 이전에 선행 호출되는 
+필수 방어 로직입니다. 단순히 최종 디렉토리만 생성하는 것이 아니라 `parents=True` 옵션을 통해 
+중간 단계의 모든 누락된 디렉토리를 재귀적으로 생성하여 안전한 I/O 환경을 보장합니다.
+
+Args:
+    file_path (PathLike): 생성하려는 파일 또는 디렉토리의 전체 경로입니다. (문자열 또는 Path 객체)
+
+Returns:
+    Path: 내부적으로 부모 디렉토리 생성 및 확인 작업을 마친 파일의 전체 경로를 `Path` 객체로 반환합니다."
+utils/file_util.py,,list_local_files,"지정된 디렉토리 내에 존재하는 파일들의 목록을 탐색 및 필터링하여 반환합니다.
+
+데이터 파이프라인(예: Watchdog Worker)이 특정 폴더를 주기적으로 폴링(Polling)하여 
+처리되지 않은 PDF 파일이나 변환 완료된 JSON 결과물만 일괄적으로 수집해야 할 때 사용됩니다. 
+내부적으로 입력받은 확장자를 소문자 튜플로 정제하여, 대소문자(e.g., .PDF vs .pdf)로 인한 
+매칭 누락을 방지합니다. 
+
+자동화 루프 특성상 디렉토리가 외부 요인에 의해 삭제되거나 권한이 변경될 수 있으므로, 
+OS 레벨 예외 발생 시 시스템 크래시 대신 빈 리스트를 반환함으로써 백그라운드 파이프라인의 
+연속성을 훼손하지 않고 견고함을 유지합니다.
+
+Args:
+    directory_path (PathLike): 탐색할 대상 디렉토리의 로컬 경로입니다.
+    extension (Union[str, Tuple[str, ...]], optional): 필터링할 파일 확장자. 
+        단일 문자열(예: '.txt') 또는 문자열 튜플(예: ('.jpg', '.png')) 형태로 입력 가능합니다.
+    full_path (bool, optional): 반환되는 파일 목록의 형태를 결정하는 플래그. 
+        **True**일 경우 절대 경로를, **False**일 경우 파일명만 반환합니다.
+
+Returns:
+    List[str]: 탐색 및 필터링 조건에 부합하는 파일 경로 또는 파일명들의 리스트.
+        오류가 발생하거나 조건에 맞는 파일이 없다면 빈 리스트(`[]`)를 반환합니다."
+utils/file_util.py,,move_file,"원본 파일을 대상 경로로 이동하거나 이름을 변경합니다.
+
+학습 자료 처리 파이프라인에서 '처리 대기' 상태의 파일이 Whisper나 Gemini 파이프라인을 거쳐 
+'처리 완료' 또는 '아카이브' 폴더로 이동되는 상태 전이(State Transition) 단계에서 필수적으로 사용됩니다.
+
+대상 경로의 상위 폴더 구조가 존재하지 않을 수 있으므로 내부적으로 `ensure_parent_dir`을 호출하여 
+안전하게 공간을 확보한 뒤 `shutil.move`를 실행합니다. 다중 워커 스레드가 동작하는 환경에서 
+파일 점유율(Lock) 충돌이나 권한 거부 등 OS 예외가 발생할 수 있는데, 이를 안전하게 포착하고 
+실패(False)로 반환하여 Controller가 재시도(Retry) 로직을 태울 수 있도록 설계되었습니다.
+
+Args:
+    src_path (PathLike): 이동시킬 원본 파일의 현재 로컬 경로.
+    dest_path (PathLike): 파일이 이동될 목적지 경로 (새로운 파일명 포함).
+
+Returns:
+    bool: 파일 이동이 성공적으로 완료되었을 경우 **True**, 예외(권한, 파일 없음 등)로 인해 실패했을 경우 **False**를 반환합니다."
+utils/file_util.py,,copy_file,"원본 파일을 목적지 경로로 복사합니다 (메타데이터 포함).
+
+PDF 병합, 분할 또는 워터마크 주입 전 원본 훼손을 방지하기 위한 백업(Backup) 파이프라인에서 주로 호출됩니다. 
+단순 데이터 복사를 넘어 `shutil.copy2`를 사용하여 파일의 생성일, 수정일 등 주요 메타데이터를 
+최대한 보존하므로, 추후 '최근 수정일'을 기준으로 동작하는 동기화 로직이나 Watchdog 이벤트 추적 시 
+무결성을 유지할 수 있습니다. 대상 디렉토리가 없을 경우 자동으로 생성합니다.
+
+Args:
+    src_path (PathLike): 복사할 원본 파일의 경로.
+    dest_path (PathLike): 복사본이 생성될 대상 경로.
+
+Returns:
+    bool: 복사 작업이 성공적으로 완료되었으면 **True**, 권한 문제나 원본 파일 누락 등으로 실패하면 **False**를 반환합니다."
+utils/file_util.py,,delete_file,"지정된 경로의 파일이 존재할 경우 안전하게 삭제(Unlink)합니다.
+
+PDF에서 추출된 단기 오디오 파일(Whisper 처리용 임시 파일)이나 다운로드된 임시 캐시 데이터를 
+사용 직후 즉각적으로 제거(Clean-up)할 때 호출됩니다.
+
+자동화 서버 환경에서 스토리지 낭비 및 용량 초과로 인한 시스템 다운을 방지하는 중요한 역할을 합니다. 
+삭제를 시도하기 전 파일의 존재 및 타입(디렉토리 여부)을 선행 검증하며, Worker 스레드 간 
+동시성 이슈나 타 프로세스의 파일 점유로 인해 삭제 권한이 거부되더라도 예외를 내부에서 소화하여 
+메인 파이프라인의 진행을 가로막지 않도록 설계되었습니다.
+
+Args:
+    file_path (PathLike): 삭제하고자 하는 대상 파일의 로컬 경로.
+
+Returns:
+    bool: 정상적으로 파일이 삭제되었으면 **True**, 파일이 존재하지 않거나 예외가 발생해 삭제에 실패하면 **False**를 반환합니다."
+utils/file_util.py,,save_text_file,"텍스트나 JSON 형태의 문자열 데이터를 로컬 파일 시스템에 저장합니다.
+
+LLM 분석 결과, 트랜스크립트 텍스트, 애플리케이션 상태 정보 등을 로컬에 직렬화하는 핵심 I/O 함수입니다. 
+비동기 처리 관점에서 이 함수의 가장 중요한 역할은 **원자적 쓰기(Atomic Write)**의 지원입니다. 
+
+대용량 문자열을 디스크에 쓰는 도중 시스템 크래시나 사용자 강제 종료가 발생하면 파일이 
+불완전하게(0 bytes 등) 손상된 채로 남게 됩니다. 이를 방지하고자 덮어쓰기('w') 모드에서는 
+임시 파일(`.tmp`)에 전체 데이터를 온전히 기록한 후 성공했을 때만 `replace()`를 호출하여 원본과 
+스왑(Swap)합니다. 이로써 어떠한 중단 상황에서도 데이터 무결성이 보장됩니다. 
+오류 발생 시 상위 Service 계층으로 예외를 전파하여 적절한 UI 알림 또는 재시도가 가능하게 합니다.
+
+Args:
+    content (str): 파일에 기록할 텍스트 또는 JSON 포맷의 문자열 데이터.
+    save_path (PathLike): 파일이 최종적으로 저장될 목표 경로.
+    mode (str, optional): 파일 쓰기 모드. 기본값은 덮어쓰기 모드인 'w'이며, 로그 생성 등을 위해 이어쓰기인 'a' 등을 지정할 수 있습니다.
+    encoding (str, optional): 텍스트 인코딩 방식. 기본값은 'utf-8'.
+
+Returns:
+    str: 저장이 성공적으로 완료된 최종 파일의 경로 문자열.
+
+Raises:
+    PermissionError: 임시 파일 작성이나 파일 교체 중 시스템 접근 권한이 없을 때 발생합니다.
+    OSError: 디스크 용량 부족, 잘못된 파일 시스템, 또는 기타 하위 레벨의 I/O 오류 시 발생합니다."
+utils/file_util.py,,read_text_file,"지정된 경로의 텍스트 또는 JSON 파일을 읽어 문자열 형태로 반환합니다.
+
+Controller 또는 Service가 과거에 캐싱해둔 LLM 응답, 추출 완료된 텍스트 대본(Transcript), 
+또는 설정 파일을 메모리로 적재할 때 사용되는 기본 데이터 수집 엔드포인트입니다. 
+
+파이프라인이 자동화되어 백그라운드에서 끊임없이 도는 상황에서는 존재하지 않는 경로 참조, 
+`UnicodeDecodeError`(인코딩 불일치), 타 프로세스의 파일 락 등으로 인해 읽기 실패가 빈번히 일어날 수 있습니다. 
+이 함수는 이러한 런타임 I/O 에러들을 포착하여 콘솔에 징후를 로깅하고, 예외를 발생(Raise)시키는 대신 
+`None`을 반환하는 Fallback 구조를 취합니다. 이를 통해 호출부(Service)가 조건 분기를 통해 
+기본값 적용 등 유연한 복구 절차를 밟을 수 있습니다.
+
+Args:
+    file_path (PathLike): 읽고자 하는 대상 파일의 로컬 경로.
+    encoding (str, optional): 텍스트 디코딩 시 사용할 인코딩 방식. 기본값은 'utf-8'.
+
+Returns:
+    str | None: 파일 읽기에 성공한 경우 파일의 전체 내용(문자열), 
+        파일이 존재하지 않거나 디코딩/권한/I/O 오류가 발생한 경우 **None**을 반환합니다."
+utils/pdf_core_util.py,,get_page_image_bytes,"PDF 파일의 특정 페이지를 렌더링하여 순수 바이트(Bytes) 데이터로 변환하여 반환합니다.
+
+이 함수는 상위 UI 프레임워크(예: PyQt, Tkinter 등)와 코어 로직 간의 강결합을 방지하기 위해 설계되었습니다.
+PDF 페이지를 특정 UI 객체로 변환하지 않고 언어 및 프레임워크 독립적인 순수 바이트 배열로 반환함으로써,
+호출하는 측(Controller나 UI)에서 자유롭게 바이트 데이터를 활용해 이미지를 렌더링할 수 있습니다. 
+비동기 워커가 백그라운드에서 썸네일을 생성할 때도 UI 스레드를 차단하지 않고 안전하게 동작할 수 있게 해줍니다.
+
+내부적으로 `pymupdf.Matrix`를 사용해 해상도(zoom)를 조절하며, `alpha=False`를 통해 배경 투명도를 
+제거하여 UI에 렌더링될 때 검은색 배경이 나타나는 문제를 방지합니다.
+
+Args:
+    file_path (PathLike): 렌더링할 대상 PDF 파일의 절대 또는 상대 경로입니다.
+    page_num (int): 추출하고자 하는 페이지 번호입니다. 0부터 시작하는 인덱스(0-based index)를 사용합니다.
+    zoom (float, optional): 렌더링 해상도 배율입니다. 값이 커질수록 고해상도 이미지가 생성됩니다. Defaults to 1.0.
+    image_format (str, optional): 출력할 이미지의 포맷을 지정합니다 (예: ""png"", ""jpeg""). Defaults to ""png"".
+
+Returns:
+    bytes | None: 성공적으로 렌더링된 이미지의 순수 바이트 데이터입니다.
+        페이지 번호가 범위를 벗어나거나, 파일을 찾을 수 없거나, 손상된 경우 시스템 중단 대신 None을 반환합니다."
+utils/pdf_core_util.py,,merge_pdfs,"여러 PDF 파일 경로를 순서대로 병합하여 새로운 하나의 단일 PDF 파일로 저장합니다.
+
+학습 자료 자동화 파이프라인에서, 여러 개의 쪼개진 문서나 파트별로 처리 완료된 분석 결과를 
+다시 하나로 취합할 때 사용되는 핵심 병합 로직입니다. 
+
+단순히 파일을 이어붙이는 것에 그치지 않고, `pymupdf.open()`을 컨텍스트 매니저(`with`)로 감싸 
+워커(Worker) 스레드의 장기 실행 중 발생할 수 있는 메모리/파일 핸들 누수를 원천 차단합니다.
+특히 PDF 병합 시 빈번하게 발생하는 내부 객체 파편화 및 파일 용량 팽창 문제를 해결하기 위해,
+최종 저장 시 `garbage=4`(미사용 객체 및 중복 데이터 완전 정리)와 `deflate=True`(스트림 압축) 옵션을 강제합니다.
+중간에 존재하지 않거나 손상된 파일이 포함되어 있더라도 오류를 발생시키지 않고 해당 파일만 스킵하여 
+전체 자동화 배치의 안정성을 높였습니다.
+
+Args:
+    pdf_paths (List[PathLike]): 병합할 대상 PDF 파일 경로들의 리스트입니다. 리스트의 순서대로 페이지가 병합됩니다.
+    output_path (PathLike): 병합이 완료된 결과물 PDF를 저장할 최종 경로입니다. 부모 폴더가 없다면 자동 생성됩니다.
+
+Returns:
+    str: 정상적으로 병합 및 압축되어 저장된 최종 결과물 파일의 절대/상대 경로 문자열입니다.
+
+Raises:
+    ValueError: `pdf_paths` 리스트가 비어 있어 병합을 수행할 파일이 전혀 없는 경우 발생합니다."
+utils/pdf_core_util.py,,split_pdf_two_parts,"하나의 원본 PDF를 지정한 기준 페이지 번호를 경계로 2개의 파일로 깔끔하게 분할합니다.
+
+대용량 문서나 챕터별 구분이 필요한 문서를 두 동강 내기 위한 목적으로 사용됩니다.
+Gemini LLM의 토큰 제한이나 Whisper STT의 용량 제한을 우회하기 위해 Service 계층이 
+이 함수를 호출하여 문서를 사전에 청크(chunk) 단위로 나누는 파이프라인에서 핵심적으로 동작합니다.
+
+`split_page_num`을 경계로 이전 페이지들은 첫 번째 파트로, 해당 페이지를 포함한 이후 페이지들은 
+두 번째 파트로 분할됩니다. 문서를 나눌 때 불필요한 메타데이터 손실을 막기 위해 `insert_pdf`를 활용하여 
+페이지 범위를 복제하는 방식을 채택하였으며, 저장 시에는 병합 로직과 동일하게 최적화(`garbage=4`) 
+및 압축(`deflate=True`) 옵션을 적용하여 디스크 용량 효율성을 확보합니다.
+
+Args:
+    file_path (PathLike): 분할할 대상 원본 PDF 파일의 경로입니다.
+    split_page_num (int): 분할의 기준이 되는 페이지 번호(0-based index)입니다. 
+        이 번호에 해당하는 페이지는 두 번째 출력 파일의 첫 페이지가 됩니다.
+    output_path_1 (PathLike): 첫 번째 분할 결과물(페이지 0 ~ split_page_num-1)이 저장될 경로입니다.
+    output_path_2 (PathLike): 두 번째 분할 결과물(페이지 split_page_num ~ 끝)이 저장될 경로입니다.
+
+Returns:
+    Tuple[str, str]: 성공적으로 분할되어 저장된 첫 번째 파일 경로와 두 번째 파일 경로 문자열을 튜플로 반환합니다.
+
+Raises:
+    ValueError: 기준 페이지(`split_page_num`)가 0 이하이거나 원본 문서의 전체 페이지 수보다 크거나 같아서 
+        문서를 두 개로 분할할 수 없는 유효하지 않은 범위인 경우 발생합니다."
+utils/pdf_core_util.py,,merge_specific_pages,"임의의 PDF 파일과 특정 페이지 번호 조합(레시피)을 전달받아 단일 PDF로 맞춤 병합합니다.
+
+여러 문서에서 필요한 페이지들만 골라내어(예: A문서 3쪽, B문서 1쪽, A문서 5쪽) 새로운 학습 자료를 조립하는
+복잡한 재구성(re-ordering/extracting) 시나리오에 대응하는 핵심 로직입니다. 
+
+사용자(또는 자동화 파이프라인)가 동일한 파일을 여러 번 번갈아가며 반복적으로 발췌 요청할 수 있습니다. 
+이 때 매번 동일한 파일을 열고 닫기를 반복하면 심각한 디스크 I/O 오버헤드가 발생하여 성능이 저하됩니다. 
+이를 방지하고자 내부 딕셔너리(`opened_pdfs`)를 이용한 파일 핸들 캐싱(메모이제이션) 기법을 사용하여 한 번 열린 파일은 재사용합니다. 
+또한 가변적인 개수의 파일 핸들을 사용하더라도 예외 발생 시 안전하고 누수 없이 한꺼번에 닫아주기 위해 
+파이썬의 `contextlib.ExitStack`을 활용한 고도화된 동적 컨텍스트 관리를 수행합니다.
+
+Args:
+    page_recipe (List[Tuple[PathLike, int]]): 발췌 및 병합할 페이지들의 순서와 출처 정보가 담긴 레시피 리스트입니다.
+        각 요소는 `(소스 PDF 파일 경로, 추출할 페이지 번호(0-based))` 형태의 튜플로 구성됩니다.
+    output_path (PathLike): 발췌된 페이지들이 하나로 조립되어 저장될 최종 PDF 파일의 경로입니다.
+
+Returns:
+    str: 맞춤 병합 및 최적화(압축) 저장이 완료되어 생성된 최종 조립 PDF 파일의 경로 문자열입니다.
+
+Raises:
+    ValueError: `page_recipe` 리스트가 비어 있어 병합할 페이지 정보가 하나도 입력되지 않은 경우 발생합니다."
+utils/llm_client.py,GeminiAPIError,__class__,"LLM API 통신 중 발생한 에러를 캡슐화하는 커스텀 예외 클래스.
+
+단일 책임 원칙(SRP)에 따라 API 호출 중 발생하는 다양한 하위 레벨 오류(HTTP 오류, 
+네트워크 연결 끊김, 타임아웃 등)를 애플리케이션 내부의 통일된 예외 타입으로 
+변환 및 정의하는 책임을 가집니다. 
+
+주요 상태로 에러 메시지와 구체적인 에러 코드(`code`)를 보관하며, 
+Service 계층이나 백그라운드 Worker가 이 예외를 포착(Catch)하여 
+재시도할지, 아니면 파이프라인을 중단하고 UI에 에러를 보고할지 결정하는 데 활용됩니다."
+utils/llm_client.py,GeminiAPIError,__init__,"예외 객체를 초기화합니다.
+
+Args:
+    message (str): 발생한 에러에 대한 상세 설명 및 로깅용 메시지.
+    code (str): HTTP 상태 코드(예: '404', '500') 또는 에러의 종류를 나타내는 식별 문자열(예: 'network_error')."
+utils/llm_client.py,,call_gemini_api,"Google Gemini API를 호출하여 텍스트를 생성하는 코어 유틸리티 함수.
+
+이 함수는 사용자 프롬프트와 시스템 인스트럭션을 조합하여 제미나이 모델에 텍스트 생성을 요청합니다.
+자동화된 비동기 처리 관점에서, 수많은 PDF 페이지나 음성 변환 스크립트(Whisper 결과물)가 
+Worker를 통해 쏟아져 들어올 때 빠르고 독립적으로 API와 통신해야 합니다. 
+
+이 로직은 시스템의 복잡한 비즈니스 로직(예: 사용량 추적, DB 저장, 키 로테이션 등)과는 완전히 
+격리되어 작동하도록 설계되었습니다. 이러한 격리 설계는 API 통신이라는 본연의 목적에만 집중하게 함으로써 
+코드의 응집도를 높이고, 향후 SDK 버전 업데이트나 인증 방식이 변경되더라도 수정 범위를 이 함수 내부로만 
+제한하여 유지보수성을 극대화합니다. 내부적으로 `google.genai.Client`를 초기화하고 주어진 
+환경 설정값(`temperature`)을 바탕으로 콘텐츠 생성을 요청한 뒤, 결과물만 추출하여 안전하게 반환합니다.
+
+Args:
+    api_key (str): Gemini API 서비스에 접근하고 인증하기 위한 사용자의 API 키.
+    model_name (str): 텍스트 생성에 사용할 대상 Gemini 모델의 이름 (예: 'gemini-1.5-pro', 'gemini-2.5-flash').
+    system_instruction (str): 모델의 페르소나, 역할, 어조 및 전반적인 행동 지침을 정의하는 시스템 프롬프트.
+    user_prompt (str): 모델에게 전달하여 실제 답변 생성을 유도하는 사용자의 구체적인 질문 또는 입력 텍스트.
+    temperature (float, optional): 모델 응답의 창의성과 무작위성을 제어하는 하이퍼파라미터. 
+        0.0에 가까울수록 결정론적이고 일관된 응답을, 높은 값일수록 다양하고 예상치 못한 응답을 
+        생성합니다. 기본값은 0.1로, 학습 자료 자동화 생성 시 요구되는 안정적이고 사실적인 텍스트 생성에 맞춰져 있습니다.
+
+Returns:
+    str: 제미나이 모델이 성공적으로 생성하여 반환한 순수 텍스트 결과물(response.text).
+
+Raises:
+    GeminiAPIError: 아래와 같은 다양한 원인으로 인해 정상적인 API 통신이 실패할 경우, 
+        구체적인 에러 메시지와 에러 코드를 담아 발생시킵니다.
+        - API 통신 오류: 잘못된 API 키, 할당량 초과, 서버 내부 오류 등 (errors.APIError)
+        - 네트워크 오류: 인터넷 연결 단절 또는 요청 시간 초과 (TimeoutError, ConnectionError)
+        - 기타 알 수 없는 오류 (Exception)"
+utils/drive_api.py,,upload_to_drive,"지정된 로컬 파일을 구글 드라이브의 특정 폴더로 업로드합니다.
+
+이 함수는 로컬 파일 시스템에 존재하는 파일을 읽어들여 구글 드라이브로 전송합니다.
+자동화된 학습 자료 처리 파이프라인(예: Whisper 음성 변환 결과, Gemini 분석 노트 등)에서 
+생성된 결과물을 백그라운드 Worker 스레드가 드라이브에 동기화할 때 주로 호출됩니다.
+
+`MediaFileUpload`를 사용하여 resumable(이어올리기) 업로드를 지원하므로, 대용량 파일 전송 중 
+네트워크가 불안정하더라도 비동기 작업이 완전히 실패하지 않도록 안정성을 보장합니다. 
+또한 `Config.extract_drive_id`를 통해 URL 형태의 폴더 ID 입력도 안전하게 파싱하여 
+사용자(UI)가 입력한 다양한 형태의 경로를 유연하게 수용합니다.
+
+Args:
+    local_file_path (PathLike): 업로드할 로컬 파일의 절대 또는 상대 경로입니다.
+    target_folder_id (str): 업로드될 구글 드라이브 대상 폴더의 고유 ID 또는 URL입니다.
+    mime_type (Optional[str], optional): 파일의 MIME 타입입니다. 지정하지 않을 경우 확장자를 통해 자동 추론됩니다. Defaults to None.
+    drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+
+Returns:
+    Dict[str, Any]: 업로드 성공 시 반환되는 파일의 메타데이터(예: {'id': '...', 'name': '...'})를 담은 딕셔너리입니다.
+
+Raises:
+    Exception: 파일 읽기 실패, 네트워크 오류, 인증 실패 등 구글 API 통신 중 예외가 발생할 경우 업로드 실패 메시지와 함께 발생합니다."
+utils/drive_api.py,,download_from_drive,"구글 드라이브 파일 하나를 지정된 로컬 경로로 다운로드합니다.
+
+대용량 PDF 문서나 강의 미디어 파일을 Service 계층에서 분석하기 위해 로컬로 가져올 때 
+호출되는 기능입니다. 메인 UI가 멈추는 프리징 현상을 막기 위해 Worker 스레드 내부에서 
+실행되는 경우가 많습니다. 
+
+이 함수는 파일의 바이너리 데이터를 `MediaIoBaseDownload`를 이용해 청크 단위(chunk-by-chunk)로 
+스트리밍하여 디스크에 기록합니다. 한 번에 모든 데이터를 메모리에 적재하지 않으므로, 
+대량의 배치 작업이나 무거운 비동기 파이프라인 실행 중에도 메모리 부족(OOM, Out Of Memory) 
+크래시를 방지할 수 있는 핵심적인 방어 로직입니다.
+
+Args:
+    file_id (str): 다운로드할 구글 드라이브 파일의 고유 ID 또는 URL입니다.
+    save_path (str): 파일이 저장될 로컬 시스템의 전체 경로(파일명 포함)입니다.
+    drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+
+Returns:
+    str: 다운로드가 완료된 파일의 로컬 저장 경로(save_path)를 반환합니다.
+    
+Raises:
+    Exception: 파일 아이디가 유효하지 않거나 API 호출 권한/할당량 오류가 있을 경우 예외가 발생할 수 있습니다."
+utils/drive_api.py,,temp_download_from_drive,"대용량 또는 임시 처리를 위한 파일 다운로드 컨텍스트 매니저입니다.
+
+백그라운드 Worker나 Service가 특정 문서를 일회성으로 분석(예: OCR 수행, 텍스트 추출)하고 
+폐기하는 자동화 파이프라인에서 주로 사용됩니다. 특정 파일을 영구적으로 보관할 필요가 없을 때, 
+파이썬 내장 `tempfile.TemporaryDirectory`를 활용해 안전하게 격리된 공간에 파일을 내려받습니다.
+
+`yield` 블록(비즈니스 로직) 실행이 종료되면 시스템이 스스로 임시 디렉토리와 파일을 삭제(Clean-up)합니다. 
+이를 통해 지속적으로 동작하는 백그라운드 Watchdog 시스템이 임시 찌꺼기 파일들로 인해 
+디스크 스토리지를 고갈시키는 문제를 원천적으로 차단합니다.
+
+Args:
+    file_id (str): 다운로드할 구글 드라이브 파일의 고유 ID 또는 URL입니다.
+    extension (Optional[str], optional): 임시 파일에 부여할 확장자입니다. 지정하지 않을 경우 드라이브 API를 통해 원본 파일명을 조회하여 추출하며, 조회 실패 시 기본값("".pdf"")을 적용합니다. Defaults to None.
+    drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+
+Yields:
+    Generator[Path, None, None]: 다운로드된 임시 파일의 로컬 `Path` 객체를 반환합니다.
+
+Raises:
+    Exception: 구글 드라이브 API 통신 오류나 파일 다운로드 실패 시 발생할 수 있습니다."
+utils/drive_api.py,,in_memory_download_from_drive,"디스크 I/O 없이 메모리(RAM) 상에서 직접 데이터를 다운로드하는 컨텍스트 매니저입니다.
+
+물리적인 디스크 저장 공간을 거치지 않고 `io.BytesIO()`를 통해 바이너리 버퍼 공간을 
+만들어 데이터를 즉시 적재합니다. 수많은 문서를 빠르게 파싱하여 Gemini LLM으로 넘겨야 하는 
+Service 계층이나, 파일 I/O로 인한 병목을 허용할 수 없는 고속 스트리밍 환경에서 
+비동기 처리량과 자원 효율성을 극대화하기 위해 설계되었습니다.
+
+구글 문서(Docs, Sheets 등)의 경우 `mime_type`을 전달하여 Export API를 호출함으로써 
+다운로드 가능한 포맷으로 서버단에서 자동 변환 후 읽어올 수 있습니다.
+
+Args:
+    file_id (str): 드라이브에서 읽어올 대상 파일의 고유 ID 또는 URL입니다.
+    mime_type (str, optional): 구글 워크스페이스 문서(Google Docs 등)를 내보낼 때 지정할 변환 목적 MIME 타입(예: 'application/pdf'). 일반 파일의 경우 생략합니다. Defaults to None.
+    drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+
+Yields:
+    Generator[io.BytesIO, None, None]: 다운로드된 파일 데이터가 담긴 바이트 스트림 객체를 반환합니다. 이 객체의 읽기 위치(pointer)는 0으로 초기화되어 즉시 사용할 수 있습니다.
+
+Raises:
+    Exception: 파일 스트리밍 실패 시, 혹은 내보낼 수 없는 파일에 대해 잘못된 `mime_type`을 요청할 경우 예외가 발생할 수 있습니다."
+utils/drive_api.py,,get_all_drive_files,"루트 폴더 하위의 모든 폴더 및 파일 목록을 재귀적으로 탐색하여 수집합니다.
+
+DriveSyncController나 연관 Worker가 주기적으로 구글 드라이브의 상태를 모니터링하고 
+새로운 학습 자료를 로컬과 동기화하는 자동화 과정에서 사용됩니다. 
+구글 드라이브 API는 한 번에 가져올 수 있는 개수 제한이 있고 URL 쿼리 길이에도 상한이 존재합니다. 
+
+따라서 이 함수는 BFS(너비 우선 탐색) 기반의 큐(queue) 알고리즘과 Pagination(pageToken) 로직, 
+그리고 한 번에 20개씩 폴더를 묶어 쿼리를 날리는(chunking) 최적화 기법을 적용했습니다. 
+이를 통해 대량의 깊은 디렉토리 구조라도 API 호출 횟수 제한(Rate Limit)을 우회하며 
+누락이나 오류 없이 전체 트리를 안정적으로 긁어올 수 있습니다.
+
+Args:
+    root_folder_id (str): 탐색을 시작할 최상위 구글 드라이브 폴더의 고유 ID 또는 URL입니다.
+    name_filter (str, optional): 결과 중 파일명이 특정 문자열을 포함(contains)하는 파일만 반환하고 싶을 때 사용하는 검색 필터입니다. SQL 인젝션 및 구문 오류 방지를 위해 내부적으로 이스케이프 처리됩니다. Defaults to None.
+    drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+
+Returns:
+    list: 수집된 개별 파일의 메타데이터(딕셔너리 형태: 'id', 'name', 'parents' 등)를 포함하는 전체 리스트입니다.
+
+Raises:
+    Exception: 구글 드라이브 폴더 접근 권한이 없거나, 할당량 초과 등으로 인한 API 호출 실패 시 발생할 수 있습니다."
+utils/drive_api.py,,find_drive_file_id,"특정 폴더 내에서 정확히 일치하는 이름을 가진 단일 파일의 고유 ID를 조회합니다.
+
+자동화 파이프라인이 여러 번 재시도되거나 Watchdog에 의해 중복 실행되더라도, 
+이미 처리된 파일(동일한 이름의 파일)을 식별하여 무의미한 덮어쓰기를 피하거나 
+업데이트 분기를 태우는 멱등성(Idempotency)을 보장하기 위한 사전 검증 로직으로 활용됩니다.
+
+휴지통(trashed=false)에 있지 않은 대상만 검색하며, 쿼리 구문 오류나 크래시를 막기 위해
+파일 이름 내에 포함될 수 있는 특수문자(')에 대한 이스케이프 처리를 선행합니다.
+
+Args:
+    folder_id (str): 파일을 검색할 대상 부모 폴더의 고유 ID 또는 URL입니다.
+    file_name (str): 검색하려는 파일의 정확한 이름입니다.
+    drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+
+Returns:
+    str | None: 조건에 일치하는 파일이 존재할 경우 최상위(인덱스 0) 파일의 고유 ID 문자열을 반환하고, 존재하지 않거나 검색 중 에러가 발생하면 None을 반환합니다."
+utils/drive_api.py,,copy_drive_file,"드라이브 내 파일을 로컬로 다운로드하지 않고 서버 사이드에서 직접 복사합니다.
+
+학습 자료가 파이프라인의 특정 단계(예: 원본 폴더 -> 분석 완료 폴더)를 거칠 때, 
+Service나 Worker가 로컬 머신으로 데이터를 다운로드했다가 다시 업로드하는 비효율적인 왕복 과정 없이 
+구글 서버 내부에서 즉각적으로 복제본을 생성하도록 요청합니다. 
+
+이는 네트워크 트래픽 대역폭과 시스템 메모리 낭비를 방지하고 비동기 작업의 소요 시간을 
+획기적으로 단축시키는 효율적인 방식입니다. 복제본이 생성될 대상 폴더와 새로운 파일명을 함께 설정할 수 있습니다.
+
+Args:
+    file_id (str): 복사할 원본 파일의 구글 드라이브 고유 ID 또는 URL입니다.
+    target_folder_id (str): 복사본이 저장될 대상 폴더의 고유 ID 또는 URL입니다.
+    new_name (str, optional): 복사본에 새롭게 부여할 파일명입니다. 제공하지 않을 경우 원본의 파일명이 그대로 사용됩니다. Defaults to None.
+    drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+
+Returns:
+    dict: 정상적으로 복사 생성된 새 파일의 메타데이터('id', 'name', 'parents') 정보를 담은 딕셔너리입니다.
+
+Raises:
+    Exception: 원본 파일을 찾을 수 없거나 대상 폴더에 쓰기 권한이 부족하여 복사에 실패할 경우 예외가 발생합니다."
+utils/drive_api.py,,move_drive_file,"구글 드라이브 파일의 위치(부모 폴더)를 서버 사이드에서 다른 폴더로 이동시킵니다.
+
+자동화 파이프라인에서 파일의 비즈니스 처리가 끝난 뒤 상태 관리를 수행할 때(예: '처리 대기' 폴더에서 
+'처리 완료' 폴더로 이동), 실제 파일을 다운로드 및 재업로드하는 것이 아니라 메타데이터만 수정합니다.
+
+구글 드라이브의 파일 모델은 단일 파일이 여러 부모를 가질 수 있는 구조(`parents` 배열)를 취하므로, 
+이 함수는 파일 속성에서 기존 부모 폴더 목록(removeParents)을 떼어내고 새로운 대상 폴더(addParents)를 
+붙이는 논리적인 갱신 방식으로 동작합니다. 이를 통해 오버헤드 없이 빠르고 가벼운 파이프라인 단계 전환을 지원합니다.
+
+Args:
+    file_id (str): 위치를 이동할 대상 파일의 구글 드라이브 ID 또는 URL입니다.
+    target_folder_id (str): 파일이 새롭게 위치할 대상 폴더의 고유 ID 또는 URL입니다.
+    drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+
+Returns:
+    dict: 부모 폴더 변경이 성공적으로 반영된 파일의 최신 메타데이터('id', 'name', 'parents') 딕셔너리입니다.
+
+Raises:
+    Exception: 원본 파일 조회에 실패하거나 이동시키려는 대상 폴더 권한 부족, 또는 API 호출 중 에러 발생 시 실패 메시지와 함께 예외가 발생합니다."
+controller/combine_notes_controller.py,,get_matched_file_groups,
+controller/combine_notes_controller.py,,generate_real_data,
+controller/combine_notes_controller.py,,prepare_edit_data,
+controller/combine_notes_controller.py,,save_edits,
+controller/combine_notes_controller.py,,split_item_on_yaboot_check,
+controller/combine_notes_controller.py,,swap_items,
+controller/combine_notes_controller.py,,execute_merge,
+controller/combine_notes_controller.py,CombineNotesController,__class__,"[Tab 2] 백엔드 컨트롤러
+UI의 지시를 받아 백그라운드 스레드를 생성하고 이벤트를 관리합니다."
+controller/combine_notes_controller.py,CombineNotesController,__init__,
+controller/combine_notes_controller.py,CombineNotesController,start_inspection,UI 입력을 바탕으로 무거운 PDF 파싱 및 매칭 검수 워커를 실행합니다.
+controller/combine_notes_controller.py,CombineNotesController,start_merge,검수 완료된 레시피를 기반으로 디스크에 실제 PDF를 병합 저장하는 워커를 실행합니다.
+controller/pdf_split_controller.py,PdfSplitController,__class__,
+controller/pdf_split_controller.py,PdfSplitController,__init__,
+controller/pdf_split_controller.py,PdfSplitController,__del__,
+controller/pdf_split_controller.py,PdfSplitController,populate_file_list,UI 설정에 따라 로컬 혹은 드라이브에서 파일을 조회합니다.
+controller/pdf_split_controller.py,PdfSplitController,prepare_file_for_preview,"선택된 파일의 데이터를 준비하고 (로컬경로, 총 페이지 수)를 반환합니다."
+controller/pdf_split_controller.py,PdfSplitController,split_and_save,선택된 파일을 분할하고 저장소(로컬/드라이브)에 저장합니다.
+controller/whisper_transcription_controller.py,WhisperTranscriptionController,__class__,Tab6의 UI와 Worker를 연결하는 메인 컨트롤러
+controller/whisper_transcription_controller.py,WhisperTranscriptionController,__init__,
+controller/whisper_transcription_controller.py,WhisperTranscriptionController,scan_drive,드라이브 스캔 실행
+controller/whisper_transcription_controller.py,WhisperTranscriptionController,execute_whisper,선택된 파일들에 대해 Whisper 실행
+controller/youtube_playlist_controller.py,,load_csv_data,
+controller/youtube_playlist_controller.py,,parse_playlist_id,
+controller/youtube_playlist_controller.py,,add_playlist_to_csv,
+controller/youtube_playlist_controller.py,,delete_playlist,
+controller/youtube_playlist_controller.py,,rename_playlist,
+controller/youtube_playlist_controller.py,,get_playlist_title,
+controller/youtube_playlist_controller.py,YoutubePlaylistController,__class__,UI와 Worker 스레드를 연결하는 얇은 컨트롤러입니다.
+controller/youtube_playlist_controller.py,YoutubePlaylistController,__init__,
+controller/youtube_playlist_controller.py,YoutubePlaylistController,start_fetch_playlist,
+controller/youtube_playlist_controller.py,YoutubePlaylistController,start_upload_videos,
+controller/youtube_playlist_controller.py,YoutubePlaylistController,start_update_checker,
+controller/drive_sync_controller.py,DriveSyncController,__class__,[Tab 1] 백엔드 컨트롤러
+controller/drive_sync_controller.py,DriveSyncController,__init__,
+controller/drive_sync_controller.py,DriveSyncController,execute_sync,
+controller/drive_sync_controller.py,DriveSyncController,execute_local_tasks,
+controller/drive_sync_controller.py,DriveSyncController,execute_whisper_transcription,
+controller/drive_sync_controller.py,DriveSyncController,download_script_merged,
+controller/drive_sync_controller.py,DriveSyncController,download_summary,
+controller/drive_sync_controller.py,DriveSyncController,download_anki,
+controller/transcript_merge_split_controller.py,TranscriptController,__class__,
+controller/transcript_merge_split_controller.py,TranscriptController,__init__,
+controller/transcript_merge_split_controller.py,TranscriptController,get_local_text_files,
+controller/transcript_merge_split_controller.py,TranscriptController,get_drive_text_files,
+controller/transcript_merge_split_controller.py,TranscriptController,read_local_file,
+controller/transcript_merge_split_controller.py,TranscriptController,read_drive_file,
+controller/transcript_merge_split_controller.py,TranscriptController,split_text_file,
+controller/transcript_merge_split_controller.py,TranscriptController,merge_text_files,
+controller/transcript_merge_split_controller.py,TranscriptController,upload_to_drive,
+controller/pdf_merge_controller.py,PreviewState,__class__,
+controller/pdf_merge_controller.py,PreviewState,__init__,
+controller/pdf_merge_controller.py,PdfMergeController,__class__,
+controller/pdf_merge_controller.py,PdfMergeController,__init__,
+controller/pdf_merge_controller.py,PdfMergeController,__del__,
+controller/pdf_merge_controller.py,PdfMergeController,populate_file_list,
+controller/pdf_merge_controller.py,PdfMergeController,update_preview,
+controller/pdf_merge_controller.py,PdfMergeController,_do_update_preview,
+controller/pdf_merge_controller.py,PdfMergeController,on_scroll,
+controller/pdf_merge_controller.py,PdfMergeController,load_more_pages,
+controller/pdf_merge_controller.py,PdfMergeController,update_save_name,
+controller/pdf_merge_controller.py,PdfMergeController,merge_files,UI에서 병합 버튼을 누르면 호출됩니다. 백그라운드 스레드를 띄웁니다.
+controller/pdf_merge_controller.py,PdfMergeController,execute_merge_logic,PdfSimpleOperationThread 내부에서 실행되는 무거운 병합 로직입니다.
+controller/pdf_merge_controller.py,PdfMergeController,on_merge_success,병합이 완료되면 호출됩니다.
+controller/pdf_merge_controller.py,PdfMergeController,get_selected_files,
+controller/gemini_processing_controller.py,,fetch_gemini_tasks_from_drive,[컨트롤러 래퍼] UI에서 스캔 요청이 오면 PipelineStatusService를 활용해 상태를 판별하여 반환합니다.
+controller/gemini_processing_controller.py,GeminiTaskWorker,__class__,"UI의 멈춤을 방지하며 백그라운드에서 LLM 작업을 큐(Queue) 순서대로 처리하는 스레드입니다.
+실제 데이터 조작은 _llm_service가 담당합니다."
+controller/gemini_processing_controller.py,GeminiTaskWorker,__init__,
+controller/gemini_processing_controller.py,GeminiTaskWorker,run,
+service/youtube_media_service.py,YoutubeMediaService,__class__,"유튜브 음원 추출(yt-dlp) 및 구글 드라이브 업로드를 전담하는 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라 이 클래스는 재생목록의 메타데이터를 관리하거나 
+상태를 추적하지 않고, 오직 단일 영상 URL을 전달받아 물리적 오디오(WAV)로 추출하고 
+클라우드에 전송하는 미디어 스트리밍 및 I/O 연산만을 책임집니다.
+
+의존성:
+- 음원 추출: 외부 패키지인 `yt_dlp`와 시스템에 설치된 `FFmpeg`에 강하게 의존하여 포맷을 변환합니다.
+- 클라우드 전송: `utils.auth_util.get_drive_service`를 통해 인증된 API 리소스와 통신합니다."
+service/youtube_media_service.py,YoutubeMediaService,download_and_upload_audio,"단일 유튜브 영상을 WAV 포맷으로 추출한 뒤 구글 드라이브에 안전하게 업로드합니다.
+
+자동화된 학습 자료 파이프라인에서 Whisper AI가 음성을 텍스트로 원활하게 변환하기 
+위해서는 입력 오디오의 엄격한 규격화가 필수적입니다. 
+이 메서드는 단순한 영상 다운로드를 넘어, `yt-dlp`와 `FFmpeg` 후처리(post-processor)를 연계하여 
+스트리밍된 미디어를 강제로 **16kHz, 1채널(Mono)** WAV 파일로 트랜스코딩합니다. 
+이 규격은 Whisper STT 엔진이 요구하는 최적의 오디오 포맷이므로, 하위 파이프라인에서 
+오디오 리샘플링 작업을 다시 수행하는 오버헤드를 원천적으로 제거합니다.
+
+또한, 장시간 연속으로 영상을 다운로드하는 배치(Batch) 처리 환경에서 
+로컬 디스크 공간이 고갈되거나 파일 덮어쓰기 충돌이 발생하지 않도록 
+`tempfile.TemporaryDirectory` 격리 공간 내에서 다운로드와 변환을 수행합니다. 
+네트워크 업로드가 끝난 후 `with` 블록을 빠져나가면 즉시 찌꺼기 미디어 파일들을 휘발(Clean-up)시켜 
+시스템 리소스를 안전하게 회수합니다.
+
+Args:
+    url (str): 음원을 추출할 대상 유튜브 영상의 단일 URL.
+    prefix (str): 로컬 임시 파일 생성 및 구글 드라이브 저장 시 사용할 파일명 (확장자 제외). 
+        일반적으로 파이프라인 상태 관리를 위한 '날짜_교시' 형태의 식별자가 주입됩니다.
+    drive_folder_id (str): 추출된 WAV 파일이 업로드될 구글 드라이브 대상 폴더의 고유 ID.
+    drive_service (Any): 인증이 완료된 구글 드라이브 API 서비스 객체. 
+        (내부 구현상 `get_drive_service()` 호출을 통해 최신 객체로 한 번 더 덮어씌워 
+        장기 실행 시 토큰 만료 문제를 방어합니다.)
+
+Returns:
+    None: 반환값 없이 외부 스토리지(구글 드라이브)에 업로드를 수행하고 종료됩니다.
+
+Raises:
+    FileNotFoundError: `yt-dlp` 다운로드 및 FFmpeg 변환 프로세스가 실패하여 
+        임시 디렉토리 내에 지정된 이름의 WAV 파일이 정상적으로 생성되지 않았을 때 발생합니다.
+    Exception: 구글 드라이브 네트워크 업로드 중 토큰 만료, 클라우드 용량 초과, 
+        네트워크 단절 등의 이유로 `MediaFileUpload` 객체의 `.execute()`가 실패할 때 발생합니다."
+service/api_key_tracker.py,APIManager,__class__,"Gemini API 키의 가용 상태, 에러, 쿨타임을 관리하고 동시성을 제어하는 단일 책임 클래스.
+
+이 클래스는 시스템 내에 하나만 존재하는 싱글톤(모듈 레벨 인스턴스 `api_mgr`)으로 동작합니다. 
+`Config` 객체로부터 다중 API 키 배열과 허용된 모델 리스트를 로드하여 관리 풀(Pool)을 생성합니다. 
+비동기 Worker나 LLMService가 API를 호출하기 전에 `get_available_key`를 통해 유효한 키를 
+스레드 안전(Thread-safe)하게 대여(Checkout)받고, 통신이 끝난 후 `end_task`를 호출하여 
+키를 반납(Checkin) 및 상태(성공, 쿨타임, 한도 초과 등)를 업데이트하도록 통제합니다."
+service/api_key_tracker.py,APIManager,__init__,"APIManager 객체를 초기화하고 로컬 상태 파일과 전역 설정을 연동합니다.
+
+Args:
+    state_file_name (str, optional): API 키 가용성 상태를 캐싱할 로컬 JSON 파일명. 기본값은 ""api_key_state.json""입니다."
+service/api_key_tracker.py,APIManager,_load_state,"로컬 파일 시스템에서 기존 API 키 상태 데이터를 로드하거나 초기화합니다.
+
+이 메서드는 애플리케이션 시작 시 호출되어 이전에 실패했거나 쿨타임 중이었던 
+API 키 상태를 복원합니다. 시스템이 예기치 않게 종료된 후 재시작되더라도 
+할당량 초과(429) 상태를 기억하여 무의미한 API 호출 시도를 방지합니다.
+파일이 손상(Corruption)되었을 경우를 대비해 기존 파일을 백업하고 새로운 상태로 초기화하는 
+방어 로직이 포함되어 있습니다.
+
+Args:
+    없음
+
+Returns:
+    Dict[str, Any]: 복원되었거나 새로 초기화된 `키::모델` 조합의 상태 딕셔너리."
+service/api_key_tracker.py,APIManager,_save_state,"메모리 내의 현재 API 키 상태를 로컬 JSON 파일에 동기화하여 영속화합니다.
+
+원자적(Atomic) 파일 쓰기 도입:
+여러 스레드가 거의 동시에 키를 대여하거나 반납할 때 파일 I/O 충돌이나 
+크래시로 인해 JSON 구조가 0 byte로 손상되는 현상을 원천 방지합니다. 
+데이터를 임시 파일(`.tmp`)에 완전히 쓴 뒤 성공했을 때만 `replace`를 수행하여 무결성을 유지합니다.
+
+Args:
+    없음
+
+Returns:
+    None"
+service/api_key_tracker.py,APIManager,_get_pt_date,"주어진 UNIX 타임스탬프를 태평양 표준시(PT, UTC-8) 기준의 날짜 문자열로 변환합니다.
+
+Google Gemini API의 일일 할당량(Daily Quota)은 한국 시간이 아닌 
+태평양 표준시(PT) 자정을 기준으로 리셋됩니다. 따라서 429(할당량 초과) 에러가 발생한 
+시점과 현재 시점의 날짜가 같은지(즉, 쿨타임이 하루 지나서 풀렸는지)를 정확히 비교하기 위해 
+로컬 시간을 강제로 PT 시간대로 캐스팅하는 핵심 시간 유틸리티입니다.
+
+Args:
+    timestamp (float): 변환할 기준 UNIX 타임스탬프 (초 단위).
+
+Returns:
+    str: ""YYYY-MM-DD"" 포맷의 태평양 표준시 기준 날짜 문자열."
+service/api_key_tracker.py,APIManager,end_task,"API 호출 작업을 완료한 뒤 대여했던 키를 반납하고 상태를 업데이트합니다.
+
+Service 계층이 Gemini 통신을 성공적으로 마쳤거나 에러(예: 429)로 종료되었을 때 반드시 호출해야 하는 메서드입니다. 
+해당 `키::모델` 조합의 `is_in_use` 플래그를 False로 변경하고 종료 시간을 기록하여 
+이후 `cooldown_seconds` 계산의 기준점으로 삼습니다. 
+상태 업데이트 후 `lock.notify_all()`을 호출하여, 가용 키가 나오기를 기다리며 
+수면(Wait) 상태에 빠져있던 다른 워커 스레드들을 즉시 깨워(Wake-up) 처리율(Throughput)을 극대화합니다.
+
+Args:
+    key_id (str): 작업을 마친 API 키의 식별자(ID).
+    model_name (str): 사용했던 LLM 모델의 이름.
+    error_code (Optional[str], optional): 작업 중 발생한 에러가 있다면 그 식별 코드(예: ""429""). 정상 종료 시 None.
+
+Returns:
+    None"
+service/api_key_tracker.py,APIManager,check_combo_status,"특정 `키::모델` 조합의 현재 가용성 상태와 대기(쿨타임) 잔여 시간을 검사합니다.
+
+UI 레이어에서 각 키의 상태를 시각적으로 보여주거나 모니터링할 때 사용되는 상태 조회용 메서드입니다. 
+현재 사용 중(BUSY)인지, 요청 속도 제한 대기 중(COOLDOWN)인지, 하루 할당량을 모두 소진(DAILY_LIMIT)했는지 등 
+자세한 내부 상태를 판별합니다.
+
+Args:
+    key_id (str): 상태를 조회할 API 키의 식별자(ID).
+    model_name (str): 상태를 조회할 LLM 모델의 이름.
+
+Returns:
+    Tuple[str, float]: 
+        - 첫 번째 요소: 현재 상태를 나타내는 문자열 상수 (READY, BUSY, COOLDOWN, DAILY, ERROR, NOT_FOUND 중 하나).
+        - 두 번째 요소: 남은 쿨타임 초(float). 상태가 COOLDOWN이 아닐 경우 0.0을 반환합니다."
+service/api_key_tracker.py,APIManager,get_available_key,"현재 즉시 사용할 수 있는(Ready 상태인) 최적의 API 키를 찾아 스레드 안전하게 할당(Checkout)합니다.
+
+Service 계층이 LLM API 요청을 보내기 직전에 호출하는 핵심 메서드입니다. 
+다중 API 키 배열을 순회하며 사용 중(BUSY)이거나 할당량 초과(429) 상태인 키를 걸러냅니다. 
+모든 키가 쿨타임(COOLDOWN)에 걸려 있어 즉시 사용할 수 없는 경우, CPU를 점유하는 
+Busy-Waiting(무한 루프) 방식 대신 가장 먼저 쿨타임이 끝나는 키의 남은 시간(`shortest_wait`)을 계산합니다. 
+
+그 후 `lock.wait()`를 호출하여 스레드 락을 스스로 해제하고 정확히 그 시간만큼만 수면(Sleep/Wait) 
+상태에 돌입합니다. 대기 도중 다른 스레드가 `end_task`를 호출해 `notify_all()`을 날리면 
+즉시 깨어나 가용 키를 다시 탐색합니다. 이를 통해 다중 워커 환경에서 교착 상태(Deadlock)를 방지하고 
+API 호출량을 한계치까지 안전하게 밀어붙일 수 있습니다.
+
+Args:
+    model_name (str): 작업을 요청할 대상 LLM 모델의 이름.
+    timeout (int, optional): 가용 키를 찾지 못할 경우 대기할 최대 허용 시간(초). 기본값은 3600(1시간)입니다.
+
+Returns:
+    Tuple[str, str]: 할당에 성공한 최적 API 키의 식별자(ID)와 실제 API 키 문자열 값을 튜플로 반환합니다.
+
+Raises:
+    TimeoutError: 지정된 `timeout` 시간을 모두 소진하고도 유효한 API 키를 할당받지 못한 경우 발생합니다."
+service/pipeline_status_service.py,PipelineStatusService,__class__,"단일 교시(Lesson)의 파이프라인 진행 상태 및 연관 파일 검증을 전담하는 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 파이프라인의 다음 작업을 직접 '실행'하지 않고, 
+오직 현재 드라이브와 로컬에 어떤 결과물들이 있는지 '진단'하고 '조회'하는 역할만 수행합니다.
+
+의존성:
+- 상태 확인을 위한 문자열 파싱은 `FileNamingService`에 위임합니다.
+- 클라우드 파일 검사를 위해 `utils.drive_api`를 통해 Google Drive API와 통신합니다."
+service/pipeline_status_service.py,PipelineStatusService,__init__,"PipelineStatusService 인스턴스를 초기화합니다.
+
+Args:
+    drive_service (Optional[Any], optional): 인증된 구글 드라이브 API 서비스 리소스 객체. Defaults to None.
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 로그를 메인 UI로 
+        전달하기 위한 콜백 함수. 하위 `FileNamingService`에도 동일하게 주입됩니다. Defaults to None."
+service/pipeline_status_service.py,PipelineStatusService,check_lesson_file_status,"[파이프라인 진행도 검증] 특정 단계의 파이프라인 결과물 파일이 리스트에 존재하는지 확인합니다.
+
+파일 시스템이나 클라우드를 직접 스캔하지 않고, 미리 긁어온(Fetched) 단순 파일명 배열(`file_list`)을 
+메모리 상에서 빠르게 스캔합니다. 
+`FileType`에 정의된 8가지 주요 파이프라인 마일스톤에 대해 `FileNamingService`의 
+정규식 필터링 능력을 빌려 해당 교시(`target_lesson_id`)에 속한 파일이 물리적으로 존재하는지 
+Boolean 값으로 반환합니다. 이 값은 UI의 진행도 바(Progress Bar)나 상태 텍스트 갱신에 직접적으로 사용됩니다.
+
+Args:
+    file_list (List[str]): 검사 대상이 되는 전체 파일명 문자열 리스트.
+    target_lesson_id (str): 검사할 특정 수업의 교시 식별자 (예: '1004_1').
+    file_type (FileType): 파이프라인의 특정 단계를 지칭하는 Enum 형태의 문자열 
+        (예: 'script', 'anki', 'audio' 등).
+
+Returns:
+    bool: 해당 교시에 매칭되는 지정된 타입의 파일이 리스트 내에 존재하면 True, 없으면 False."
+service/pipeline_status_service.py,PipelineStatusService,get_ai_task_status_from_json,"드라이브에 저장된 `done.json`을 열어, AI 교정과 요약 작업이 내부에 실제로 기록되었는지 논리적으로 확인합니다.
+
+물리적으로 파일(`done.json`)이 존재하더라도, 중간에 시스템 오류로 인해 안의 내용이 비어있을 수 있습니다. 
+이 메서드는 파일을 디스크로 다운로드하는 오버헤드 대신 `in_memory_download_from_drive`를 사용해 
+RAM 상에서 즉시 JSON을 디코딩합니다. 또한 반복 조회를 막기 위해 `self.json_cache`에 디코딩된 
+딕셔너리를 캐싱합니다. JSON 내부의 `corrected_text`와 `summary` 키를 파싱하여, 
+LLM 파이프라인의 세부적인 완결성을 2개의 불리언(Boolean) 값으로 명확하게 진단해냅니다.
+
+Args:
+    drive_files (List[Dict[str, Any]]): 구글 드라이브에서 스캔된 파일들의 메타데이터 딕셔너리 리스트.
+    target_lesson_id (str): 상태를 조회할 대상 수업 교시 식별자.
+
+Returns:
+    tuple[bool, bool]: 
+        - 첫 번째 불리언: 음성 스크립트 교정(Correction) 완료 여부.
+        - 두 번째 불리언: 단권화 요약(Summary) 완료 여부.
+
+Raises:
+    ValueError: 인스턴스 초기화 시 구글 드라이브 서비스가 주입되지 않은 상태로 호출될 경우."
+service/pipeline_status_service.py,PipelineStatusService,fetch_files_by_date_range,"드라이브에서 특정 확장자를 가진 파일 중, 지정된 날짜 범위(MMDD)에 해당하는 파일 목록만 추출 반환합니다.
+
+사용자가 UI의 달력 위젯(Calendar Widget)에서 특정 기간을 선택하고 해당 기간 내의 
+PDF 학습 자료만 모아보려 할 때 호출되는 편의성(Utility) 메서드입니다. 
+모든 드라이브 파일을 긁어온 뒤, 1차로 확장자를 필터링하여 루프의 횟수를 줄이고, 
+2차로 `FileNamingService`의 도메인 파서(Parser)에 위임하여 파일명 내에 숨겨진 날짜 메타데이터를 
+기간 문자열(`start_mmdd`, `end_mmdd`)과 비교합니다.
+
+Args:
+    start_date_str (str): 검색을 시작할 기준 날짜 문자열 (""YYYY-MM-DD"" 포맷).
+    end_date_str (str): 검색을 종료할 기준 날짜 문자열 (""YYYY-MM-DD"" 포맷).
+    file_extension (str, optional): 찾고자 하는 대상 파일의 확장자. Defaults to "".pdf"".
+
+Returns:
+    List[Dict[str, Any]]: 해당 날짜 범위에 속하는 파일들의 드라이브 메타데이터 딕셔너리 리스트.
+
+Raises:
+    ValueError: 인스턴스 초기화 시 구글 드라이브 서비스가 주입되지 않은 상태로 호출될 경우."
+service/playlist_repository.py,PlaylistRepository,__class__,"재생목록 메타데이터(CSV)의 저장, 조회, 수정, 삭제(CRUD) 등 데이터 영속성(Persistence) 관리만을 전담하는 저장소 클래스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 YouTube Data API와의 네트워크 통신이나 UI 렌더링 로직을 전혀 포함하지 않으며, 
+오직 로컬 파일 시스템의 `.csv` 데이터베이스 파일 상태를 무결하게 관리하는 역할만 수행합니다.
+
+내부 주요 상태로 물리적 파일 경로(`self.csv_file`)와 다중 스레드 환경에서의 I/O 충돌을 막기 위한 
+재진입 가능 락(`self._lock`, RLock)을 보유하고 있습니다. 주로 유튜브 연동을 처리하는 Controller나 
+비동기 작업을 수행하는 Worker 계층에 의해 호출되어 데이터를 공급하거나 업데이트합니다."
+service/playlist_repository.py,PlaylistRepository,__init__,"PlaylistRepository 인스턴스를 초기화하고 스레드 락 및 데이터베이스 파일을 준비합니다.
+
+Args:
+    csv_file_path (str, optional): 재생목록 데이터를 영속화할 로컬 CSV 파일의 경로. 기본값은 ""playlists.csv""입니다.
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 로컬 DB 접근 로그를 
+        메인 UI 스레드로 안전하게 전달하기 위한 콜백 함수. Defaults to None."
+service/playlist_repository.py,PlaylistRepository,_init_csv,"CSV 데이터베이스 파일이 존재하지 않을 경우 기본 헤더를 포함하여 초기화(Self-healing)합니다.
+
+자동화 파이프라인의 백그라운드 Worker는 사용자의 개입 없이 지속적으로 동작해야 합니다. 
+만약 사용자의 실수나 시스템 오류로 로컬 데이터베이스 파일(`.csv`)이 삭제되었을 경우, 
+시스템이 크래시(Crash)되는 대신 스스로 디렉토리 트리와 빈 CSV 파일을 복구하여 
+파이프라인의 연속성을 보장하는 강력한 방어 로직입니다. 내부적으로 `_lock`을 사용하여 
+여러 스레드가 동시에 초기화를 시도하는 Race Condition을 방지합니다.
+
+Args:
+    없음
+
+Returns:
+    None"
+service/playlist_repository.py,PlaylistRepository,load_playlists,"로컬 CSV 데이터베이스 파일에서 재생목록 정보를 읽어 메모리 구조(List of Dicts)로 반환합니다.
+
+메인 UI가 로드되거나 Watchdog Worker가 동기화 대상을 스캔할 때 빈번하게 호출되는 Read 엔트리포인트입니다. 
+파일 I/O 작업 중 다른 스레드가 쓰기(Write) 연산을 수행하여 파일이 손상(Incomplete read)되는 것을 막기 위해 
+전체 읽기 블록이 `_lock`으로 강하게 보호됩니다. 읽기 중 예외가 발생하더라도 빈 리스트를 반환하여 
+호출자(Controller/Service)가 에러 처리 없이 안전하게 Fallback 할 수 있도록 돕습니다.
+
+Args:
+    없음
+
+Returns:
+    List[Dict[str, str]]: 각 딕셔너리가 단일 재생목록 정보('name', 'url', 'playlist_id')를 
+        포함하는 리스트. 파일이 없거나 오류 발생 시 빈 리스트(`[]`)를 반환합니다."
+service/playlist_repository.py,PlaylistRepository,_rewrite_csv,"메모리에 로드되어 수정된 재생목록 리스트를 물리적 CSV 파일에 안전하게 덮어씁니다(Overwrite).
+
+CSV 파일 특성상 특정 행(Row)만 무작위 접근(Random Access)하여 수정하는 것이 까다롭습니다. 
+따라서 이 클래스의 모든 데이터 변경 연산(Add, Delete, Rename)은 메모리에서 전체 리스트를 조작한 후 
+이 내부 메서드를 통해 파일 전체를 새롭게 덮어쓰는(Rewrite) 방식을 취합니다. 
+데이터 누락 방지를 위해 `.get()` 메서드를 활용하여 키 누락 예외를 방어하며, RLock 안에서 실행되므로 
+쓰기 도중 다른 스레드의 간섭을 원천 차단합니다.
+
+Args:
+    playlists (List[Dict[str, str]]): CSV 파일에 기록할 최신 상태의 재생목록 딕셔너리 리스트.
+
+Returns:
+    None"
+service/playlist_repository.py,PlaylistRepository,add_playlist,"새로운 재생목록 엔티티를 데이터베이스에 추가합니다(Create).
+
+비동기 환경에서 여러 사용자의 액션이나 Worker의 백그라운드 스캔으로 인해 동시에 여러 재생목록이 
+등록될 수 있습니다. 이를 안전하게 처리하기 위해 '기존 데이터 로드 -> 메모리 배열에 새 항목 추가 -> CSV 전체 덮어쓰기'의 
+일련의 과정을 하나의 원자적 트랜잭션(Atomic Transaction)으로 간주하고 `with self._lock:` 블록으로 묶어 
+데이터 경합(Race Condition)으로 인한 정보 유실을 방지합니다.
+
+Args:
+    name (str): 사용자에게 보여질 재생목록의 이름.
+    url (str): 해당 유튜브 재생목록의 전체 URL 경로.
+    playlist_id (str): API 통신 시 활용되는 재생목록의 고유 식별자(ID).
+
+Returns:
+    None"
+service/playlist_repository.py,PlaylistRepository,delete_playlist,"특정 재생목록 고유 ID를 기반으로 데이터베이스에서 해당 항목을 완전히 제거합니다(Delete).
+
+사용자가 UI에서 특정 재생목록의 동기화 연동을 해제(삭제)하고자 할 때 호출됩니다. 
+메모리 상에 로드된 전체 리스트에서 대상 `playlist_id`와 일치하지 않는 항목들만으로 
+새로운 배열을 필터링(List Comprehension)한 뒤, 이를 디스크에 재기록(Rewrite)하여 물리적인 삭제를 달성합니다.
+
+Args:
+    playlist_id (str): 데이터베이스에서 삭제하고자 하는 대상 재생목록의 고유 식별자(ID).
+
+Returns:
+    None"
+service/playlist_repository.py,PlaylistRepository,rename_playlist,"기존 데이터베이스에 존재하는 특정 재생목록의 이름을 새로운 이름으로 갱신합니다(Update).
+
+학습자의 편의에 따라 자동화 파이프라인에서 관리되는 폴더명이나 재생목록의 별칭(Alias)을 
+변경해야 할 때 사용되는 업데이트 로직입니다. 
+메모리 리스트를 순회하며 타겟 ID를 찾아 이름(`name`) 필드만 단일 수정(In-place update)한 후, 
+실제 변경 사항이 발생했을 때만(디스크 I/O 최적화) `_rewrite_csv`를 호출하여 상태를 영속화합니다.
+
+Args:
+    playlist_id (str): 이름을 변경할 대상 재생목록의 고유 식별자(ID).
+    new_name (str): 변경하고자 하는 새로운 재생목록의 이름 문자열.
+
+Returns:
+    None"
+service/text_processing_service.py,TextProcessingService,__class__,"텍스트 데이터의 내용을 분석하고 규칙에 따라 병합/분할을 수행하는 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 파일의 읽기/쓰기나 클라우드 업로드 같은 
+인프라성 작업은 철저히 배제하고 오직 텍스트 문자열 그 자체의 조작만을 책임집니다. 
+UI 이벤트 핸들러(Controller)나 비동기 파이프라인(Worker)에서 텍스트 기반의 비즈니스 룰 
+검증이 필요할 때 호출되며, 부모 클래스인 `BaseService`를 상속받아 일관된 로깅 시스템을 공유합니다."
+service/text_processing_service.py,TextProcessingService,__init__,"TextProcessingService 인스턴스를 초기화합니다.
+
+Args:
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 스레드 등에서 
+        발생한 문자열 처리 결과 및 오류 로그를 메인 UI 스레드로 전달하기 위한 콜백 함수. 
+        Defaults to None."
+service/text_processing_service.py,TextProcessingService,split_text_content,"텍스트가 정확히 한 번의 줄바꿈으로 두 부분으로 나뉘는지 검증하고 분할합니다.
+
+        자동화된 학습 자료 파이프라인에서 특정 텍스트 데이터(예: 특정 슬라이드의 질문과 답변, 
+        또는 명확하게 두 파트로 나뉘어야 하는 스크립트 본문)가 규칙에 맞게 작성되었는지 검증할 때 사용됩니다. 
+        대량의 데이터를 비동기 Worker가 백그라운드에서 처리할 때, 사용자의 입력 실수나 
+        LLM의 포맷 이탈로 인해 텍스트가 1조각이거나 3조각 이상으로 쪼개질 경우, 하위 시스템(Anki 등)이 
+        심각한 오작동을 일으킬 수 있습니다. 
+        
+        따라서 이 메서드는 `splitlines()`를 이용해 운영체제 환경(
+, 
+)에 무관하게 텍스트를 쪼갠 뒤, 
+        그 결과가 정확히 2개인지 엄격하게 검사(Fail-fast)하여 비정형 데이터의 구조적 위험을 
+        파이프라인 최전방에서 차단합니다.
+
+        Args:
+            text_content (str): 검증 및 분할을 수행할 원본 문자열 데이터.
+
+        Returns:
+            List[str]: 공백이 제거(strip)된 정확히 2개의 문자열 요소를 가지는 리스트.
+
+        Raises:
+            ValueError: 입력된 텍스트가 비어 있거나, 엔터(줄바꿈) 기준으로 나누었을 때 
+                정확히 2개의 조각으로 분리되지 않는 경우(구조적 규칙 위반 시) 발생합니다."
+service/text_processing_service.py,TextProcessingService,merge_text_contents,"여러 텍스트 콘텐츠를 일정한 병합 규칙에 따라 하나의 문자열로 합칩니다.
+
+        자동화 파이프라인에서 여러 개로 분할되어 개별 처리된 스크립트 조각들이나, 
+        다수의 교시(Lesson)에서 추출된 LLM 요약 결과들을 최종적으로 하나의 단일 문서나 
+        프롬프트로 조립(Assembly)할 때 호출됩니다. 
+        
+        단순한 문자열 이어붙이기가 아니라, 각 조각 내부의 불필요한 앞뒤 공백을 선제적으로 제거한 후 
+        더블 라인브레이크(`
+
+`)를 삽입하여 문단 간의 논리적 구분을 명확히 유지하도록 설계되어 
+        이후 PDF 렌더링이나 Notion 동기화 시 시각적 레이아웃이 깨지지 않도록 보장합니다.
+
+        Args:
+            contents (List[str]): 하나로 병합할 대상이 되는 개별 문자열들의 리스트.
+
+        Returns:
+            str: 리스트 내의 각 문자열 요소가 두 줄 바꿈(`
+
+`)으로 구분되어 하나로 연결된 최종 완성 문자열."
+service/pdf_render_service.py,PdfRenderService,__class__,"마크다운 텍스트를 파싱, 수식 정제, HTML 변환을 거쳐 최종 PDF로 렌더링하는 통합 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 외부 파일 시스템 제어나 API 통신을 수행하지 않으며, 
+오직 문자열 데이터를 PDF 시각적 레이아웃으로 변환하는 '렌더러(Renderer)' 역할만 전담합니다. 
+LlmService나 PipelineStatusService에서 가공된 텍스트 데이터를 주입받아 동작합니다."
+service/pdf_render_service.py,PdfRenderService,__init__,PdfRenderService 인스턴스를 초기화하고 전역 설정 및 정규식을 로드합니다.
+service/pdf_render_service.py,PdfRenderService,_sanitize_markdown,"LaTeX 수식 및 특수문자로 인한 렌더링 엔진(xhtml2pdf) 패닉 오류를 방지하기 위해 텍스트를 정제합니다.
+
+        Gemini 등 LLM은 의학 및 수치 데이터를 출력할 때 LaTeX 수식(예: `$ \infty $`, `
+eq`)이나 
+        아스키 아트 표(예: `┌─┐`)를 자주 사용합니다. 그러나 `xhtml2pdf` 렌더링 엔진은 이러한 문법을 
+        이해하지 못하고 빈 사각형으로 렌더링하거나 파이프라인 전체를 크래시(Crash) 낼 수 있습니다.
+        
+        이 메서드는 정규표현식과 `LatexNodes2Text`를 활용해 마크다운 내의 수식을 일반 유니코드 텍스트(예: `∞`, `≠`)로 
+        안전하게 치환(Fallback)하고, HTML 예약어 충돌을 막기 위해 `html.escape` 처리를 
+        선행하는 핵심 방어 로직입니다.
+
+        Args:
+            text (str): 치환되지 않은 원본 마크다운 텍스트 문자열.
+
+        Returns:
+            str: 렌더링 엔진에 주입해도 안전하도록 모든 수식과 기호가 유니코드 및 이스케이프 처리된 문자열."
+service/pdf_render_service.py,PdfRenderService,_html_to_pdf_doc,"CSS가 주입된 완성형 HTML 문자열을 메모리 상의 `pymupdf.Document` 객체로 직접 변환합니다.
+
+물리적인 디스크를 거치지 않고 I/O 바이트 버퍼(`io.BytesIO()`)를 활용하여 RAM 상에서 
+문서를 즉시 컴파일(In-memory rendering)합니다. 이는 다수의 페이지를 렌더링해야 하는 
+자동화 파이프라인에서 디스크 접근 병목(Bottleneck)을 제거하여 속도를 비약적으로 높이는 방식입니다.
+
+Args:
+    html_content (str): CSS 스타일링과 정제된 텍스트가 모두 포함된 완성된 HTML 문서 문자열.
+
+Returns:
+    pymupdf.Document: 조작 및 파일 저장이 가능한 메모리 상의 PDF 객체."
+service/pdf_render_service.py,PdfRenderService,_get_css_template,"의학 요약 노트 및 합성 PDF 포맷에 맞춘 기본 CSS 레이아웃 스타일 문자열을 반환합니다.
+
+단순한 텍스트 배치가 아닌, 표(Table) 테두리 두께 조절, 줄바꿈 간격, 폰트 임베딩 등 
+시각적 가독성(Readability)을 위한 스타일 시트입니다. 동적으로 `margin` 값을 주입받아 
+일반 A4 요약본 렌더링과, 상단에 슬라이드가 들어가는 합성 PDF 렌더링 모두에 유연하게 대응합니다.
+
+Args:
+    margin (str, optional): CSS `@page` 영역에 적용될 페이지 여백 문자열 
+        (예: ""40pt"" 또는 ""430pt 40pt 40pt 40pt""). Defaults to ""40pt"".
+
+Returns:
+    str: 렌더링될 문서의 Head 태그에 삽입될 `<style>` 내용."
+service/pdf_render_service.py,PdfRenderService,create_pdf_from_markdown,"마크다운 텍스트를 파싱하여 메모리 상의 PDF(pymupdf.Document) 객체로 변환 반환합니다.
+
+상위 Service나 Worker가 단권화 노트를 최종 PDF로 배포할 때 호출되는 퍼블릭 API입니다. 
+내부적으로 텍스트 정제(`_sanitize_markdown`) -> 마크다운 to HTML 변환 -> CSS 주입 -> 
+메모리 버퍼 렌더링(`_html_to_pdf_doc`)을 순차적으로 파이프라이닝(Pipelining)합니다. 
+파일 시스템에 접근하지 않고 객체만 반환하므로 동시성 환경에서도 안전합니다.
+
+Args:
+    md_text (str): 변환할 대상 마크다운 포맷의 텍스트.
+    custom_css (str, optional): 기본 템플릿 대신 적용할 커스텀 CSS 문자열. Defaults to None.
+
+Returns:
+    pymupdf.Document: 모든 데이터가 렌더링된 메모리 기반 PDF 객체 (사용 후 close 필수)."
+service/pdf_render_service.py,PdfRenderService,create_slide_script_pdf,"원본 PDF 슬라이드를 상단에, LLM 교정 스크립트를 하단에 배치한 복합(Composite) 학습 PDF를 생성합니다.
+
+의학 학습 자료 자동화의 핵심 결과물 중 하나로, 학생들이 강의 화면(시각 자료)과 교수님의 구두 설명(스크립트 텍스트)을 
+한 페이지 안에서 직관적으로 대조하며 볼 수 있도록 문서를 새롭게 조립하는 고도화된 기능입니다.
+
+A4 세로(Portrait) 크기를 기준으로 상단 절반(`top_half_rect`)에는 `show_pdf_page`를 이용해 
+기존 원본 슬라이드 이미지를 덮어씌우고(Overlay), 하단에는 빈 공간에 맞게 마진(margin)을 준 텍스트 렌더링 
+결과물을 결합합니다. 대량의 메모리가 소비될 수 있으므로 모든 PDF 핸들에 대해 파이썬 컨텍스트 매니저(`with`)를 
+강제하여 예외가 터지더라도 OOM(Out of Memory)과 메모리 누수(Leak)를 완벽히 차단합니다.
+
+Args:
+    orig_pdf_path (PathLike): 원본 강의록 슬라이드 PDF 파일의 위치.
+    slides_data_dict (dict): 키(Key)가 페이지 번호(1-based)이고 값(Value)이 해당 슬라이드의 마크다운 텍스트인 데이터 딕셔너리.
+    output_path (PathLike): 최종 완성된 슬라이드-스크립트 복합 PDF가 저장될 경로.
+
+Returns:
+    str: 정상적으로 생성되어 저장된 결과물 PDF의 경로.
+
+Raises:
+    Exception: 파일이 없거나 디스크 공간 부족, 렌더링 엔진 에러 등 예외 발생 시 로그 출력과 함께 상위로 전파됩니다."
+service/anki_service.py,AnkiGenerationService,__class__,"LLM이 생성한 CSV 텍스트 데이터를 파싱하여 Anki 덱으로 패키징하는 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 오직 문자열 형태의 원시 데이터(Raw CSV Text)를 
+Basic, Cloze, MCQ 형식으로 분류하고 genanki 라이브러리를 통해 물리적인 
+.apkg 파일로 렌더링 및 저장하는 I/O 작업만을 전담합니다. 
+
+의존성: 
+- Controller 또는 Worker 계층으로부터 추출 완료된 LLM 결과물을 문자열 형태로 전달받아 실행됩니다.
+- 부모 클래스인 `BaseService`를 상속받아 공통 로깅(`_log`) 등의 인터페이스를 공유합니다."
+service/anki_service.py,AnkiGenerationService,_generate_anki_id,"문자열 기반의 고유 해시 ID를 생성합니다.
+
+Anki 덱(Deck)과 모델(Model)은 애플리케이션 내에서 충돌을 방지하기 위해 
+반드시 고유한 정수형 ID를 가져야 합니다. 자동화 파이프라인이 여러 번 실행되거나 
+덱 이름이 동일할 경우 매번 다른 ID가 부여되면 Anki로 임포트할 때 기존 덱이 
+업데이트되지 않고 중복 생성되는 문제가 발생할 수 있습니다. 
+이를 방지하고자 입력된 이름(문자열)을 SHA-256 해시로 변환한 후 정수형으로 캐스팅하여, 
+동일한 이름에는 항상 동일한 고유 ID(멱등성)가 부여되도록 설계된 방어 로직입니다.
+
+Args:
+    name (str): 해시화하여 고유 ID를 생성할 대상 문자열 (예: 덱 이름, 모델 이름).
+
+Returns:
+    int: 10^9 이하의 고정된 정수형 해시 ID."
+service/anki_service.py,AnkiGenerationService,_get_basic_model,"Basic 및 MCQ(객관식) 카드를 생성하기 위한 Anki 모델 팩토리 메서드입니다.
+
+Anki의 모델(Model)은 카드의 앞면과 뒷면이 어떻게 화면에 렌더링될지(HTML/CSS)를 결정하는 
+설계도 역할을 합니다. 이 메서드는 자동화된 학습 자료 생성 과정에서 일반적인 문답형(Basic) 카드와 
+객관식(MCQ) 카드를 시각적으로 깔끔하게 보여주기 위한 기본 템플릿을 정의하고 반환합니다. 
+하드코딩된 ID(1607392319)를 사용하여 덱 업데이트 시 카드 구조가 깨지지 않도록 강제합니다.
+
+Args:
+    없음
+
+Returns:
+    genanki.Model: 'Front'와 'Back' 필드를 가지며 커스텀 CSS가 적용된 기본형 안키 모델 객체."
+service/anki_service.py,AnkiGenerationService,_get_cloze_model,"빈칸 뚫기(Cloze) 카드를 생성하기 위한 Anki 모델 팩토리 메서드입니다.
+
+빈칸 뚫기 카드는 일반 카드와 달리 Anki 내부적으로 {{c1::정답}}과 같은 특수한 
+마크다운 렌더링 처리가 필요합니다. 이 팩토리 메서드는 모델 타입을 `genanki.Model.CLOZE`로 
+명시하여 해당 카드가 빈칸 학습용임을 시스템에 알리고, 그에 맞는 전용 템플릿과 CSS를 입힌 
+모델 객체를 제공합니다. 마찬가지로 자동화 파이프라인의 멱등성을 위해 고정된 ID(1607392320)를 사용합니다.
+
+Args:
+    없음
+
+Returns:
+    genanki.Model: 'Text'와 'Back Extra' 필드를 가지며 빈칸 뚫기에 최적화된 안키 모델 객체."
+service/anki_service.py,AnkiGenerationService,_save_csv_files,"분류된 Basic, MCQ, Cloze 텍스트 데이터를 개별 CSV 파일로 백업 저장합니다.
+
+자동화된 데이터 파이프라인에서 LLM이 생성한 결과물을 즉시 .apkg로 패키징하더라도, 
+사용자가 추후 내용을 직접 수정하거나 파이프라인 중간에 크래시가 발생했을 때 
+데이터가 유실되는 것을 막기 위한 필수적인 안전장치(I/O 백업)입니다. 
+`pathlib`을 사용하여 디렉토리가 존재하지 않을 경우 자동 생성하며, 
+다양한 언어가 포함될 수 있는 학습 자료 특성을 고려해 `utf-8-sig` 인코딩을 강제하여 
+엑셀(Excel) 등 외부 프로그램에서 열 때도 한글 깨짐이 없도록 견고하게 설계되었습니다.
+
+Args:
+    target_dir (str): CSV 파일들이 저장될 최종 목적지 디렉토리 경로.
+    base_name (str): 파일명의 접두사로 사용될 원본 문서의 기본 이름.
+    parsed_data (Dict[str, List[str]]): 카드 타입(Basic, MCQ, Cloze)을 키(Key)로 하고, 
+        파싱된 텍스트 라인들의 리스트를 값(Value)으로 갖는 딕셔너리.
+
+Returns:
+    None: 반환값 없이 파일 시스템에 직접 기록하며, 예외 발생 시 에러를 로깅합니다."
+service/anki_service.py,AnkiGenerationService,_package_anki_decks,"조립 완료된 Anki Deck 객체 리스트를 하나의 .apkg 파일로 압축 및 물리적 저장합니다.
+
+이 함수는 AnkiService의 최종 출력부로서, 메모리 상에 존재하는 논리적인 genanki.Deck 객체들을 
+실제 Anki 애플리케이션에서 더블 클릭으로 임포트할 수 있는 압축 패키지 형태(.apkg)로 직렬화합니다. 
+비동기 백그라운드 Worker가 처리 결과를 디스크에 안전하게 덤프(Dump)할 수 있도록 
+경로 확인 및 상위 디렉토리 생성(mkdir)을 보장하며, 파일 쓰기 권한 부족 등 
+OS 레벨의 예외 상황에서도 애플리케이션이 크래시되지 않도록 `try-except`로 캡슐화되어 있습니다.
+
+Args:
+    decks (List[genanki.Deck]): 파일로 패키징할 Anki 덱 객체들의 리스트. 리스트가 비어있으면 패키징을 건너뜁니다.
+    output_path (str): 생성될 .apkg 파일의 전체 절대 또는 상대 경로.
+
+Returns:
+    Optional[str]: 패키징이 성공적으로 완료되면 저장된 파일의 경로(문자열)를 반환하고, 실패하거나 패키징할 덱이 없으면 None을 반환합니다."
+service/anki_service.py,AnkiGenerationService,_parse_anki_csv_text,"LLM으로부터 전달받은 원시 텍스트를 카드 유형별(Basic, MCQ, Cloze)로 분류하여 파싱합니다.
+
+        LLM은 텍스트(예: ""Basic | 문제 | 정답"")를 한 덩어리의 긴 문자열로 반환합니다. 
+        이 메서드는 이러한 비정형/반정형 문자열을 줄바꿈(`
+`) 기준으로 나누고, 
+        문자열 앞단의 접두사(Prefix)를 분석하여 해당 라인이 어떤 학습 카드 유형에 속하는지 
+        분기(Routing)하는 텍스트 전처리(Preprocessing) 핵심 로직입니다. 
+        
+        대용량 비동기 처리 시 LLM 응답 포맷이 미세하게 깨지거나 대소문자가 혼용되거나 
+        불필요한 공백이 포함될 가능성에 대비하여, `lower()`, `replace()`, `strip()`을 
+        조합해 접두사를 엄격하게 검증합니다. 특히 카드 내용물(문제나 정답) 자체에 
+        구분자인 파이프(`|`)가 포함되어 분할이 꼬이는 치명적인 에러를 막기 위해, 
+        접두사를 떼어낼 때 `split('|', 1)`을 사용하여 단 1회만 분할하도록 강건성(Robustness)을 높였습니다.
+
+        Args:
+            raw_csv_text (str): LLM이 생성하여 반환한 원시 CSV 포맷의 문자열 데이터.
+
+        Returns:
+            Dict[str, List[str]]: ""Basic"", ""MCQ"", ""Cloze""를 키로 가지고 각각에 해당하는 
+                텍스트 라인들의 리스트를 분류하여 담은 딕셔너리."
+service/anki_service.py,AnkiGenerationService,build_apkg_from_csv,"LLM 텍스트 파싱부터 Anki 패키지 빌드까지의 전체 파이프라인을 실행하는 메인 엔트리포인트.
+
+이 메서드는 Controller(또는 TaskManager)에서 직접 호출되는 퍼블릭 API 역할을 합니다. 
+이전 단계(LLM Service)로부터 넘겨받은 원시 CSV 텍스트를 인풋으로 받아, 
+분류 파싱 -> CSV 백업 저장 -> 카드 타입별 안키 덱(Deck) 생성 -> 노트(Note) 조립 -> .apkg 최종 빌드의 
+순차적인 흐름을 오케스트레이션(Orchestration)합니다. 
+
+자동화 파이프라인 특성상 수백 개의 카드가 한 번에 생성될 수 있으므로, 
+형식에 맞지 않는 텍스트(예: 필드 부족)가 발견되더라도 전체 빌드 프로세스를 중단시키지 않고 
+해당 라인만 로깅 후 건너뛰는(Skip) 방어적 프로그래밍(Defensive Programming)이 적용되어 있습니다. 
+카드 본문에 `|` 기호가 들어가는 엣지 케이스까지 고려하여 최대 2번만 `split`하는 등, 
+비동기 작업 중 발생할 수 있는 데이터 오염(Data Corruption)을 최소화하는 데 집중한 파이프라인 결속부입니다.
+
+Args:
+    base_name (str): 생성될 Anki 덱의 기본 이름 및 파일명 접두사.
+    raw_csv_text (str): 파싱 및 변환의 원천 소스가 되는 LLM 생성 텍스트 문자열.
+    target_dir (str): 결과물(.csv 및 .apkg)이 저장될 로컬 디렉토리 경로.
+
+Returns:
+    Optional[str]: 최종 .apkg 파일이 성공적으로 생성되었을 경우 해당 파일의 경로를 반환하며, 
+                   입력 데이터가 없거나 패키징 중 치명적 오류가 발생한 경우 None을 반환합니다."
+service/llm_service.py,LlmService,__class__,"LLM 프롬프트를 구성하고 작업을 할당 및 추적하는 도메인 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 네트워크 통신 로직을 직접 구현하지 않으며 
+오직 의학 도메인 지식이 반영된 프롬프트 조합(Prompt Engineering)과 
+멀티스레드 환경에서의 LLM 작업(Task) 상태 로깅 및 생명주기 관리에 집중합니다. 
+
+의존성:
+- API 키 동시성 제어 및 쿨타임 관리를 위해 `api_mgr(APIManager)`와 통신합니다[cite: 1].
+- 순수 API 네트워크 통신을 위해 `utils.llm_client.call_gemini_api`를 호출합니다."
+service/llm_service.py,LlmService,__init__,"LlmService 인스턴스를 초기화합니다.
+
+Args:
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 Worker 환경에서 
+        발생하는 상태 로그를 메인 UI 스레드로 안전하게 전달하기 위한 콜백 함수. Defaults to None."
+service/llm_service.py,LlmService,_update_process_status,"내부적으로 진행 중인 동시다발적인 비동기 AI 태스크의 상태를 추적하고 로깅합니다.
+
+여러 파일이 동시에 병렬(Worker Pool)로 Gemini 파이프라인을 통과할 때, 
+어떤 태스크가 현재 진행 중인지, 성공했는지, 실패했는지를 파악하여 UI(로그 창)에 반영하기 위한 
+스레드 안전(Thread-safe) 상태 관리 로직입니다. 
+
+Args:
+    task_id (str): 작업을 고유하게 식별하는 UUID 문자열.
+    task_name (str): 수행 중인 작업의 이름과 모델 정보를 포함한 문자열.
+    status (str, optional): 작업의 현재 상태 플래그 (""START"", ""DONE"", ""ERROR""). Defaults to ""START""."
+service/llm_service.py,LlmService,_execute_llm_task,"LLM 호출 시 반복되는 락킹, 로깅 및 예외 처리를 전담하는 내부 템플릿(Wrapper) 메서드입니다.
+
+개별 비즈니스 로직(교정본, 요약본 등)이 직접 API를 호출하고 예외 처리를 중복 작성하는 것을 방지합니다. 
+이 메서드는 API 호출 전 `api_mgr`로부터 사용 가능한 API 키를 안전하게 대여(Checkout) 받고, 
+`llm_client`를 통해 통신을 시도하며, 작업 완료(또는 실패) 시 
+성공 여부 및 에러 코드를 포함하여 키를 반드시 반납(Checkin)하도록 `finally` 블록으로 강제합니다. 
+
+Args:
+    task_title (str): 로깅 및 사용자 안내 목적의 작업 제목 (예: ""Gemini 요약 작업"").
+    model_name (str): 사용할 Gemini 모델 이름 (예: ""gemini-2.5-flash"").
+    system_instruction (str): LLM의 페르소나 및 출력 형식을 정의하는 시스템 프롬프트.
+    user_prompt (str): 모델에 전달할 실제 데이터가 담긴 사용자 프롬프트.
+    task_id (Optional[str], optional): 작업 추적용 고유 ID. 입력하지 않으면 자동으로 UUID 8자리를 생성합니다.
+
+Returns:
+    Optional[str]: LLM이 생성한 응답 텍스트. 통신 에러나 예기치 못한 시스템 오류 발생 시 None 반환."
+service/llm_service.py,LlmService,correct_script_with_gemini,"음성 스크립트와 강의록을 비교하여 강사의 발화를 보존하며 오타를 교정하는 비즈니스 메서드입니다.
+
+Whisper AI가 음성을 텍스트로 변환할 때 흔히 발생하는 전문 의학 용어의 오인식(Hallucination)을 
+해결하기 위해 설계되었습니다. 원본 PDF(강의록) 텍스트를 Ground Truth(참조 데이터)로 제공하여 
+LLM이 발음이 유사한 단어를 문맥과 강의록에 맞게 추론하여 교정하도록 프롬프트 엔지니어링이 적용되어 있습니다. 
+강사의 팁이나 중요도(시험 관련) 발언이 훼손되지 않도록 엄격한 '삭제/생략 금지' 규칙이 포함되어 있습니다.
+
+Args:
+    audio_text (str): Whisper AI를 통해 추출된 불완전한 원본 음성 스크립트.
+    pdf_text (str): PDF에서 추출된 강의록 텍스트 (참조용 정답지 역할).
+    model_name (str): 사용할 모델 이름.
+    task_id (Optional[str], optional): 작업 식별용 ID. Defaults to None.
+
+Returns:
+    Optional[str]: 페이지별(`[Slide 00X]`) 맵핑 규칙에 따라 엄격하게 교정된 스크립트 텍스트."
+service/llm_service.py,LlmService,key_summary_with_gemini,"강의록과 교정본을 바탕으로 핵심 단권화(Summary) 노트를 생성하는 비즈니스 메서드입니다.
+
+교정이 완료된 스크립트와 강의록 텍스트를 입력받아, 의학 교육 전문가 수준의 
+구조화된 핵심 요약본을 도출합니다. 단순 요약이 아닌, 시험 출제 시그널 식별, 감별 진단 표 구성, 
+임상적 의사 결정 흐름(Decision Flow) 작성을 강제하는 고도화된 프롬프트가 적용되어 
+학습자의 실전 지식 향상을 돕습니다.
+
+Args:
+    corrected_text (str): 선행 작업(correct_script)을 통해 오타가 수정된 깨끗한 음성 스크립트.
+    pdf_text (str): 참조용 강의록 원문 텍스트.
+    model_name (str): 사용할 모델 이름.
+    task_id (Optional[str], optional): 작업 식별용 ID. Defaults to None.
+
+Returns:
+    Optional[str]: 프롬프트 규칙에 따라 마크다운(Markdown) 형태로 생성된 고품질 요약본 텍스트."
+service/llm_service.py,LlmService,generate_anki_csv_text,"강의록과 교정본을 바탕으로 Anki 카드 생성을 위한 파이프(|) 구분 CSV 원시 텍스트를 생성합니다.
+
+AnkiGenerationService(Anki 팀)가 `.apkg` 파일을 패키징하기 전, 필요한 핵심 데이터를 LLM을 통해 
+추출해내는 전처리 단계입니다. 프롬프트 내에 Basic, Cloze(빈칸뚫기), MCQ(객관식) 카드를 생성하는 
+구체적인 문법(`{{c1::}}` 등)과 CSV 포맷(`|` 구분)을 엄격하게 제한하여 기계가 쉽게 파싱할 수 있는 
+형태로 출력하도록 통제합니다.
+
+Args:
+    corrected_text (str): 선행 작업으로 오타가 교정된 깨끗한 음성 스크립트 텍스트.
+    pdf_text (str): 참조용 강의록 원문 텍스트.
+    model_name (str): 사용할 모델 이름.
+    task_id (Optional[str], optional): 작업 식별용 ID. Defaults to None.
+
+Returns:
+    Optional[str]: 마크다운 코드블록 마커(````csv`)가 제거된 순수한 4열 CSV 문자열 텍스트 데이터."
+service/pdf_analysis_service.py,PdfAnalysisService,__class__,"의학 강의 자료 PDF의 페이지 간 유사도를 분석하고 병합 레시피를 생성하는 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 파일의 물리적 저장 경로 관리나 UI 렌더링에 관여하지 않으며, 
+오로지 두 PDF 문서 간의 페이지 맵핑(Mapping) 알고리즘과 병합 규칙(Domain Logic)을 
+평가하고 조립하는 책임만 가집니다.
+
+의존성:
+- 텍스트 추출 및 유사도 계산, 이미지 해싱 처리를 위해 `PdfOcrService`에 강하게 의존합니다.
+- 파일명의 도메인 규칙 파싱을 위해 `FileNamingService`와 통신합니다.
+- 결과물은 Controller로 반환되어 UI의 수동 검수 테이블에 바인딩됩니다."
+service/pdf_analysis_service.py,PdfAnalysisService,__init__,"매칭 알고리즘 튜닝 파라미터 및 의존성 서비스를 초기화합니다.
+
+Args:
+    sim_threshold (float, optional): 두 페이지가 동일하다고 판정할 텍스트 일치율 임계값 (0.0 ~ 1.0). 기본값은 0.8(80%).
+    hash_threshold (int, optional): OCR이 실패했을 때 대체제로 사용하는 시각적 해시(pHash)의 최대 허용 차이(Hamming Distance). 값이 작을수록 엄격합니다. 기본값은 12.
+    lookahead (int, optional): 현재 페이지가 불일치할 때, 매칭되는 페이지를 찾기 위해 앞/뒤로 탐색할 최대 페이지 수 (Look-ahead Window). 슬라이드 삽입/누락으로 인한 오프셋(Offset)을 교정합니다. 기본값은 5."
+service/pdf_analysis_service.py,PdfAnalysisService,get_matched_file_groups,"지정된 폴더에서 '줄필기'와 '야붙' 태그가 붙은 PDF를 찾아, 같은 교시를 공유하는 파일끼리 그룹화합니다.
+
+비동기 Watchdog 스레드나 사용자가 업로드한 폴더 내에는 다양한 교시의 파일이 무작위로 섞여 있을 수 있습니다. 
+이 함수는 이기종 OS(Mac/Win) 환경에서 발생할 수 있는 유니코드 자소 분리(NFD/NFC) 문제를 선제적으로 
+정규화(Normalize)하여 매칭 실패를 방지하고, 정규식을 통해 파일명에서 교시 식별자(Base Name)를 추출하여 
+분석 대상이 되는 페어(Pair)를 안전하게 구축합니다.
+
+Args:
+    folder_path (str | Path): PDF 파일들을 탐색할 로컬 디렉토리 경로.
+
+Returns:
+    Dict[str, Dict[str, Any]]: Base Name(교시 식별자)을 Key로 가지고, 해당 교시의 줄필기 파일명, 야붙 파일명, 
+        그리고 저장될 최종 표시명(save_name)을 Value 딕셔너리로 갖는 매핑 객체."
+service/pdf_analysis_service.py,PdfAnalysisService,generate_matching_data,"선택된 파일 쌍(Pair)의 페이지별 텍스트 및 이미지를 분석하여 최종 병합 레시피(Recipe)를 생성합니다.
+
+이 메서드는 의학 강의 자료 자동화의 핵심 지능(Intelligence)입니다.
+줄필기와 야붙 PDF는 강의 슬라이드를 기반으로 하지만, 필기 공간 추가나 요약 페이지 삽입 등으로 인해 
+페이지 번호가 1:1로 일치하지 않는 경우가 매우 흔합니다. 
+
+이를 해결하기 위해 Two-Pointer 알고리즘을 기반으로 두 문서를 순회하며 다음 단계를 거칩니다:
+1. OCR 텍스트를 추출하고 불필요한 필기 앱 전용 폰트(`ignore_fonts`)를 배제하여 순수 슬라이드 텍스트 유사도를 비교합니다.
+2. 불일치 발생 시 슬라이딩 윈도우(`lookahead`) 기법을 통해 몇 페이지 앞/뒤에 동일한 슬라이드가 있는지 탐색하여 오프셋(Offset)을 교정합니다.
+3. 이미지가 많아 OCR 텍스트가 빈약한 슬라이드의 경우, Perceptual Hash(시각적 해시) 알고리즘을 통해 
+   슬라이드의 레이아웃 실루엣을 비교하는 Fallback 로직을 수행합니다.
+
+대용량 분석 시 메모리 부족(OOM)이나 파일 핸들 누수가 발생하지 않도록 철저히 컨텍스트 매니저(`with`) 안에서 
+객체의 생명주기를 통제합니다.
+
+Args:
+    folder_path (str | Path): 분석할 파일들이 위치한 루트 디렉토리.
+    selected_keys (List[str]): `get_matched_file_groups`에서 반환된 그룹 중 실제로 분석을 실행할 그룹의 Key 목록.
+    matched_groups (Dict[str, Dict[str, Any]]): 전체 파일 그룹 정보가 담긴 딕셔너리.
+
+Returns:
+    List[Dict[str, Any]]: 어느 파일의 몇 페이지를 가져올지, 혹은 어떻게 병합할지 명시된 조립 레시피 리스트. 
+        이 데이터는 Controller로 전달되어 UI 테이블의 행(Row)으로 렌더링됩니다."
+service/pdf_analysis_service.py,PdfAnalysisService,prepare_edit_data,"생성된 매칭 레시피를 기반으로 UI 수동 검수 테이블에 바인딩할 데이터 상태를 초기화합니다.
+
+자동화 알고리즘이 100% 완벽할 수 없으므로, 사용자가 병합 결과를 눈으로 확인하고(Human-in-the-loop) 
+체크박스를 통해 페이지를 선택/해제할 수 있도록 각 레코드의 초기 체크 상태(Boolean)를 부여합니다. 
+알고리즘의 결과를 기본값으로 신뢰하되, 언제든 사용자가 오버라이드할 수 있는 유연성을 제공합니다.
+
+Args:
+    base_data (List[Dict[str, Any]]): `generate_matching_data`에서 도출된 원본 병합 레시피.
+
+Returns:
+    List[Dict[str, Any]]: `jul_checked`와 `yaboot_checked` 플래그가 주입된 UI 편집용 데이터 배열."
+service/pdf_analysis_service.py,PdfAnalysisService,save_edits,"사용자의 체크박스 수정 사항을 반영하여 최종적으로 병합에 사용될 확정 레시피를 도출합니다.
+
+UI 레이어에서 발생한 사용자의 상호작용 결과를 Service 레이어의 데이터 구조로 다시 정제합니다. 
+체크 해제된 항목(병합에서 제외할 페이지)을 필터링하여 실제 디스크 I/O 단계로 넘어갈 
+순도 높은 데이터만 남깁니다.
+
+Args:
+    edit_data (List[Dict[str, Any]]): 사용자의 수동 검수를 거친 상태 데이터 배열.
+
+Returns:
+    List[Dict[str, Any]]: 병합 대상에서 제외된 항목들이 필터링된 최종 확정 레시피."
+service/pdf_analysis_service.py,PdfAnalysisService,split_item_on_yaboot_check,"사용자가 'matched' 상태의 페이지에서 특정 이벤트를 발생시켰을 때 하나의 항목을 두 개로 분할합니다.
+
+알고리즘이 '유사하다'고 판단하여 하나의 행(Row)으로 묶어둔 페이지 쌍(Pair)에 대해, 
+사용자가 ""이 두 페이지는 다르니 분리해서 개별적으로 넣고 싶다""고 체크를 변경했을 때 대응하는 로직입니다. 
+하나의 레코드를 두 개의 독립적인 단일 소스 레코드(`jul_only`, `yaboot_only`)로 분할 반환합니다.
+
+Args:
+    item (Dict[str, Any]): 분할할 원본 'matched' 상태의 레코드.
+
+Returns:
+    Tuple[Dict[str, Any], Dict[str, Any]]: 분리되어 새로 생성된 줄필기 전용 레코드와 야붙 전용 레코드의 튜플."
+service/pdf_analysis_service.py,PdfAnalysisService,swap_items,"레시피 배열 내에서 특정 항목의 위치를 위/아래로 변경합니다.
+
+UI의 위/아래 화살표 버튼을 클릭했을 때 호출되어, 최종 병합본에 삽입될 페이지의 순서(Order)를 
+수동으로 조작하는 유틸리티 메서드입니다. 배열 인덱스 바운더리를 안전하게 검사하여 크래시를 방지합니다.
+
+Args:
+    edit_data (List[Dict[str, Any]]): 순서를 변경할 전체 레시피 데이터 리스트.
+    idx (int): 이동시킬 대상 항목의 현재 인덱스.
+    direction (int): 이동 방향 (보통 위로 이동은 -1, 아래로 이동은 1).
+
+Returns:
+    List[Dict[str, Any]]: 순서 변경(Swap)이 반영된 새로운 데이터 리스트."
+service/pdf_analysis_service.py,PdfAnalysisService,execute_merge,"확정된 레시피를 바탕으로 실제 물리적 PDF 병합을 수행하고 디스크에 저장합니다.
+
+분석 서비스의 종착점이자 가장 무거운 디스크 I/O 작업이 일어나는 메서드입니다. 
+`base_data` 레시피에 명시된 순서와 페이지 번호대로 여러 PDF 파일에서 단일 페이지들을 발췌하여 
+하나의 거대한 PDF로 조립합니다. 
+
+수십~수백 번 동일한 원본 파일을 열고 닫는 오버헤드를 막기 위해 파이썬의 `ExitStack`을 사용하여 
+동적으로 열린 파일 핸들(`opened_pdfs`)을 캐싱하고, 작업이 끝난 후 또는 예외 발생 시 안전하고 
+일괄적으로 메모리에서 해제(Close)합니다. 이는 장시간 실행되는 Worker 환경에서 
+OS의 ""Too many open files"" 에러를 원천 차단하는 매우 중요한 방어 메커니즘입니다.
+
+Args:
+    base_data (List[Dict[str, Any]]): `save_edits` 등을 통해 정제 및 확정된 병합 레시피 데이터.
+    output_folder (str | Path): 조립이 완료된 PDF 파일들을 저장할 대상 로컬 디렉토리.
+
+Returns:
+    List[str]: 성공적으로 병합 및 저장 완료된 결과물들의 파일명(`save_name`) 리스트.
+
+Raises:
+    Exception: 파일 시스템 쓰기 권한 부족 등 I/O 통신 중 치명적인 에러 발생 시 로그를 남기고 다음 파일로 넘어갑니다."
+service/pdf_operation_service.py,PdfOperationService,__class__,"단순 PDF 분할(Split) 및 병합(Merge) 연산과 결과물의 로컬 저장 및 구글 드라이브 업로드를 전담하는 서비스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 PDF 바이너리 데이터를 직접 깎거나 수정하지 않으며(Core Utils에 위임), 
+연산이 수행될 '안전한 공간(임시 폴더)'을 마련하고 완성된 파일의 '배송(I/O Routing)'만을 책임집니다.
+
+의존성:
+- 물리적 조작: `utils.pdf_core_util`의 `split_pdf_two_parts`, `merge_pdfs`
+- 클라우드 저장: `utils.drive_api.upload_to_drive`, `utils.auth_util.get_drive_service`
+- 부모 클래스: `BaseService` (공통 로깅 인터페이스 상속)"
+service/pdf_operation_service.py,PdfOperationService,__init__,"PdfOperationService를 초기화하고 Google Drive 서비스 객체를 준비합니다.
+
+Args:
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 작업 중 
+        발생하는 상태 메시지를 UI 등 상위 계층으로 전달하기 위한 콜백 함수. Defaults to None."
+service/pdf_operation_service.py,PdfOperationService,split_and_save,"하나의 PDF를 두 개로 분할하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다.
+
+학습 자료 처리 파이프라인에서, 너무 용량이 큰 강의록이나 필기본이 인입되었을 때 
+API 페이로드 제한(Gemini 토큰 리밋 등)을 피하기 위해 파일을 쪼개야 하는 경우가 발생합니다. 
+이 메서드는 이러한 분할 요청을 처리할 때, 시스템 디스크 공간을 오염시키지 않도록 
+`tempfile.TemporaryDirectory()`를 활용한 격리 샌드박스를 구성합니다.
+
+격리된 공간에서 PDF 코어 유틸을 통해 두 개의 파트로 분할을 완료한 뒤, 
+`is_drive` 플래그에 따라 로컬 폴더로 복사하거나 구글 드라이브로 네트워크 업로드를 수행합니다. 
+작업이 완료되거나 예외가 발생하면 샌드박스(임시 폴더)는 파이썬의 컨텍스트 매니저에 의해 
+찌꺼기 없이 100% 자동 삭제(Clean-up)되므로, 24시간 가동되는 백그라운드 Worker 환경에서도 
+메모리나 디스크 누수 없이 안정적으로 동작합니다.
+
+Args:
+    current_pdf_path (PathLike): 분할 대상이 되는 원본 PDF 파일의 로컬 경로.
+    split_page (int): 분할 기준이 되는 페이지 번호 (1-based index 기준, 해당 페이지 뒤에서 분할됨).
+    out1_name (str): 분할되어 생성될 첫 번째 파트의 결과물 파일명.
+    out2_name (str): 분할되어 생성될 두 번째 파트의 결과물 파일명.
+    is_drive (bool): **True**일 경우 구글 드라이브로 업로드, **False**일 경우 로컬 `target_dir`로 저장.
+    target_dir (Optional[PathLike], optional): 로컬 저장을 선택했을 때 목적지 디렉토리 경로. 
+        `is_drive`가 False일 때 필수값입니다. Defaults to None.
+
+Returns:
+    Tuple[bool, str]: 
+        - 첫 번째 요소 (bool): 작업의 성공 여부 플래그 (True: 성공, False: 실패).
+        - 두 번째 요소 (str): UI에 출력할 성공 메시지 또는 구체적인 에러 원인 메시지."
+service/pdf_operation_service.py,PdfOperationService,merge_and_save,"여러 PDF 파일을 하나로 병합하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다.
+
+여러 개로 흩어져 있던 필기본이나, LLM 요약 파이프라인의 결과로 나온 개별 스크립트들을 
+최종 배포용 단일 학습 자료(합본)로 묶어낼 때 호출되는 필수 워크플로우입니다. 
+
+멀티스레드 기반의 비동기 큐(Queue) 환경에서는 여러 병합 작업이 동시에 발생할 수 있습니다. 
+이때 고정된 임시 파일명(예: `temp.pdf`)을 사용하면 스레드 간 덮어쓰기(Race Condition)가 발생해 
+데이터 오염이 생길 수 있습니다. 이를 방지하기 위해 완전히 독립되고 고유한 경로를 가지는 
+`tempfile.TemporaryDirectory()`를 매 호출마다 할당받아, 그 안에서만 병합 연산을 수행하여 원자성(Atomicity)을 확보합니다. 
+연산이 끝나면 `shutil` 또는 `upload_to_drive`를 통해 결과물만 대상지로 쏙 빼내어 저장합니다.
+
+Args:
+    paths_to_merge (List[PathLike]): 하나로 병합할 대상 PDF 파일들의 로컬 경로 리스트. (리스트 순서대로 병합됨)
+    save_name (str): 병합되어 생성될 결과물 PDF의 최종 파일명.
+    is_drive (bool): **True**일 경우 구글 드라이브로 업로드, **False**일 경우 로컬 `target_dir`로 복사 저장.
+    target_dir (Optional[PathLike], optional): 로컬 저장을 선택했을 때 결과물이 위치할 목적지 디렉토리. 
+        `is_drive`가 False일 때 필수값입니다. Defaults to None.
+
+Returns:
+    Tuple[bool, str]: 
+        - 첫 번째 요소 (bool): 병합 및 저장 작업의 성공 여부 플래그 (True: 성공, False: 실패).
+        - 두 번째 요소 (str): UI 테이블이나 알림창에 출력할 성공/에러 메시지."
+service/whisper_service.py,WhisperService,__class__,"Whisper 전사가 필요한 미처리 오디오 파일을 탐색하고 필터링하는 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 직접 Whisper AI 모델을 구동하거나 오디오를 처리하지 않고, 
+오직 클라우드(Google Drive) 상의 파일 메타데이터를 분석하여 '처리 대상 파일 목록'을 추출하는 책임만 가집니다.[cite: 1]
+
+의존성:
+- 구글 드라이브 API 연동을 위해 `utils.auth_util.get_drive_service` 및 `utils.drive_api.get_all_drive_files`를 사용합니다.[cite: 1]
+- 이 서비스의 결과물은 Controller나 Whisper를 구동하는 하위 Worker 계층으로 전달됩니다."
+service/whisper_service.py,WhisperService,__init__,"WhisperService 인스턴스를 초기화하고 드라이브 API 통신 환경을 설정합니다.
+
+Args:
+    drive_service (Optional[Any], optional): 외부에서 주입할 수 있는 인증된 Google Drive API 서비스 객체. 
+        테스트 용이성(DI)을 위해 제공되며, None일 경우 기본 인증 유틸리티를 통해 자동 생성합니다. Defaults to None.
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 스레드 환경에서 
+        발생하는 스캔 진행 상태 로그를 UI로 안전하게 전달하기 위한 콜백 함수. Defaults to None."
+service/whisper_service.py,WhisperService,get_pending_audio_files,"드라이브를 스캔하여 전사가 아직 완료되지 않은 오디오 파일 목록을 반환합니다.
+
+자동화 파이프라인에서 중복 처리를 방지(멱등성 보장)하기 위한 핵심 판별 로직입니다. 
+드라이브에 수많은 파일이 누적되어 있을 때, 오디오 파일(`.mp4`, `.mp3` 등)과 처리 완료를 나타내는 
+식별 파일(`_음성스크립트.txt`, `_done.json` 등)을 한 번에 스캔합니다. 
+
+완료된 파일들의 `base_name`(확장자를 제외한 순수 파일명)을 Set(집합) 자료구조에 캐싱해두고, 
+오디오 파일들의 `base_name`이 이 Set에 존재하는지 단일 탐색(O(1))으로 교차 검증합니다. 
+이를 통해 불필요한 API 다중 호출이나 디스크 I/O 없이 빠르고 정확하게 미처리된 새 오디오 파일만 
+걸러내어 비동기 파이프라인의 작업 대기열(Queue)로 넘길 수 있습니다.
+
+Args:
+    없음
+
+Returns:
+    List[str]: 아직 처리 완료 식별 파일이 존재하지 않는 미전사 오디오 파일명 리스트. 
+        결과는 알파벳/숫자 오름차순으로 정렬(sorted)되어 반환됩니다."
+service/notion_sync_service.py,NotionSyncService,__class__,"마크다운 텍스트를 Notion Block 객체로 변환하고 API 통신을 전담하는 통합 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 오직 마크다운 텍스트 파싱과 Notion 워크스페이스와의 
+네트워크 통신(페이지 생성, 검색, 블록 추가) 작업만을 전담합니다. 데이터의 원천(PDF 파싱, LLM 등)에 
+대해서는 알지 못하며 오직 텍스트 직렬화 및 클라우드 동기화에만 집중합니다.
+
+의존성:
+- 전역 환경설정인 `utils.config.Config`를 참조하여 'NOTION_TOKEN'을 획득합니다.
+- 외부 라이브러리인 `notion_client.Client`를 사용하여 공식 API 통신을 대리합니다.
+- 상위 Controller 또는 비동기 Worker로부터 LLM 요약 결과물(Markdown 문자열)을 주입받아 동작합니다."
+service/notion_sync_service.py,NotionSyncService,__init__,"NotionSyncService 인스턴스를 초기화합니다.
+
+Args:
+    auth_token (Optional[str], optional): 명시적으로 주입할 Notion API 토큰. 
+        생략될 경우 Config에서 전역 토큰을 자동으로 가져옵니다. Defaults to None.
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 
+        로그를 UI로 전달하기 위한 콜백 함수. Defaults to None."
+service/notion_sync_service.py,NotionSyncService,_get_client,"Notion Client 객체를 지연 초기화(Lazy Singleton) 방식으로 반환합니다.
+
+파이프라인 초기화 시점부터 불필요한 네트워크 연결 객체를 생성하여 자원을 낭비하는 것을 막고, 
+실제 동기화 작업이 요청되는 런타임 시점에 클라이언트를 빌드하기 위해 고안되었습니다. 
+사용자가 환경 변수(.env)에 토큰을 기입하지 않고 파이프라인을 실행했을 때 
+사전에 에러를 캐치(Fail-fast)하여 명확한 안내를 제공합니다.
+
+Returns:
+    Client: 인증이 완료된 notion_client.Client 인스턴스.
+
+Raises:
+    ValueError: 'NOTION_TOKEN'이 명시되지 않았거나 Config에 존재하지 않을 경우 발생합니다."
+service/notion_sync_service.py,NotionSyncService,find_page_by_title,"데이터베이스 내에서 특정 제목을 포함하는 첫 번째 페이지의 ID를 검색합니다.
+
+자동화된 데이터 파이프라인(Watchdog 등)은 동일한 파일에 대해 여러 번 트리거될 수 있습니다. 
+이때 무작정 새로운 노션 페이지를 계속 생성하면 워크스페이스가 중복 데이터로 오염됩니다. 
+이를 방지하기 위해 데이터 삽입 전 페이지의 존재 여부를 쿼리하여, 동일한 제목(교시 이름 등)의 
+페이지가 존재하면 해당 페이지를 반환해 업데이트를 유도하는 '멱등성(Idempotency)' 보장의 핵심 로직입니다.
+
+Args:
+    database_id (str): 페이지를 검색할 대상 노션 데이터베이스의 고유 식별자.
+    title_query (str): 검색할 페이지의 제목 문자열.
+    title_property_name (str, optional): 데이터베이스에 설정된 제목 속성(Property)의 이름. Defaults to ""이름"".
+
+Returns:
+    Optional[str]: 검색 조건에 일치하는 첫 번째 페이지의 ID 문자열. 존재하지 않으면 None을 반환합니다.
+
+Raises:
+    Exception: 데이터베이스 접근 권한이 없거나 네트워크 오류 등 API 통신 중 예외 발생 시."
+service/notion_sync_service.py,NotionSyncService,create_notion_page,"새로운 노션 페이지를 생성하고 Page ID를 반환합니다.
+
+새로운 학습 자료 파이프라인 결과물을 저장할 물리적 컨테이너(페이지)를 
+지정된 데이터베이스 하위에 생성합니다. 생성 시 데이터베이스 스키마에 맞춘 메타데이터(Properties)를 
+초기 주입하여, 이후 내용을 블록(Blocks)으로 덧붙일 수 있도록 기틀을 마련합니다.
+
+Args:
+    database_id (str): 새 페이지가 소속될 부모 데이터베이스의 고유 식별자.
+    properties (Dict[str, Any]): 페이지 생성 시 부여할 속성(제목, 태그, 생성일 등) 정보가 담긴 딕셔너리.
+
+Returns:
+    str: 정상적으로 생성된 노션 페이지의 고유 ID 문자열.
+
+Raises:
+    Exception: 스키마 불일치, API 권한 부족, 토큰 만료 등으로 페이지 생성이 거부될 경우."
+service/notion_sync_service.py,NotionSyncService,append_blocks_to_page,"페이지 하단에 Notion Block 리스트를 추가합니다.
+
+LLM이 생성한 대용량 마크다운 텍스트는 변환 후 수백~수천 개의 노션 블록 객체로 치환됩니다. 
+Notion API는 안정성 유지를 위해 1회 `append` 요청 시 최대 100개의 블록 전송 제한(Hard Limit)과 
+초당 호출 횟수(Rate Limit) 제한을 엄격하게 걸고 있습니다. 
+
+이 메서드는 전체 블록 리스트를 100개 단위 청크(Chunk)로 슬라이싱하고, 
+루프마다 `time.sleep(0.3)` 딜레이를 주어 속도를 조절하는 방어적 큐잉(Queuing) 로직을 포함합니다. 
+이를 통해 대용량 동기화 작업 중 `HTTP 429 Too Many Requests` 나 `HTTP 400 Bad Request` 
+에러로 파이프라인이 붕괴되는 것을 완벽히 방지합니다.
+
+Args:
+    page_id (str): 블록들을 추가할 대상 노션 페이지의 고유 ID.
+    children_blocks (List[Dict[str, Any]]): 노션 API 규격에 맞게 파싱 완료된 블록 객체들의 리스트.
+
+Returns:
+    None
+
+Raises:
+    Exception: 잘못된 블록 구조(Malformed JSON) 등 통신 거부 사유 발생 시."
+service/notion_sync_service.py,NotionSyncService,_convert_text_to_rich_text,"볼드/이탤릭 마크다운 텍스트를 Notion Rich Text 규격 리스트로 파싱합니다.
+
+노션의 본문 텍스트는 단순 문자열이 아니라 속성(굵게, 기울임 등)을 지닌 `rich_text` 객체 배열로 구성됩니다. 
+이 함수는 정규표현식을 사용해 LLM 응답 텍스트에 포함된 볼드(`**`), 이탤릭(`*`), 볼드+이탤릭(`***`) 등의 
+마크다운 기호를 해체하고, 이를 노션의 `annotations` JSON 구조로 정확하게 맵핑합니다. 
+
+또한, 단일 `rich_text` 요소의 내용이 2000자를 초과하면 Notion API에서 전송을 거부하므로, 
+2000자 단위로 텍스트를 강제 분할(Chunking)하여 배열에 이어붙이는 안전장치가 
+비동기 대용량 텍스트 파싱을 위해 견고하게 내장되어 있습니다.
+
+Args:
+    text (str): 마크다운 문법이 포함된 원본 단일 문자열.
+
+Returns:
+    List[Dict[str, Any]]: 노션 API 규격을 준수하는 Rich Text JSON 객체들의 리스트."
+service/notion_sync_service.py,NotionSyncService,_is_separator_line,"해당 라인이 마크다운 표(Table) 구분선인지 검증합니다.
+
+마크다운 표를 파싱하기 위해서는 해당 줄이 테이블의 헤더와 본문을 분리하는 
+구분선(예: `|---|---|` 또는 `|:---:|:---:|`) 역할을 하는지 판단해야 합니다. 
+정규식을 통해 칸(Cell) 안의 문자열이 순수 하이픈(`-`)과 콜론(`:`)으로만 
+이루어져 있는지 검사하여 테이블 파싱 엔진의 오작동을 방지합니다.
+
+Args:
+    line (str): 검사할 대상 문자열 라인.
+
+Returns:
+    bool: 테이블 구분선 형식을 띄고 있으면 True, 아니면 False."
+service/notion_sync_service.py,NotionSyncService,_parse_markdown_table,"마크다운 형태의 테이블 문자열 배열을 Notion Table 블록 객체로 변환합니다.
+
+Gemini LLM이 도출하는 '감별 진단 비교표' 등 복잡한 의학 데이터를 노션 테이블로 완벽히 복원하기 위해 설계되었습니다. 
+Notion의 Table 블록은 `table` 루트 객체 하위에 `table_row` 객체들이 배열로 묶이고, 
+그 안의 각 `cells` 배열에 다시 `rich_text` 배열이 들어가는 매우 깊은(Nested) 트리 구조를 갖습니다. 
+
+이 메서드는 제공받은 마크다운 테이블 라인들을 순회하며 헤더를 제외한 데이터 행(Row)을 추출하고, 
+열(Column) 수가 부족해 테이블 형태가 찌그러지는 현상을 막기 위해 빈 문자열 셀을 삽입(Padding)하여 
+`table_width`를 균일하게 맞추는 정교한 파싱 작업을 수행합니다.
+
+Args:
+    table_lines (List[str]): 테이블을 구성하는 여러 줄의 마크다운 문자열 리스트.
+
+Returns:
+    Optional[Dict[str, Any]]: 노션 API 규격에 맞는 최상위 Table Block JSON 객체. 유효한 데이터가 없으면 None 반환."
+service/notion_sync_service.py,NotionSyncService,create_markdown_blocks,"마크다운 텍스트를 Notion Block 객체 리스트로 일괄 변환합니다.
+
+이 서비스의 핵심 컴파일러 엔진(Compiler Engine) 역할을 수행합니다. 
+LLM이 출력한 순수 마크다운 문자열을 줄(Line) 단위로 읽어 들이며, 각 라인의 접두사를 분석해 
+제목(Heading 1~3), 불릿 리스트(Bulleted), 번호 리스트(Numbered), 구분선(Divider), 일반 단락(Paragraph), 
+그리고 복합 테이블(Table) 등의 적합한 노션 블록 타입으로 스위칭(Routing)하여 변환합니다. 
+전체 파이프라인에서 '비정형 데이터'를 클라우드 DB가 인식 가능한 '정형 데이터 구조'로 
+탈바꿈시키는 가장 중추적인 변환 로직입니다.
+
+Args:
+    text (str): 다수의 마크다운 문법이 혼재된 긴 원본 문자열 텍스트.
+
+Returns:
+    List[Dict[str, Any]]: 노션 API 전송에 즉시 사용할 수 있도록 파싱 및 구조화된 블록 JSON 객체 리스트."
+service/notion_sync_service.py,NotionSyncService,sync_markdown_to_page,"마크다운을 블록으로 일괄 변환하여 지정된 노션 페이지에 즉시 추가(Sync)합니다.
+
+Service나 Controller에서 외부 API로 직접 노출되는 퍼블릭 엔드포인트 메서드입니다. 
+`create_markdown_blocks`를 호출해 텍스트를 메모리 상에서 완벽한 블록 객체들로 컴파일한 뒤, 
+`append_blocks_to_page`를 호출하여 청크 단위 딜레이를 주며 클라우드에 밀어넣는 
+일련의 과정(Orchestration)을 하나로 묶어 제공합니다.
+
+Args:
+    page_id (str): 데이터가 삽입될 노션 페이지의 고유 식별자.
+    markdown_text (str): 페이지에 기록될 LLM 결과물 기반의 마크다운 포맷 문자열.
+
+Returns:
+    None"
+service/file_naming_service.py,FileNamingService,__class__,"의학 강의 자료의 파일명 명명 규칙(도메인 지식)을 전담하여 파싱하고 생성하는 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 파일 시스템 I/O나 API 호출은 수행하지 않으며, 
+오로지 파일 이름(문자열)에 담긴 도메인 지식(날짜, 교시, 확장자 등)을 추출하고 
+변형(병합, 분할 네이밍 생성)하는 텍스트 처리 로직만 담당합니다[cite: 1]. 
+이 서비스는 `PipelineStatusService`, `DriveSyncService` 및 병합/분할 관련 Controller 들과 통신하며 
+파이프라인의 데이터 흐름을 제어하는 기준 식별자를 제공합니다."
+service/file_naming_service.py,FileNamingService,__init__,"FileNamingService 객체를 초기화하고 성능 최적화를 위한 정규식 패턴을 사전 컴파일합니다.
+
+Args:
+    logger_callback (Optional[Callable[[str], None]], optional): 로그 메시지를 UI나 상위 레이어로 
+        전달하기 위한 콜백 함수입니다. Defaults to None."
+service/file_naming_service.py,FileNamingService,_parse_filename_meta,"내부 유틸: 파일명에서 [날짜(4자리), 교시, 접미사, 확장자]를 구조화된 데이터로 추출합니다.
+
+모든 네이밍 처리의 근간이 되는 코어 함수입니다. 
+이기종 OS 환경(macOS vs Windows)에서 발생하는 자소 분리 문제를 선제적으로 해결하기 위해 
+`normalize_text`를 가장 먼저 적용합니다. 그 후 사전 컴파일된 정규식을 통해 `MMDD_교시` 형태의 
+도메인 네이밍 룰에 따라 파일명을 분해합니다.
+
+Args:
+    filename (str): 파싱할 대상 원본 파일명.
+
+Returns:
+    Dict[str, Any]: 추출된 메타데이터 딕셔너리.
+        - 'date': MMDD 형식의 4자리 문자열 (매칭 실패 시 None)
+        - 'periods': 각 교시 숫자를 분리한 리스트 (예: ""12"" -> ['1', '2'])
+        - 'periods_str': 교시를 나타내는 원본 문자열 (예: ""12"")
+        - 'rest': 교시 이후에 붙는 부가 설명 문자열
+        - 'ext': 파일 확장자 문자열 (기본값 '.pdf')"
+service/file_naming_service.py,FileNamingService,extract_lesson_id,"파일명에서 '날짜_교시' 형태의 파이프라인 전역 식별자(Lesson ID)를 추출합니다.
+
+DriveSyncService나 Controller가 이 식별자를 통해 여러 흩어져 있는 관련 파일 
+(예: 필기본, 음성본, JSON 결과)들을 하나의 수업 교시 그룹으로 묶어 상태를 추적하게 해주는 핵심 키입니다.
+
+Args:
+    filename (str): 분석할 대상 파일명.
+
+Returns:
+    Optional[str]: 'MMDD_교시' 형태의 식별자 문자열(예: '1004_1'). 파싱 실패 시 None 반환."
+service/file_naming_service.py,FileNamingService,find_file_by_lesson,"특정 교시 식별자(Lesson ID)와 추가 키워드를 모두 포함하는 파일 1개를 탐색하여 반환합니다.
+
+파이프라인 진행 중, 특정 교시에 해당하는 '원본 필기'나 '음성 파일'을 매칭하여 
+다음 단계(예: Whisper 또는 Gemini 처리)로 넘기기 위해 파일 리스트에서 타겟을 핀셋 탐색할 때 사용됩니다.
+
+Args:
+    file_list (List[str]): 검색 대상이 되는 전체 파일명 리스트.
+    target_lesson_id (str): 찾고자 하는 교시 식별자.
+    keyword (Optional[str], optional): 파일명에 추가로 포함되어야 하는 키워드(예: 'script'). Defaults to None.
+
+Returns:
+    Optional[str]: 조건을 모두 만족하는 첫 번째 파일명. 찾지 못하면 None."
+service/file_naming_service.py,FileNamingService,filter_files_by_date_range,"파일 목록에서 지정된 날짜(MMDD) 범위에 해당하는 파일만 필터링하여 반환합니다.
+
+메인 UI에서 사용자가 '특정 기간'의 학습 자료만 동기화하거나 보기 원할 때 호출됩니다. 
+입력값이 로컬에서 수집된 단순 문자열 리스트인지, 드라이브 API 통신으로 가져온 
+딕셔너리 메타데이터 리스트인지 구분하지 않고 다형성(Polymorphism)을 지원하여 
+호출부의 데이터 가공 부담을 줄였습니다.
+
+Args:
+    file_list (List[Any]): 문자열 또는 드라이브 API 파일 객체(딕셔너리)가 담긴 리스트.
+    start_mmdd (str): 필터링 시작 기준 날짜 (예: ""1001"").
+    end_mmdd (str): 필터링 종료 기준 날짜 (예: ""1031"").
+
+Returns:
+    List[Any]: 날짜 조건을 만족하는 파일 데이터들만 남긴 필터링된 리스트."
+service/file_naming_service.py,FileNamingService,generate_merged_filename,"여러 파일명을 분석하여 병합 파이프라인의 결과물이 될 논리적인 새 파일명을 생성합니다.
+
+사용자가 여러 개의 분할된 교시 PDF(예: 1교시와 2교시)를 병합할 때, 
+'1004_1.pdf'와 '1004_2.pdf'의 메타데이터를 취합해 '1004_12.pdf'와 같은 형식으로 
+자동 명명해주는 스마트 유틸리티입니다. 
+내부적으로 집합(Set) 연산을 사용해 중복 교시 번호를 제거하고 오름차순으로 정렬하여 
+항상 일관된 네이밍 컨벤션을 유지합니다.
+
+Args:
+    filenames (List[str]): 병합 대상이 되는 원본 파일명들의 리스트.
+
+Returns:
+    str: 규칙에 맞게 생성된 새로운 합본 파일명. 리스트가 비어있거나 규칙을 
+         분석할 수 없는 경우 기본값(""merged_output..."")을 반환합니다."
+service/file_naming_service.py,FileNamingService,generate_split_filenames,"하나의 파일명을 두 개로 분할 파이프라인 처리 시 할당될 이름 리스트를 생성합니다.
+
+합쳐져 있던 교시 파일(예: '1004_12.pdf')을 사용자가 분할할 때, 
+이전 상태 메타데이터를 분석해 '1004_1.pdf'와 '1004_2.pdf'로 각각 나누어 질 수 있도록 
+논리적인 파일명 2개를 미리 계산하여 반환합니다.
+
+Args:
+    filename (str): 분할 대상이 되는 원본 합본 파일명.
+
+Returns:
+    List[str]: 분할될 두 개의 새로운 파일명을 담은 리스트."
+service/file_naming_service.py,FileNamingService,extract_save_name,"UI에 표시되거나 드라이브에 저장될 최종 표시용(Display) 파일명을 추출합니다.
+
+정규식 컴파일 패턴(`_save_name_pattern`)을 사용하여 복잡한 원본 이름에서 불필요한 태그나 
+콤마(,)를 제거하고, 사용자 친화적으로 깔끔하게 정돈된 최종 저장용 이름을 도출합니다.
+
+Args:
+    base_name (str): 정리되지 않은 복잡한 형태의 원본 기본 이름.
+
+Returns:
+    str: 불필요한 특수문자가 제거된 정돈된 PDF 파일명."
+service/file_naming_service.py,FileNamingService,suggest_pdf_merge_name,"선택된 여러 PDF 파일명을 분석해 UI 저장 텍스트 입력창에 추천할 텍스트를 반환합니다.
+
+사용자가 수동으로 여러 파일을 드래그 앤 드롭하여 병합하려 할 때 UI Controller에 의해 호출됩니다.
+`generate_merged_filename`과 유사하지만, 사용자가 직접 눈으로 보고 확인하는 
+입력 폼(Form)을 채워주는 용도이므로 스크립트 합본(`_scripted`) 여부 등을 추가로 평가하여 
+더 직관적이고 친절한 파일명을 제안(Suggest)합니다.
+
+Args:
+    file_names (List[str]): 병합을 위해 사용자가 선택한 원본 파일명 리스트.
+
+Returns:
+    str: UI 입력창에 플레이스홀더(Placeholder)로 들어갈 추천 병합 파일명.
+         날짜가 다르거나 분석이 어려울 경우 기본값(""merged_output.pdf"" 등)을 반환합니다."
+service/youtube_playlist_service.py,YoutubePlaylistService,__class__,"공식 YouTube Data API 조회, yt-dlp 기반 메타데이터 분석 및 상태 교차 검증을 전담하는 비즈니스 서비스.
+
+단일 책임 원칙(SRP)에 따라, 이 클래스는 물리적인 미디어 다운로드나 드라이브 업로드는 수행하지 않으며 
+(해당 역할은 YoutubeMediaService가 담당), 오직 텍스트 기반의 메타데이터(JSON/Dict)를 추출하고 
+정규화(Normalization)하는 읽기 전용(Read-only) 분석 역할에 집중합니다.
+
+의존성:
+- YouTube Data API v3: `utils.auth_util.get_youtube_service`[cite: 1]
+- 파이프라인 식별자 추출: `service.file_naming_service.FileNamingService`[cite: 1]
+- 미완료 음원 필터링 및 병렬 처리: `concurrent.futures.ThreadPoolExecutor`"
+service/youtube_playlist_service.py,YoutubePlaylistService,__init__,"YoutubePlaylistService 인스턴스를 초기화하고 의존성을 주입받습니다.
+
+Args:
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 스레드 실행 시 
+        진행 상황과 오류를 메인 UI 스레드로 전달하기 위한 콜백. Defaults to None."
+service/youtube_playlist_service.py,YoutubePlaylistService,_parse_iso_duration,"YouTube ISO 8601 시간 포맷(PT1H2M10S 등)을 인간이 읽기 쉬운 HH:MM:SS 포맷으로 변환하는 내부 헬퍼 함수.
+
+YouTube Data API v3의 `contentDetails.duration` 필드는 ISO 8601의 기간(Duration) 표준을 따릅니다. 
+이를 UI 데이터 테이블에 직관적으로 시각화하기 위해, 정규식을 사용하여 시(H), 분(M), 초(S) 단위를 
+각각 파싱하고 두 자리 숫자 형식으로 제로 패딩(Zero-padding)하여 문자열로 조립합니다.
+
+Args:
+    duration (str): ISO 8601 포맷의 원본 시간 문자열 (예: 'PT1H2M10S', 'PT45M').
+
+Returns:
+    str: 변환된 'HH:MM:SS' 또는 'MM:SS' 포맷의 문자열. 파싱할 수 없는 입력이 들어오면 ""00:00""을 반환합니다."
+service/youtube_playlist_service.py,YoutubePlaylistService,parse_playlist_id,"주어진 YouTube 웹 URL에서 재생목록의 고유 식별자(playlist_id)를 파싱하여 추출합니다.
+
+사용자가 UI 입력창에 복사해 넣는 주소는 매우 다양한 형태(예: 모바일 공유 링크, 개별 영상 시청 중인 
+재생목록 링크 등)를 띌 수 있습니다. URL의 쿼리 스트링(Query String)을 안전하게 분해(`urlparse`)하여, 
+재생목록을 뜻하는 `list` 파라미터 값만 핀셋 추출함으로써 하위 API 호출의 안정성을 확보합니다.
+
+Args:
+    url (str): 분석할 원본 YouTube URL 문자열.
+
+Returns:
+    Optional[str]: 파싱에 성공한 재생목록 고유 ID 문자열 (예: 'PLxyz...'). 파라미터가 없으면 None 반환."
+service/youtube_playlist_service.py,YoutubePlaylistService,get_playlist_title,"`yt-dlp`를 사용하여 URL에 해당하는 재생목록의 제목을 매우 빠르게 조회합니다.
+
+UI에서 사용자가 URL을 등록할 때, 공식 API 인증 절차를 거치지 않고 가볍게 제목만 스크래핑해 오기 위해 사용됩니다. 
+실제 영상 데이터를 다운로드하지 않도록 `extract_flat=True` 옵션을 부여하여 통신 오버헤드와 
+실행 시간을 극단적으로 줄였습니다.
+
+Args:
+    url (str): 조회할 재생목록의 전체 URL.
+
+Returns:
+    str: 획득한 재생목록 제목. 네트워크 오류 등으로 실패할 경우 기본값인 '새 재생목록'을 반환합니다."
+service/youtube_playlist_service.py,YoutubePlaylistService,extract_playlist_info,"YouTube Data API를 사용하여 재생목록의 핵심 메타데이터(제목, 총 영상 개수 등)를 정밀 조회합니다.
+
+재생목록 등록 시 해당 목록이 유효한지(삭제되거나 비공개 상태가 아닌지) 검증하고, 
+초기 테이블 렌더링에 필요한 총 아이템 수량(`itemCount`)을 파악하기 위해 공식 API를 호출합니다.
+API 호출 중 발생할 수 있는 일일 할당량(Quota) 초과 에러(`HttpError`)를 명시적으로 포착(Catch)하여 
+사용자에게 원인을 명확하게 안내하는 방어 로직이 포함되어 있습니다.[cite: 1]
+
+Args:
+    playlist_id (str): 메타데이터를 조회할 대상 재생목록의 고유 ID.
+
+Returns:
+    Dict[str, Any]: `id`, `title`, `item_count` 키를 포함하는 딕셔너리 정보.
+
+Raises:
+    Exception: 재생목록이 비공개이거나 삭제된 경우, 혹은 API 통신 실패 및 할당량 초과 시 예외가 발생합니다.[cite: 1]"
+service/youtube_playlist_service.py,YoutubePlaylistService,fetch_playlist_videos,"YouTube API를 통해 재생목록 내의 모든 영상 목록을 순회(Pagination)하며 조회하고 포맷팅합니다.
+
+한 번의 API 요청(`playlistItems`)으로는 최대 50개의 영상만 가져올 수 있으므로, 
+`nextPageToken`을 활용한 Pagination 루프를 돌며 전체 리스트를 완전히 스크래핑합니다. 
+이후 얻어낸 각 영상의 ID들을 쉼표(,)로 묶어 `videos` API에 배치(Batch) 요청을 한 번 더 날려, 
+영상별 정확한 재생 시간(`duration`)을 조회합니다. 
+
+조회된 제목 문자열을 `FileNamingService`에 통과시켜 파이프라인 식별자(`lesson_id`)를 추출하고, 
+이를 구글 드라이브 상의 기존 데이터(`existing_prefixes`)와 대조하여 이미 추출/동기화가 완료된 영상인지 
+(""O"" 또는 ""X"") 마킹(Tagging)하는 복합 비즈니스 로직입니다.
+
+Args:
+    playlist_id (str): 영상 목록을 긁어올 재생목록의 고유 ID.
+    existing_prefixes (set): 구글 드라이브에 이미 처리 완료된 파일들의 `lesson_id`를 담고 있는 집합(Set).
+    naming_service (FileNamingService): 도메인 식별자를 추출할 네이밍 서비스 인스턴스.[cite: 1]
+
+Returns:
+    List[Dict]: 제목, 길이, 추출 완료 여부(`extracted`), 영상 고유 ID, `lesson_id(prefix)` 등을 
+        포함하는 딕셔너리들의 리스트. UI 테이블 렌더링에 직접 사용됩니다."
+service/youtube_playlist_service.py,YoutubePlaylistService,check_playlists_updates,"yt-dlp를 이용해 로컬에 등록된 다수의 재생목록들의 최근 업데이트 날짜를 병렬(Parallel)로 확인합니다.
+
+메인 UI가 구동될 때, 등록된 여러 재생목록(예: 10개)에 대해 하나씩 순차적으로 API 조회를 하면 
+응답 대기(Network Latency) 시간으로 인해 로딩 속도가 심각하게 저하됩니다. 
+이를 해결하기 위해 `concurrent.futures.ThreadPoolExecutor`를 도입하여 여러 `yt-dlp` 조회 요청을 
+병렬(최대 5개 워커)로 분산 처리(Scatter-Gather)합니다. 
+조회된 최종 수정일(`modified_date`)을 기준으로 내림차순 정렬하여, 가장 최근에 영상이 업로드된 
+재생목록이 UI 상단에 노출되도록 돕습니다.[cite: 1]
+
+Args:
+    playlists (list): 업데이트 날짜를 확인할 재생목록 정보 딕셔너리(DB 로드 데이터)들의 리스트.[cite: 1]
+
+Returns:
+    list: `real_last_updated` 필드가 추가되고, 최신 업데이트 순으로 정렬된 새로운 재생목록 리스트."
+service/youtube_playlist_service.py,YoutubePlaylistService,get_existing_prefixes_in_drive,"구글 드라이브에 이미 전사 대상 오디오나 작업 폴더가 존재하는지 파이프라인 식별자 단위로 교차 검증합니다.
+
+유튜브에서 영상을 다운로드하기 전, ""이미 과거에 다운로드해서 드라이브에 올렸거나, 처리 중인 파일이 있는가?""를 
+검사하는 멱등성(Idempotency) 보장 로직입니다. 
+타겟 구글 드라이브 폴더를 1회 스캔하여 파일명(혹은 폴더명)에서 `lesson_id`를 모두 파싱해낸 뒤, 
+고유한 집합(Set)으로 반환합니다. 이는 `fetch_playlist_videos` 내부에서 각 영상의 추출 여부를 
+""O"" 또는 ""X""로 마킹(Tagging)하는 데 직접적인 참조 데이터로 쓰입니다.
+
+Args:
+    drive_service (Any): 인증이 완료된 구글 드라이브 API 서비스 객체.[cite: 1]
+    folder_id (str): 스캔 대상이 될 구글 드라이브 최상위 폴더 ID.[cite: 1]
+
+Returns:
+    Set[str]: 드라이브 내에서 발견된 처리 완료(혹은 진행 중) 파일들의 고유 교시 식별자(`lesson_id`) 집합. 
+        스캔 중 예외 발생 시 빈 Set을 반환하여 시스템 다운을 방지합니다.[cite: 1]"
+service/drive_sync_service.py,DriveSyncService,__class__,"드라이브 및 로컬 폴더의 파일을 스캔하여 각 수업 교시별 동기화 상태를 판별하는 단일 책임 서비스.
+
+구글 드라이브 API 통신(`get_drive_service`, `get_all_drive_files`), 파일 시스템 스캔, 
+도메인 로직 처리(`FileNamingService`, `PipelineStatusService`)에 대한 의존성을 묶어 
+Controller가 복잡한 상태 취합 로직에 관여하지 않도록 캡슐화(Encapsulation)합니다."
+service/drive_sync_service.py,DriveSyncService,__init__,"DriveSyncService를 초기화하고 필요한 의존성 객체들을 주입받아 생성합니다.
+
+Args:
+    logger_callback (Optional[Callable[[str], None]], optional): 
+        백그라운드 스레드에서 발생하는 이벤트나 에러를 Controller를 통해 메인 UI 스레드로 
+        안전하게 전달하기 위한 로거 콜백 함수. Defaults to None."
+service/drive_sync_service.py,DriveSyncService,fetch_all_files,"구글 드라이브와 로컬 시스템의 모든 파일 목록을 재귀적으로 스캔하여 수집합니다.
+
+자동화 모니터링 시스템에서 클라우드와 로컬 저장소 간의 상태 동기화를 맞추기 위해 필수적으로 선행되는 함수입니다. 
+대량의 파일이 오가는 비동기 환경에서 네트워크 지연, API 할당량 초과, 사용자 디렉토리 권한 없음 등 
+다양한 예외 상황이 발생할 수 있습니다. 
+
+따라서 각각의 I/O 작업(네트워크, 디스크)을 개별 `try-except` 블록으로 격리하여 방어적으로 프로그래밍했습니다. 
+만약 드라이브 스캔이 실패하더라도 로컬 스캔은 정상적으로 시도되며, 둘 다 실패할 경우 빈 리스트를 반환하여 
+UI가 멈추는(Freezing) 치명적 에러를 방지합니다. 
+또한 macOS 환경에서 발생하는 불필요한 시스템 숨김 파일(`.DS_Store`) 및 오피스 임시 파일(`~$`)을 
+선제적으로 필터링하여 비즈니스 로직의 오작동을 차단합니다.
+
+Args:
+    local_path (str): 파일을 스캔할 로컬 디렉토리의 절대 또는 상대 경로 문자열.
+
+Returns:
+    Tuple[List[Dict[str, Any]], List[str], List[str]]:
+        - 첫 번째 요소: 드라이브 파일들의 원본 메타데이터 딕셔너리 리스트.
+        - 두 번째 요소: 드라이브 파일들의 파일명 문자열만 추출한 리스트.
+        - 세 번째 요소: 로컬 시스템에서 스캔(필터링 완료)된 파일명 리스트."
+service/drive_sync_service.py,DriveSyncService,extract_and_filter_lessons,"무작위 파일 이름 목록에서 정규화된 교시(Lesson ID)를 추출하고 조건에 맞게 정렬하여 반환합니다.
+
+수백 개의 임의 파일들(예: '1004_1_필기.pdf', '1004_1_음성.mp3') 속에서 핵심 도메인 식별자인 
+'수업 교시(Lesson ID)' 단위(예: '1004_1')를 뽑아내어 중복 없는 집합(Set)으로 구축하는 데이터 전처리 로직입니다. 
+사용자가 메인 UI에서 '특정 날짜 범위' 등으로 검색 필터를 걸 경우(`search_mode == ""DATE""`), 
+도출된 Lesson ID 내장 날짜 정보를 바탕으로 문자열 슬라이싱 비교를 수행하여 범위를 벗어나는 교시들을 
+결과 목록에서 제외시킵니다. 
+파일 네이밍 컨벤션이 깨진(IndexError 유발) 불량 파일이 발견되더라도 무시(continue)하고 스킵하여 안정성을 유지합니다.
+
+Args:
+    filenames (List[str]): 교시 아이디를 추출할 원본 파일명 리스트.
+    search_mode (str): 검색 및 필터링 모드 (예: ""ALL"" 전체 검색, ""DATE"" 날짜 범위 검색 등).
+    filter_value (Any): 필터링에 사용될 기준 값. ""DATE"" 모드일 경우 시작 날짜와 종료 날짜 문자열 튜플.
+
+Returns:
+    List[str]: 필터링을 통과하고 오름차순으로 정렬된 고유 교시(Lesson ID) 문자열 리스트."
+service/drive_sync_service.py,DriveSyncService,build_lesson_status_data,"단일 교시(Lesson ID)를 기준으로 모든 파일의 존재 여부를 평가하여 통합 상태 데이터를 조립합니다.
+
+자동화 파이프라인의 핵심 상태를 정의하는 조립부(Assembler)입니다.
+입력된 단일 `lesson_id` 하나에 대해, 드라이브 상에 '원본 필기 파일', 'Whisper 전사 텍스트', 
+'LLM 교정본 및 요약본', 'Anki 추출 데이터'가 물리적으로 존재하는지 `PipelineStatusService`를 통해 
+계층적으로 검사합니다. 
+
+파이프라인의 진행 상황을 '완료', '전사 필요', '영상 없음' 등 비즈니스 친화적인 자연어 상태(Status)로 변환하며, 
+이렇게 생성된 단일 딕셔너리는 UI 레이어의 데이터 그리드(Table)의 한 행(Row)으로 직접 매핑(Mapping)됩니다.
+네트워크 지연이나 JSON 파싱 에러 등으로 상태 조회가 실패하더라도 전체 스캔 프로세스를 죽이지 않도록 
+오류 전용 더미(Dummy) 데이터를 반환하는 예외 처리 방어선이 구축되어 있습니다.
+
+Args:
+    lesson_id (str): 상태를 조회하고 조립할 기준이 되는 수업 교시 식별자(ID).
+    drive_files (List[Dict[str, Any]]): 구글 드라이브에서 가져온 파일들의 상세 메타데이터 리스트. (LLM JSON 읽기 시 사용)
+    drive_filenames (List[str]): 단순 파일 이름 검색 효율을 위한 파일명 문자열 리스트.
+    json_cache (Optional[Dict[str, Any]], optional): 반복적인 드라이브 통신을 줄이기 위한 
+        JSON 내용 메모리 캐싱 변수. Defaults to None.
+
+Returns:
+    Dict[str, Any]: 파이프라인의 각 단계별 완료/대기 상태와 불리언 플래그 값들이 
+        포함된 통합 상태 데이터 딕셔너리."
+service/pdf_ocr_service.py,PdfOcrService,__class__,"PDF에서 텍스트 추출, 폰트 감지, 시각적 해시 비교 및 OCR 전사를 담당하는 이미지/텍스트 분석 전문 도메인 서비스 클래스.
+
+단일 책임 원칙(SRP)에 따라, 파일 저장이나 전체 파이프라인의 상태 관리는 수행하지 않으며, 
+오직 `pymupdf`, `OpenCV`, `Tesseract`를 활용하여 PDF 단일 페이지 내의 텍스트와 픽셀 데이터를 
+추출 및 수치화(유사도, 해시값)하는 작업만을 전담합니다.
+
+의존성:
+- 전역 환경설정인 `utils.config.Config`를 참조하여 Tesseract 엔진 경로를 획득합니다.
+- 부모 클래스인 `BaseService`를 상속받아 공통 로깅 인터페이스를 사용합니다[cite: 1]."
+service/pdf_ocr_service.py,PdfOcrService,__init__,"PdfOcrService 객체를 초기화하고 폰트 필터링 캐시를 구성합니다.
+
+Args:
+    logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 로그를 
+        상위 레이어(Controller/UI)로 전달하기 위한 콜백 함수. Defaults to None.
+    default_ignore_fonts (Optional[List[str]], optional): 텍스트 추출 시 전역적으로 무시할 
+        폰트 이름 키워드 리스트 (예: 필기 앱 워터마크 폰트). Defaults to None."
+service/pdf_ocr_service.py,PdfOcrService,get_filtered_text,"PDF 페이지에서 텍스트를 추출하되, 지정된 폰트가 쓰인 텍스트는 필터링하여 제외합니다.
+
+의학 강의 자료(PDF)에는 종종 학생이 태블릿(굿노트, 노타빌리티 등)으로 덧그린 필기나 
+출처 워터마크가 포함되어 있습니다. 이러한 필기 텍스트는 원본 슬라이드 텍스트와 폰트가 다르다는 점을 
+이용해, 순수 슬라이드 텍스트만 추출하도록 폰트 이름 기반의 블랙리스트 필터링을 수행합니다. 
+자동화된 페이지 매칭 알고리즘이 필기 내용의 차이 때문에 두 슬라이드를 '다르다'고 오판하는 것을 
+방지하는 핵심 전처리 로직입니다.
+
+Args:
+    page (pymupdf.Page): 텍스트를 추출할 대상 PDF 페이지 객체.
+    ignore_fonts (Optional[List[str]], optional): 해당 페이지 추출 시 추가로 무시할 폰트 키워드 리스트. Defaults to None.
+
+Returns:
+    str: 필터링 조건에 의해 제외된 텍스트를 뺀 순수 추출 텍스트 문자열."
+service/pdf_ocr_service.py,PdfOcrService,check_font_presence,"PDF 페이지 내에 특정 키워드가 포함된 폰트가 쓰였는지 감지합니다.
+
+PDF 구조(Dictionary)를 파싱하여 특정 폰트(예: ""Apple"", ""Pen"" 등)의 사용 여부를 불리언(Boolean)으로 반환합니다. 
+이는 PdfAnalysisService가 '학생이 필기한 첫 페이지'를 휴리스틱(Heuristic)하게 탐지하여, 
+병합 시 필기본 표지를 강제로 삽입하는 등의 도메인 비즈니스 규칙(Rule)을 트리거하는 데 사용됩니다.
+
+Args:
+    page (pymupdf.Page): 분석할 대상 PDF 페이지 객체.
+    font_keyword (str): 감지하고자 하는 폰트 이름의 일부(소문자 기준).
+
+Returns:
+    bool: 해당 폰트가 페이지 내 텍스트 스팬(Span)에 한 번이라도 사용되었으면 True, 아니면 False."
+service/pdf_ocr_service.py,PdfOcrService,calculate_text_similarity,"두 텍스트 간의 유효 유사도 비율(0.0 ~ 1.0)을 계산합니다.
+
+Python 내장 `difflib.SequenceMatcher`를 사용하여 레벤슈타인 거리 기반의 형태적 텍스트 일치율을 산출합니다. 
+비동기 매칭 파이프라인에서 두 개의 슬라이드가 논리적으로 같은 페이지인지를 판별할 때 
+가장 1차적이고 빠른 판단 기준(Threshold)으로 작용합니다.
+
+Args:
+    text1 (str): 비교할 첫 번째 텍스트 문자열.
+    text2 (str): 비교할 두 번째 텍스트 문자열.
+
+Returns:
+    float: 0.0(완전 불일치)에서 1.0(완전 일치) 사이의 실수값. 입력값이 모두 비어있으면 1.0을 반환합니다."
+service/pdf_ocr_service.py,PdfOcrService,compare_page_hashes,"두 PDF 페이지의 시각적 레이아웃/실루엣(Average Hash) 차이값을 계산합니다.
+
+그림이나 도표 위주로 구성되어 추출 가능한 텍스트가 극히 적은 슬라이드의 경우, 
+텍스트 유사도 비교 알고리즘이 무용지물이 됩니다. 이 메서드는 페이지 자체를 저해상도(zoom=0.5) 
+그레이스케일 이미지로 렌더링한 뒤, Average Hash 기법을 통해 이미지의 전체적인 레이아웃 실루엣을 
+비트 배열로 압축합니다. 이후 두 해시값의 해밍 거리(Hamming Distance)를 반환하여, 
+미세한 필기 자국이 추가되었더라도 전체적인 형태가 같으면 동일 페이지로 간주하는 
+매칭 알고리즘의 최후 방어선(Fallback) 역할을 합니다.
+
+Args:
+    page1 (pymupdf.Page): 비교할 첫 번째 PDF 페이지 객체.
+    page2 (pymupdf.Page): 비교할 두 번째 PDF 페이지 객체.
+    zoom (float, optional): 이미지를 렌더링할 배율. 작을수록 속도는 빠르나 정밀도가 떨어집니다. Defaults to 0.5.
+    hash_size (int, optional): 생성할 해시 비트맵의 한 변의 길이(기본 8x8). Defaults to 8.
+
+Returns:
+    int: 두 페이지의 시각적 해시 차이(해밍 거리). 0에 가까울수록 시각적으로 동일함을 의미합니다. 오류 발생 시 999를 반환."
+service/pdf_ocr_service.py,PdfOcrService,extract_text_with_ocr,"텍스트 데이터가 포함되어 있지 않은 이미지형/스캔본 PDF를 대상으로 Tesseract OCR을 수행합니다.
+
+일반적인 텍스트 추출이 불가능한 스캔 문서(통이미지 PDF)가 파이프라인에 인입될 경우, 
+이 메서드가 OpenCV를 활용한 이미지 전처리(이진화 및 오츠 임계값 적용)를 수행한 후 
+Tesseract OCR 엔진을 가동하여 문자를 강제로 전사(Transcription)해 냅니다. 
+추출된 데이터는 LLM 요약 서비스(Gemini)나 Anki 생성 로직의 입력(Context)으로 활용될 수 있도록 
+페이지 구분자와 함께 문자열로 반환됩니다.
+
+Args:
+    file_path (PathLike): OCR 전사를 수행할 원본 PDF 파일의 로컬 경로.
+    tesseract_cmd (Optional[str], optional): 명시적으로 주입할 Tesseract 실행 파일 경로. 
+        없을 경우 Config 환경 변수에서 로드합니다. Defaults to None.
+    min_text_len (int, optional): 페이지 내에서 기본 추출된 텍스트가 이 길이보다 작을 경우에만 
+        무거운 OCR 연산을 수행하도록 하는 임계값. Defaults to 10.
+
+Returns:
+    Optional[str]: 페이지별 구분자(`--- X Page ---`)가 포함된 전체 추출 텍스트. 
+        엔진을 찾지 못하거나 처리 중 오류가 발생하면 None을 반환합니다."
+worker/youtube_worker.py,PlaylistFetchWorker,__class__,
+worker/youtube_worker.py,PlaylistFetchWorker,__init__,
+worker/youtube_worker.py,PlaylistFetchWorker,_task,
+worker/youtube_worker.py,YoutubeUploadWorker,__class__,
+worker/youtube_worker.py,YoutubeUploadWorker,__init__,
+worker/youtube_worker.py,YoutubeUploadWorker,_task,
+worker/youtube_worker.py,PlaylistUpdateCheckerWorker,__class__,
+worker/youtube_worker.py,PlaylistUpdateCheckerWorker,__init__,
+worker/youtube_worker.py,PlaylistUpdateCheckerWorker,_task,
+worker/pdf_worker.py,PdfInspectionThread,__class__,"[Tab 2] 선택된 줄필기와 야붙필기 PDF들을 분석하고 매칭 검수 데이터를 생성하는 스레드
+수십 페이지의 PDF를 렌더링하고 이미지 해시/OCR을 비교하는 무거운 연산을 백그라운드에서 처리합니다."
+worker/pdf_worker.py,PdfInspectionThread,__init__,
+worker/pdf_worker.py,PdfInspectionThread,_task,
+worker/pdf_worker.py,PdfCombineSaveThread,__class__,"[Tab 2] 검수가 완료된 데이터를 바탕으로 최종 PDF를 병합하고 로컬에 저장하는 스레드
+I/O 병목으로 인한 멈춤을 방지합니다."
+worker/pdf_worker.py,PdfCombineSaveThread,__init__,
+worker/pdf_worker.py,PdfCombineSaveThread,_task,
+worker/pdf_worker.py,PdfSimpleOperationThread,__class__,"[Tab 3, 4 공통] 단순 PDF 병합(Merge) 및 분할(Split) 작업을 처리하는 범용 스레드"
+worker/pdf_worker.py,PdfSimpleOperationThread,__init__,
+worker/pdf_worker.py,PdfSimpleOperationThread,_task,
+worker/drive_worker.py,DriveSyncThread,__class__,드라이브 동기화 및 상태 조회를 백그라운드에서 전담하는 스레드
+worker/drive_worker.py,DriveSyncThread,__init__,
+worker/drive_worker.py,DriveSyncThread,_task,
+worker/watchdog_worker.py,StudyFileEventHandler,__class__,실제 파일 시스템 이벤트를 감지하는 핸들러
+worker/watchdog_worker.py,StudyFileEventHandler,__init__,
+worker/watchdog_worker.py,StudyFileEventHandler,on_created,
+worker/watchdog_worker.py,WatchdogThread,__class__,백그라운드에서 특정 폴더를 무한히 감시하는 스레드입니다.
+worker/watchdog_worker.py,WatchdogThread,__init__,
+worker/watchdog_worker.py,WatchdogThread,run,
+worker/watchdog_worker.py,WatchdogThread,stop,스레드를 안전하게 종료합니다.
+worker/whisper_worker.py,WhisperScannerWorker,__class__,드라이브를 스캔하여 전사가 필요한 오디오 파일만 필터링하는 워커
+worker/whisper_worker.py,WhisperScannerWorker,__init__,
+worker/whisper_worker.py,WhisperScannerWorker,do_work,
+worker/whisper_worker.py,WhisperExecutionWorker,__class__,Mac mini(로컬 IP)에 접속하여 Whisper 전사를 요청하고 결과를 기다리는 스레드.
+worker/whisper_worker.py,WhisperExecutionWorker,__init__,
+worker/whisper_worker.py,WhisperExecutionWorker,do_work,
+worker/llm_worker.py,LLMTaskThread,__class__,"Gemini API를 이용한 교정, 요약 및 Anki 생성을 일괄 처리하는 스레드.
+BaseThread를 상속받아 에러 발생 시 앱 튕김 현상을 자동으로 방어합니다."
+worker/llm_worker.py,LLMTaskThread,__init__,
+worker/llm_worker.py,LLMTaskThread,_task,
+base/base_worker.py,BaseWorker,__class__,
+base/base_worker.py,BaseWorker,__init__,
+base/base_worker.py,BaseWorker,run,
+base/base_worker.py,BaseWorker,do_work,
+base/base_worker.py,BaseWorker,stop,
+base/base_worker.py,BaseWorker,is_cancelled,
+base/base_ui_components.py,StyledButton,__class__,기본 스타일이 적용된 버튼 클래스
+base/base_ui_components.py,StyledButton,__init__,
+base/base_ui_components.py,StyledButton,apply_style,
+base/base_ui_components.py,CardWidget,__class__,UI 항목들을 깔끔하게 그룹화하는 라운드 카드 컨테이너
+base/base_ui_components.py,CardWidget,__init__,
+base/base_ui_components.py,FileDropZone,__class__,PDF 및 문서 파일 드래그 앤 드롭 처리 컴포넌트
+base/base_ui_components.py,FileDropZone,__init__,
+base/base_ui_components.py,FileDropZone,_set_normal_style,
+base/base_ui_components.py,FileDropZone,_set_active_style,
+base/base_ui_components.py,FileDropZone,dragEnterEvent,
+base/base_ui_components.py,FileDropZone,dragLeaveEvent,
+base/base_ui_components.py,FileDropZone,dropEvent,
+base/base_ui_components.py,StatusBadge,__class__,"작업 상태(대기, 진행 중, 완료, 에러)를 시각적으로 보여주는 배지"
+base/base_ui_components.py,StatusBadge,__init__,
+base/base_ui_components.py,StatusBadge,set_state,
+base/base_ui_components.py,SearchLineEdit,__class__,Drive 파일 및 PDF 목록 검색용 전용 입력창
+base/base_ui_components.py,SearchLineEdit,__init__,
+base/base_ui_components.py,LabeledInput,__class__,라벨과 입력 위젯을 깔끔하게 묶어주는 래퍼 컴포넌트
+base/base_ui_components.py,LabeledInput,__init__,
+base/base_ui_components.py,,bytes_to_pixmap,순수 바이트(Bytes) 데이터를 PyQt QPixmap 객체로 변환하는 공통 헬퍼 함수입니다.
+base/base_task_manager.py,BaseTaskManager,__class__,"여러 스레드(QThread)가 동시에 폭주하여 시스템이 멈추거나 API 제한에 걸리는 것을 막기 위해
+작업 대기열(Queue)을 만들고 정해진 수만큼만 순차적으로 실행시키는 중앙 관리자입니다."
+base/base_task_manager.py,BaseTaskManager,__init__,
+base/base_task_manager.py,BaseTaskManager,add_task,"생성된 스레드 객체를 큐에 추가합니다.
+(즉시 실행되지 않고 가용 슬롯이 있을 때만 실행됩니다.)"
+base/base_task_manager.py,BaseTaskManager,_process_queue,대기열을 확인하여 실행 가능한 만큼 스레드를 시작합니다.
+base/base_task_manager.py,BaseTaskManager,_on_task_finished,스레드 작업이 하나 끝날 때마다 호출되어 다음 작업을 큐에서 꺼내 실행합니다.
+base/base_task_manager.py,BaseTaskManager,_reset_counters,
+base/base_task_manager.py,BaseTaskManager,clear_queue,"대기 중인 모든 작업을 취소하고 큐를 비웁니다.
+(현재 실행 중인 작업은 강제로 멈추지 않고 스스로 끝나도록 둡니다.)"
+base/base_service.py,BaseService,__class__,
+base/base_service.py,BaseService,__init__,
+base/base_service.py,BaseService,_log,
+base/base_controller.py,BaseController,__class__,
+base/base_controller.py,BaseController,__init__,
+base/base_controller.py,BaseController,start_worker,워커를 안전하게 시작하고 공통 시그널을 바인딩합니다.
+base/base_controller.py,BaseController,_on_worker_finished,
+base/base_controller.py,BaseController,handle_result,
+base/base_controller.py,BaseController,_on_worker_error,
+base/base_controller.py,BaseController,_on_worker_progress,
+base/base_controller.py,BaseController,_hide_loading,
+base/base_controller.py,BaseController,emit_log,
+base/base_controller.py,BaseController,emit_error,
+base/base_controller.py,BaseController,cleanup_worker,
+base/base_ui.py,BaseTab,__class__,
+base/base_ui.py,BaseTab,__init__,
+base/base_ui.py,BaseTab,emit_log,
+base/base_ui.py,BaseTab,load_setting,
+base/base_ui.py,BaseTab,save_setting,
+base/base_ui.py,BaseTab,show_info,
+base/base_ui.py,BaseTab,show_error,
+base/base_ui.py,BaseTab,set_loading_state,

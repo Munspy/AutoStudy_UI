@@ -15,7 +15,9 @@ from typing import Any
 from googleapiclient.http import MediaFileUpload
 from utils.auth_util import get_drive_service
 
-class YoutubeMediaService:
+from base.base_service import BaseService
+
+class YoutubeMediaService(BaseService):
     """유튜브 음원 추출(yt-dlp) 및 구글 드라이브 업로드를 전담하는 서비스 클래스.
 
     단일 책임 원칙(SRP)에 따라 이 클래스는 재생목록의 메타데이터를 관리하거나 
@@ -25,7 +27,10 @@ class YoutubeMediaService:
     의존성:
     - 음원 추출: 외부 패키지인 `yt_dlp`와 시스템에 설치된 `FFmpeg`에 강하게 의존하여 포맷을 변환합니다.
     - 클라우드 전송: `utils.auth_util.get_drive_service`를 통해 인증된 API 리소스와 통신합니다.
+    - 부모 클래스: `BaseService` (공통 로깅 인터페이스 상속)
     """
+    def __init__(self, logger_callback=None):
+        super().__init__(logger_callback=logger_callback)
     
     def download_and_upload_audio(self, url: str, prefix: str, drive_folder_id: str, drive_service: Any) -> None:
         """단일 유튜브 영상을 WAV 포맷으로 추출한 뒤 구글 드라이브에 안전하게 업로드합니다.

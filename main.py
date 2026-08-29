@@ -128,6 +128,8 @@ class AutomationDashboard(QMainWindow):
         self.tab8 = Tab8YoutubePlaylist()
         if hasattr(self.tab8, 'log_signal'):
             self.tab8.log_signal.connect(self.log_msg)
+        if hasattr(self.tab8, 'global_progress_signal'):
+            self.tab8.global_progress_signal.connect(self.progress_bar.setValue)
         self.stacked_widget.addWidget(self.tab8)
 
         # 탭 9: JSON 파일 직접 수정

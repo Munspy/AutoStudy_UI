@@ -3,6 +3,7 @@ from PyQt6.QtCore import QThread, pyqtSignal
 
 class BaseWorker(QThread):
     finished_signal = pyqtSignal(object)   # 성공 시 결과 전달
+    success_signal = pyqtSignal(object)    # 성공 시 결과 전달 (UI/Controller용)
     error_signal = pyqtSignal(str)         # 에러 발생 시 메시지 전달
     progress_signal = pyqtSignal(int, str) # (진행률 %, 진행 메시지)
     log_signal = pyqtSignal(str)           # 실시간 로그 텍스트
@@ -17,6 +18,7 @@ class BaseWorker(QThread):
             result = self.do_work()
             if self._is_running:
                 self.finished_signal.emit(result)
+                self.success_signal.emit(result)
         except Exception as e:
             self.error_signal.emit(str(e))
 

@@ -1,15 +1,15 @@
 # Threads/llm_thread.py
 from PyQt6.QtCore import pyqtSignal
-from base.base_worker import BaseThread
+from base.base_worker import BaseWorker
 
 # 분리해둔 utils 공구함들
 from utils.llm_client import correct_script_with_gemini, key_summary_with_gemini
 from service.anki_service import create_anki_package
 
-class LLMTaskThread(BaseThread):
+class LLMTaskThread(BaseWorker):
     """
     Gemini API를 이용한 교정, 요약 및 Anki 생성을 일괄 처리하는 스레드.
-    BaseThread를 상속받아 에러 발생 시 앱 튕김 현상을 자동으로 방어합니다.
+    BaseWorker를 상속받아 에러 발생 시 앱 튕김 현상을 자동으로 방어합니다.
     """
     # 개별 작업이 끝날 때마다 UI(테이블)의 특정 셀을 업데이트하기 위한 전용 시그널
     cell_update_signal = pyqtSignal(int, int, str)
@@ -18,7 +18,7 @@ class LLMTaskThread(BaseThread):
         super().__init__()
         self.task_queue = task_queue
 
-    def _task(self):
+    def do_work(self):
         completed_count = 0
         total_tasks = len(self.task_queue)
         
@@ -38,7 +38,7 @@ class LLMTaskThread(BaseThread):
             
             # 📈 전체 프로그레스 바 업데이트
             progress = int((index / total_tasks) * 100)
-            self.progress_signal.emit(progress)
+            self.progress_signal.emit(progress, f"{base_name} {task_type} 처리 중...")
             
             try:
                 # TODO: 실제 환경에서는 파일을 읽어와 텍스트를 주입합니다.
@@ -76,7 +76,7 @@ class LLMTaskThread(BaseThread):
                 
         # 100% 진행률 전송
         if self._is_running:
-            self.progress_signal.emit(100)
+            self.progress_signal.emit(100, "모든 작업 완료")
             self.log_signal.emit("🎉 대기열의 모든 AI 작업이 종료되었습니다.")
             
         return f"총 {total_tasks}개 작업 중 {completed_count}개 성공"

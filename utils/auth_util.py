@@ -28,8 +28,8 @@ _creds_instance = None
 _drive_service = None
 _youtube_service = None
 
-# 멀티스레드 환경 Race Condition 방지 Lock
-_auth_lock = threading.Lock()
+# 멀티스레드 환경 Race Condition 방지 Reentrant Lock (데드락 방지)
+_auth_lock = threading.RLock()
 
 def get_credentials():
     """Google API 접근을 위한 유효한 OAuth 2.0 자격 증명(Credentials)을 가져옵니다.
