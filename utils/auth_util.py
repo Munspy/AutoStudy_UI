@@ -1,12 +1,13 @@
 """Google API 인증 및 서비스 객체 생성 유틸리티 모듈.
 
-이 모듈은 Google OAuth 2.0 인증 흐름을 관리하고, 인증된 자격 증명(Credentials)을 
-기반으로 Google Drive 및 YouTube Data API 서비스 클라이언트 객체를 생성하고 제공합니다.
+이 모듈은 AutoStudy_UI 프로젝트의 전체 파이프라인 중 **Utils(유틸리티) 계층**에 속합니다.
+시스템 전반에서 요구되는 Google OAuth 2.0 인증 흐름을 중앙 집중적으로 관리하며, 
+인증된 자격 증명(Credentials)을 기반으로 Google Drive 및 YouTube Data API 서비스 클라이언트 객체를 
+생성하고 제공하는 핵심 인프라 역할을 담당합니다.
 
-멀티스레드 환경에서도 안전하게 인증 객체와 API 서비스 객체를 공유하기 위해 
-스레드 락(Thread Lock)과 싱글톤(Singleton) 패턴을 활용합니다. 전체 애플리케이션 파이프라인에서 
-Google API(드라이브 파일 업로드/다운로드, 유튜브 영상 업로드 등)를 호출하기 전 
-반드시 거쳐야 하는 핵심 인증 인프라 역할을 담당하고 있습니다.
+PDF 처리, Whisper 음성 변환, Gemini 분석 등을 수행하는 Service 및 Worker 계층의 비동기 백그라운드 작업들이 
+Google API(예: 드라이브 파일 동기화, 유튜브 메타데이터 접근 등)를 호출할 때, 멀티스레드 환경에서도 
+안전하게 인증 객체를 공유할 수 있도록 스레드 락(Thread Lock)과 싱글톤(Singleton) 패턴을 제공합니다.
 """
 
 import os
@@ -33,29 +34,32 @@ _auth_lock = threading.Lock()
 def get_credentials():
     """Google API 접근을 위한 유효한 OAuth 2.0 자격 증명(Credentials)을 가져옵니다.
 
-    이 함수는 전체 시스템에서 단일 자격 증명 객체를 유지(Singleton)하여 
-    불필요한 파일 I/O 및 인증 플로우 재실행을 방지합니다. 
-    로직은 다음과 같은 순서로 깊이 있게 동작합니다:
+    이 함수는 전체 시스템에서 단일 자격 증명 객체를 유지(Singleton)하여 불필요한 파일 I/O 및 인증 플로우 재실행을 방지합니다.
+    특히, AutoStudy_UI의 Worker 계층(백그라운드 스레드 및 Watchdog)이 사용자 개입 없이 자동화된 파이프라인을 
+    지속적으로 실행할 수 있도록 보장하는 핵심 로직을 포함합니다. 
     
-    1. 메모리에 유효한 인증 객체가 캐시되어 있다면 즉시 반환하여 성능을 최적화합니다.
-    2. 캐시가 없다면 디스크(`TOKEN_PATH`)에서 기존 토큰을 읽어와 복원을 시도합니다.
-    3. 로드한 토큰이 만료되었으나 갱신 토큰(Refresh Token)이 존재한다면, 
-       사용자 개입 없이 백그라운드에서 Google 인증 서버에 요청하여 토큰을 갱신합니다.
-    4. 토큰 파일이 없거나 갱신에 실패한 경우(예: 권한 취소), `CREDENTIALS_PATH`에 위치한 
-       클라이언트 시크릿을 사용하여 로컬 웹서버 기반의 최초 OAuth 인증 플로우를 띄워 
-       사용자의 직접 로그인을 유도합니다.
-    5. 새로 발급받거나 갱신된 토큰은 이후의 빠른 인증을 위해 디스크에 안전하게 캐싱(저장)합니다.
+    장기 실행되는 백그라운드 작업 중 토큰이 만료될 경우, 파이프라인이 중단되지 않도록 `refresh_token`을 사용해 
+    백그라운드에서 자동으로 토큰을 갱신합니다. 또한 멀티스레드 환경에서 여러 Worker가 동시에 이 함수를 호출할 때 
+    발생할 수 있는 Race Condition(다중 인증 플로우 실행 및 파일 덮어쓰기 등)을 방지하기 위해 `_auth_lock`을 통해 임계 영역을 보호합니다.
 
-    멀티스레드 환경에서의 Race Condition(여러 스레드가 동시에 토큰을 갱신하거나 인증을 시도하는 현상)을 
-    방지하기 위해 내부적으로 `_auth_lock`을 사용하여 임계 영역을 철저히 보호합니다.
+    로직 실행 순서:
+    1. 메모리에 캐시된 유효한 인증 객체가 있다면 즉시 반환(성능 최적화).
+    2. 캐시가 없으면 로컬 파일(token.json)에서 복원 시도.
+    3. 토큰이 만료되었고 갱신 토큰이 있다면 백그라운드 자동 갱신.
+    4. 유효한 토큰이 전무한 경우 로컬 웹서버 기반 최초 OAuth 인증 플로우 실행.
+    5. 신규 및 갱신 토큰을 로컬에 안전하게 캐싱.
+
+    Args:
+        없음
 
     Returns:
         google.oauth2.credentials.Credentials: 
             Google API를 호출할 수 있는 유효한 인증 정보가 담긴 자격 증명 객체.
 
     Raises:
-        FileNotFoundError: `credentials.json` 파일이 지정된 경로에 존재하지 않아 
-            로컬 웹서버를 통한 최초 인증 플로우를 진행할 수 없는 경우 발생합니다.
+        FileNotFoundError: 
+            최초 인증에 필요한 클라이언트 시크릿(`credentials.json`) 파일이 지정된 경로에 존재하지 않아 
+            인증 플로우를 시작할 수 없는 경우 발생합니다.
     """
     global _creds_instance
     
@@ -112,18 +116,20 @@ def get_credentials():
 def get_drive_service():
     """Google Drive API (v3) 서비스 객체를 반환합니다.
 
-    이 함수는 애플리케이션의 어느 곳에서든 Drive API를 호출할 수 있도록 
-    빌드된 서비스 객체(Resource object)를 싱글톤으로 제공합니다. 
-    장기 실행 작업(Long-running background tasks) 중에 API 토큰이 만료될 수 있으므로, 
-    호출될 때마다 내부적으로 `get_credentials()`를 통해 현재 자격 증명의 
-    유효성을 검증하고, 만료되거나 유효하지 않은 경우 서비스 객체를 새 크레덴셜로 다시 빌드합니다.
-    
-    스레드 안전성(Thread-safety)이 보장되므로 여러 스레드에서 동시에 Drive 서비스에 
-    접근하더라도 인증 충돌이나 객체 재생성 문제가 발생하지 않습니다.
+    이 함수는 Service 계층(예: DriveSyncService) 및 Worker 계층에서 Google Drive 상호작용(파일 업로드, 다운로드, 동기화)을 
+    수행할 수 있도록 빌드된 서비스 클라이언트를 싱글톤 형태로 제공합니다. 
+
+    자동화된 백그라운드 파이프라인 특성상 대용량 PDF 분석이나 Whisper AI 변환과 같은 장기 실행 작업(Long-running tasks) 이후에 
+    Drive API가 호출될 가능성이 높습니다. 따라서 호출 시점마다 `get_credentials()`를 통해 크레덴셜 유효성을 강제로 재확인하고, 
+    토큰 만료로 인한 API 호출 실패(예외 발생)를 원천 차단합니다. 여러 스레드가 동시에 서비스 객체를 요청하더라도 
+    내부 락(Lock)을 통해 안전하게 하나의 유효한 객체만 반환하도록 보장합니다.
+
+    Args:
+        없음
 
     Returns:
         googleapiclient.discovery.Resource: 
-            Google Drive API(v3)와 상호작용할 수 있는 빌드된 서비스 객체.
+            Google Drive API(v3)와 안전하게 통신할 수 있는 빌드된 서비스 객체.
     """
     global _drive_service
     
@@ -137,17 +143,20 @@ def get_drive_service():
 def get_youtube_service():
     """Google YouTube Data API (v3) 서비스 객체를 반환합니다.
 
-    이 함수는 YouTube Data API(예: 영상 업로드, 메타데이터 수정 등)를 호출하기 위한 
-    클라이언트 서비스 객체를 빌드하여 반환합니다. `get_drive_service` 함수와 마찬가지로 
-    싱글톤 패턴을 기반으로 작동하며, 호출 시점에 크레덴셜의 유효성을 다시 확인하여 
-    토큰 만료로 인한 업로드 또는 API 호출 실패를 사전에 방지합니다.
+    이 함수는 Service 계층에서 YouTube Data API(예: 플레이리스트 정보 수집, 자막(Transcript) 처리 등)와 
+    연동하기 위한 클라이언트 서비스 객체를 빌드하여 반환합니다. 
 
-    동기화 락(`_auth_lock`) 안에서 동작하므로 멀티스레드 기반의 
-    비동기 업로드 또는 대용량 배치 처리 작업에서도 안전하게 호출되어 사용될 수 있습니다.
+    YouTube API 연동 역시 대규모 배치 데이터 처리나 큐(Queue) 기반 비동기 Worker 환경에서 수행되므로, 
+    토큰 만료 방지 및 스레드 안전성 확보가 필수적입니다. 이 함수는 싱글톤 패턴과 스레드 락을 활용해 
+    안정적인 YouTube 리소스 객체 상태를 유지하며, 만료된 크레덴셜을 감지하면 즉시 갱신된 크레덴셜로 
+    서비스 객체를 재생성합니다.
+
+    Args:
+        없음
 
     Returns:
         googleapiclient.discovery.Resource: 
-            Google YouTube Data API(v3)와 상호작용할 수 있는 빌드된 서비스 객체.
+            Google YouTube Data API(v3)와 안전하게 상호작용할 수 있는 빌드된 서비스 객체.
     """
     global _youtube_service
     
