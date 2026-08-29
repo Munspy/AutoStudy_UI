@@ -17,4 +17,4 @@ UI-code.xml
 visualize_all.py
 .DS_Store
 .env
-.gitignore
+.gitignore.env
