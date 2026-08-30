@@ -22,6 +22,7 @@ from base.base_service import BaseService
 # 순수 유틸리티 호출 (도메인 무관)
 from service.pdf_ocr_service import PdfOcrService
 from service.file_naming_service import FileNamingService
+from utils.filename_util import normalize_text
 
 
 class PdfAnalysisService(BaseService):
@@ -37,15 +38,16 @@ class PdfAnalysisService(BaseService):
     - 결과물은 Controller로 반환되어 UI의 수동 검수 테이블에 바인딩됩니다.
     """
     
-    def __init__(self, sim_threshold: float = 0.8, hash_threshold: int = 12, lookahead: int = 5):
+    def __init__(self, sim_threshold: float = 0.8, hash_threshold: int = 12, lookahead: int = 5, logger_callback=None):
         """매칭 알고리즘 튜닝 파라미터 및 의존성 서비스를 초기화합니다.
 
         Args:
             sim_threshold (float, optional): 두 페이지가 동일하다고 판정할 텍스트 일치율 임계값 (0.0 ~ 1.0). 기본값은 0.8(80%).
             hash_threshold (int, optional): OCR이 실패했을 때 대체제로 사용하는 시각적 해시(pHash)의 최대 허용 차이(Hamming Distance). 값이 작을수록 엄격합니다. 기본값은 12.
             lookahead (int, optional): 현재 페이지가 불일치할 때, 매칭되는 페이지를 찾기 위해 앞/뒤로 탐색할 최대 페이지 수 (Look-ahead Window). 슬라이드 삽입/누락으로 인한 오프셋(Offset)을 교정합니다. 기본값은 5.
+            logger_callback (callable, optional): 로그 메시지를 처리할 콜백 함수.
         """
-        super().__init__()
+        super().__init__(logger_callback=logger_callback)
         # 매칭 알고리즘 튜닝 파라미터
         self.sim_threshold = sim_threshold
         self.hash_threshold = hash_threshold
@@ -63,8 +65,8 @@ class PdfAnalysisService(BaseService):
         
         # [최적화] 정규식 사전 컴파일 캐싱 (성능 향상)
         # 자동화 파이프라인에서 수백 개의 파일을 스캔할 때 매번 정규식 엔진을 번역하지 않도록 캐싱하여 CPU 부하를 줄입니다.
-        self._jul_pattern = re.compile(r'_?줄필기\.pdf$')
-        self._yaboot_pattern = re.compile(r'_?야붙\.pdf$')
+        self._jul_pattern = re.compile(r'[-_\s]*줄필기.*\.pdf$', re.IGNORECASE)
+        self._yaboot_pattern = re.compile(r'[-_\s]*야붙.*\.pdf$', re.IGNORECASE)
 
     def get_matched_file_groups(self, folder_path: str | Path) -> Dict[str, Dict[str, Any]]:
         """지정된 폴더에서 '줄필기'와 '야붙' 태그가 붙은 PDF를 찾아, 같은 교시를 공유하는 파일끼리 그룹화합니다.
@@ -89,7 +91,17 @@ class PdfAnalysisService(BaseService):
 
         for file_path in p.glob("*.pdf"):
             # macOS(NFD)와 Windows(NFC) 환경 간의 자소 분리 문제를 방지하기 위해 정규화 수행
-            name_nfc = unicodedata.normalize('NFC', file_path.name)
+            name_nfc = normalize_text(file_path.name)
+            
+            # 실제 파일 시스템 파일명도 NFC로 동기화하여 이후 읽기 실패(인코딩 불일치) 방지
+            if file_path.name != name_nfc:
+                try:
+                    new_path = file_path.with_name(name_nfc)
+                    os.rename(str(file_path), str(new_path))
+                    file_path = new_path
+                except Exception as e:
+                    if self.logger:
+                        self.logger(f"파일명 변경 실패: {e}")
             
             if "줄필기" in name_nfc:
                 base_name = self._jul_pattern.sub('', name_nfc).strip()
@@ -107,7 +119,7 @@ class PdfAnalysisService(BaseService):
                     "save_name": self.naming_service.extract_save_name(base_name)
                 }
                 
-            groups[base_name][doc_type] = file_path.name 
+            groups[base_name][doc_type] = name_nfc 
             
         return groups
 
@@ -241,104 +253,9 @@ class PdfAnalysisService(BaseService):
 
         return base_data
 
-    def prepare_edit_data(self, base_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """생성된 매칭 레시피를 기반으로 UI 수동 검수 테이블에 바인딩할 데이터 상태를 초기화합니다.
 
-        자동화 알고리즘이 100% 완벽할 수 없으므로, 사용자가 병합 결과를 눈으로 확인하고(Human-in-the-loop) 
-        체크박스를 통해 페이지를 선택/해제할 수 있도록 각 레코드의 초기 체크 상태(Boolean)를 부여합니다. 
-        알고리즘의 결과를 기본값으로 신뢰하되, 언제든 사용자가 오버라이드할 수 있는 유연성을 제공합니다.
 
-        Args:
-            base_data (List[Dict[str, Any]]): `generate_matching_data`에서 도출된 원본 병합 레시피.
 
-        Returns:
-            List[Dict[str, Any]]: `jul_checked`와 `yaboot_checked` 플래그가 주입된 UI 편집용 데이터 배열.
-        """
-        edit_data: List[Dict[str, Any]] = []
-        for item in base_data:
-            new_item = item.copy()
-            if item["type"] == "matched":
-                new_item["jul_checked"] = True
-                new_item["yaboot_checked"] = False
-            elif item["type"] == "jul_only":
-                new_item["jul_checked"] = True
-                new_item["yaboot_checked"] = False
-            elif item["type"] == "yaboot_only":
-                new_item["jul_checked"] = False
-                new_item["yaboot_checked"] = True
-            edit_data.append(new_item)
-        return edit_data
-
-    def save_edits(self, edit_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """사용자의 체크박스 수정 사항을 반영하여 최종적으로 병합에 사용될 확정 레시피를 도출합니다.
-
-        UI 레이어에서 발생한 사용자의 상호작용 결과를 Service 레이어의 데이터 구조로 다시 정제합니다. 
-        체크 해제된 항목(병합에서 제외할 페이지)을 필터링하여 실제 디스크 I/O 단계로 넘어갈 
-        순도 높은 데이터만 남깁니다.
-
-        Args:
-            edit_data (List[Dict[str, Any]]): 사용자의 수동 검수를 거친 상태 데이터 배열.
-
-        Returns:
-            List[Dict[str, Any]]: 병합 대상에서 제외된 항목들이 필터링된 최종 확정 레시피.
-        """
-        new_base: List[Dict[str, Any]] = []
-        for item in edit_data:
-            if item["type"] == "matched" and item.get("jul_checked"):
-                new_base.append(item)
-            elif item["type"] == "jul_only" and item.get("jul_checked"):
-                new_base.append(item)
-            elif item["type"] == "yaboot_only" and item.get("yaboot_checked"):
-                new_base.append(item)
-        return new_base
-
-    def split_item_on_yaboot_check(self, item: Dict[str, Any]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        """사용자가 'matched' 상태의 페이지에서 특정 이벤트를 발생시켰을 때 하나의 항목을 두 개로 분할합니다.
-
-        알고리즘이 '유사하다'고 판단하여 하나의 행(Row)으로 묶어둔 페이지 쌍(Pair)에 대해, 
-        사용자가 "이 두 페이지는 다르니 분리해서 개별적으로 넣고 싶다"고 체크를 변경했을 때 대응하는 로직입니다. 
-        하나의 레코드를 두 개의 독립적인 단일 소스 레코드(`jul_only`, `yaboot_only`)로 분할 반환합니다.
-
-        Args:
-            item (Dict[str, Any]): 분할할 원본 'matched' 상태의 레코드.
-
-        Returns:
-            Tuple[Dict[str, Any], Dict[str, Any]]: 분리되어 새로 생성된 줄필기 전용 레코드와 야붙 전용 레코드의 튜플.
-        """
-        item_jul = {
-            "type": "jul_only",
-            "save_name": item["save_name"],
-            "jul": item["jul"], "yaboot": None,
-            "jul_checked": item.get("jul_checked", False), "yaboot_checked": False,
-            "metrics": "[분할됨]\n줄필기 단독"
-        }
-        item_yaboot = {
-            "type": "yaboot_only",
-            "save_name": item["save_name"],
-            "jul": None, "yaboot": item["yaboot"],
-            "jul_checked": False, "yaboot_checked": True,
-            "metrics": "[분할됨]\n야붙 단독"
-        }
-        return item_jul, item_yaboot
-
-    def swap_items(self, edit_data: List[Dict[str, Any]], idx: int, direction: int) -> List[Dict[str, Any]]:
-        """레시피 배열 내에서 특정 항목의 위치를 위/아래로 변경합니다.
-
-        UI의 위/아래 화살표 버튼을 클릭했을 때 호출되어, 최종 병합본에 삽입될 페이지의 순서(Order)를 
-        수동으로 조작하는 유틸리티 메서드입니다. 배열 인덱스 바운더리를 안전하게 검사하여 크래시를 방지합니다.
-
-        Args:
-            edit_data (List[Dict[str, Any]]): 순서를 변경할 전체 레시피 데이터 리스트.
-            idx (int): 이동시킬 대상 항목의 현재 인덱스.
-            direction (int): 이동 방향 (보통 위로 이동은 -1, 아래로 이동은 1).
-
-        Returns:
-            List[Dict[str, Any]]: 순서 변경(Swap)이 반영된 새로운 데이터 리스트.
-        """
-        target_idx = idx + direction
-        if 0 <= target_idx < len(edit_data):
-            edit_data[idx], edit_data[target_idx] = edit_data[target_idx], edit_data[idx]
-        return edit_data
 
     def execute_merge(self, base_data: List[Dict[str, Any]], output_folder: str | Path) -> List[str]:
         """확정된 레시피를 바탕으로 실제 물리적 PDF 병합을 수행하고 디스크에 저장합니다.

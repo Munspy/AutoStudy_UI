@@ -1,39 +1,41 @@
-# ui/pdf_split_ui.py
 import sys
-import re
+
+from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+
 from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QFileDialog, QScrollArea, QFrame, 
-                             QCheckBox, QListWidget, QListWidgetItem,
-                             QDateEdit, QAbstractSpinBox, QSizePolicy)
-from PyQt6.QtCore import Qt, pyqtSignal, QDate
+                             QCheckBox, QComboBox, QListWidget, QListWidgetItem,
+                             QDateEdit, QAbstractSpinBox, QMessageBox)
+from PyQt6.QtCore import Qt, QDate
+from PyQt6.QtGui import QImage, QPixmap
 
-# 새로 작성한 컨트롤러 임포트
+from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit, PreviewScrollArea
 import controller.pdf_split_controller as backend
 
-# UI 렌더링 헬퍼 임포트 (추가)
-from utils.pdf_core_util import get_page_image_bytes
-from base.base_ui_components import bytes_to_pixmap
-
-class Tab4PdfSplit(QWidget):
-    log_signal = pyqtSignal(str)
-
-    def __init__(self):
+class PdfSplitUi(QWidget):
+    def __init__(self, task_manager=None):
         super().__init__()
-        # 선 그리기 객체를 UI에서 직접 관리
-        self.split_lines = {} 
-        self.controller = backend.PdfSplitController(self)
+        self.task_manager = task_manager
+        self.controller = backend.PdfSplitController(task_manager=self.task_manager)
+        
+        self.controller.file_list_ready.connect(self.on_file_list_ready)
+        self.controller.preview_ready.connect(self.on_preview_ready)
+        self.controller.page_rendered.connect(self.on_page_rendered)
+        self.controller.split_completed.connect(self.on_split_completed)
+        self.controller.error_signal.connect(lambda t, msg: self.show_error(msg))
+        
+        self.file_paths = {}
+        self.local_path = None
+        self.total_pages = 0
+        self.page_images = []
+        
         self.init_ui()
 
-    # ... (init_ui 내부 코드는 기존과 동일하되, 시그널 연결부만 아래와 같이 수정) ...
-    # self.file_list.itemChanged.connect(self.on_item_changed)
-    # self.split_input.textChanged.connect(self.update_split_lines)
-    # self.drive_check.stateChanged.connect(self.toggle_search_mode) 
-    
     def init_ui(self):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            Tab4PdfSplit { background-color: #FFFFFF; }
+            PdfSplitUi { background-color: #FFFFFF; }
             QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
@@ -42,53 +44,41 @@ class Tab4PdfSplit(QWidget):
         layout.setContentsMargins(28, 28, 28, 28)
         layout.setSpacing(20)
         
-        # 1. 상단 타이틀
-        header_label = QLabel("✂️ PDF Split (단일 교시 분할)")
-        header_label.setStyleSheet("font-size: 24px; font-weight: 800; color: #111111; padding: 5px 0px 10px 0px;")
+        header_label = QLabel("✂️ PDF Split (다중 교시 분할)")
+        header_label.setStyleSheet("""
+            font-size: 24px; font-weight: 800; color: #111111; 
+            padding: 5px 0px 10px 0px; 
+        """)
         layout.addWidget(header_label)
 
-        # 2. 제어 박스 (검색 영역)
-        control_frame = QFrame()
-        control_frame.setObjectName("ControlBox")
-        control_frame.setStyleSheet("""
-            #ControlBox { background-color: #F4F5F7; border-radius: 12px; border: 1px solid #EAEAEA; }
-            QLabel { font-weight: bold; color: #37352f; }
-        """)
+        control_frame = CardWidget()
         
         control_layout = QHBoxLayout(control_frame)
         control_layout.setContentsMargins(20, 16, 20, 16)
         control_layout.setSpacing(10)
-
-        self.drive_check = QCheckBox("☁️")
-        self.drive_check.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.drive_check.setStyleSheet("""
-            QCheckBox { font-size: 18px; margin-right: 5px; }
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #2383E2; border: 1px solid #2383E2; }
-        """)
+        
+        self.drive_check = StyledCheckBox("☁️")
         self.drive_check.stateChanged.connect(self.toggle_search_mode)
         control_layout.addWidget(self.drive_check)
 
-        # 2-1. 로컬 검색 위젯
         self.local_widget = QWidget()
         local_layout = QHBoxLayout(self.local_widget)
         local_layout.setContentsMargins(0, 0, 0, 0)
         local_layout.addWidget(QLabel("📂 대상 폴더:"))
         
         self.folder_input = QLineEdit(str(Path.home() / "Downloads"))
-        self.folder_input.setStyleSheet("padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF; font-weight: normal;")
+        self.folder_input.setStyleSheet("""
+            QLineEdit { padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF; font-weight: normal; }
+        """)
         self.folder_input.setReadOnly(True)
         local_layout.addWidget(self.folder_input)
         
-        browse_btn = QPushButton("폴더 찾기")
-        browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_btn.setStyleSheet("QPushButton { background-color: #FFFFFF; border: 1px solid #D1D1CE; border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold; } QPushButton:hover { background-color: #F8F9FA; color: #111111; }")
+        browse_btn = StyledButton("폴더 변경", "secondary")
         browse_btn.clicked.connect(self.browse_folder)
         local_layout.addWidget(browse_btn)
-        
+
         control_layout.addWidget(self.local_widget)
 
-        # 2-2. 드라이브 날짜 검색 위젯
         self.drive_widget = QWidget()
         drive_layout = QHBoxLayout(self.drive_widget)
         drive_layout.setContentsMargins(0, 0, 0, 0)
@@ -97,24 +87,15 @@ class Tab4PdfSplit(QWidget):
         drive_layout.addWidget(QLabel("📅 날짜 범위:"))
         
         today = QDate.currentDate()
-        date_style = """
-            QDateEdit {
-                padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; 
-                background-color: #FFFFFF; min-width: 80px; font-weight: normal;
-            }
-        """
-        
-        self.start_date = QDateEdit(today)
+        self.start_date = StyledDateEdit(today)
         self.start_date.setDisplayFormat("MM-dd")
         self.start_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.start_date.setCalendarPopup(True)
-        self.start_date.setStyleSheet(date_style)
         
-        self.end_date = QDateEdit(today)
+        self.end_date = StyledDateEdit(today)
         self.end_date.setDisplayFormat("MM-dd")
         self.end_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.end_date.setCalendarPopup(True)
-        self.end_date.setStyleSheet(date_style)
 
         drive_layout.addWidget(self.start_date)
         drive_layout.addWidget(QLabel("~"))
@@ -125,96 +106,66 @@ class Tab4PdfSplit(QWidget):
 
         control_layout.addStretch()
         
-        search_btn = QPushButton("파일 조회")
-        search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        search_btn.setStyleSheet("QPushButton { background-color: #2383E2; color: white; font-weight: bold; border-radius: 6px; padding: 6px 15px; border: none; } QPushButton:hover { background-color: #1A6FB0; }")
-        search_btn.clicked.connect(self.controller.populate_file_list)
-        control_layout.addWidget(search_btn)
+        self.search_btn = LoadingButton("파일 조회", "primary")
+        self.search_btn.clicked.connect(self.start_fetch_files)
+        control_layout.addWidget(self.search_btn)
         
         layout.addWidget(control_frame)
 
-        # 3. 파일 리스트업 영역
         file_selection_layout = QVBoxLayout()
         file_selection_layout.setSpacing(10)
         
-        self.file_list = QListWidget()
-        self.file_list.setStyleSheet("""
-            QListWidget { background-color: #FFFFFF; border: 1px solid #EAEAEA; border-radius: 8px; font-size: 13px; alternate-background-color: #FAFAFA; outline: none; }
-            QListWidget::item { padding: 8px; border-bottom: 1px solid #F4F4F4; color: #37352f; }
-            QListWidget::item:selected { background-color: #E7F3F8; color: #37352f; border: none; }
-            QListWidget::item:hover { background-color: #F8F9FA; }
-        """)
-        self.file_list.setAlternatingRowColors(True)
-        self.file_list.setMaximumHeight(90)
+        file_selection_layout.addWidget(QLabel("📝 분할할 대상 파일 선택:"))
         
-        # [수정] 컨트롤러가 아닌 UI 자체의 on_item_changed 로 연결
-        self.file_list.itemChanged.connect(self.on_item_changed)
+        self.file_list = StyledListWidget()
+        self.file_list.setAlternatingRowColors(True)
+        self.file_list.setMaximumHeight(120)
+        self.file_list.itemClicked.connect(self.on_file_selected)
         file_selection_layout.addWidget(self.file_list)
         layout.addLayout(file_selection_layout)
 
-        # 4. 썸네일 미리보기 영역
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setMinimumWidth(100)
-        self.scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        
-        self.scroll_area.setStyleSheet("""
-            QScrollArea { border: 1px solid #EAEAEA; border-radius: 8px; background-color: #FFFFFF; }
-            QScrollBar:horizontal { height: 8px; background: #F1F5F9; border-radius: 4px; }
-            QScrollBar::handle:horizontal { background: #CBD5E1; border-radius: 4px; min-width: 20px; }
-            QScrollBar::handle:horizontal:hover { background: #94A3B8; }
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0px; background: none; }
+        split_input_layout = QHBoxLayout()
+        split_input_layout.addWidget(QLabel("✂️ 분할할 기준 페이지 번호:"))
+        self.split_input = QLineEdit()
+        self.split_input.setPlaceholderText("예: 3")
+        self.split_input.setStyleSheet("""
+            QLineEdit { padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF; width: 100px; font-weight: normal; }
         """)
+        self.split_input.textChanged.connect(self.update_split_lines)
+        split_input_layout.addWidget(self.split_input)
         
-        self.preview_container = QWidget()
-        self.preview_container.setStyleSheet("background-color: #FAFAFA;")
+        self.preview_label = QLabel("")
+        self.preview_label.setStyleSheet("color: #888888; font-weight: bold;")
+        split_input_layout.addWidget(self.preview_label)
         
-        self.preview_layout = QHBoxLayout(self.preview_container)
-        self.preview_layout.setContentsMargins(20, 20, 20, 20)
-        self.preview_layout.setSpacing(20)
-        self.preview_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        
-        self.scroll_area.setWidget(self.preview_container)
+        split_input_layout.addStretch()
+        layout.addLayout(split_input_layout)
+
+        self.scroll_area = PreviewScrollArea()
         layout.addWidget(self.scroll_area, stretch=1)
 
-        # 5. 하단 분할 입력 및 저장 영역
         bottom_layout = QHBoxLayout()
-        bottom_layout.setContentsMargins(5, 5, 5, 5)
-        
-        split_icon = QLabel("✂️")
-        split_icon.setStyleSheet("font-size: 20px;")
-        bottom_layout.addWidget(split_icon)
-        
-        self.split_input = QLineEdit()
-        self.split_input.setPlaceholderText("분할 기준 페이지 (예: 3)")
-        self.split_input.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF; max-width: 160px; font-weight: normal;")
-        # [수정] 컨트롤러가 아닌 UI 자체의 update_split_lines 로 연결
-        self.split_input.textChanged.connect(self.update_split_lines)
-        bottom_layout.addWidget(self.split_input)
-        
-        bottom_layout.addStretch() 
+        bottom_layout.addStretch()
         
         bottom_layout.addWidget(QLabel("저장 파일명 1:"))
-        self.save_name_1 = QLineEdit()
-        self.save_name_1.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; min-width: 120px;")
+        self.save_name_1 = QLineEdit("")
+        self.save_name_1.setStyleSheet("""
+            QLineEdit { padding: 10px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; width: 120px; }
+        """)
         bottom_layout.addWidget(self.save_name_1)
         
         bottom_layout.addWidget(QLabel("저장 파일명 2:"))
-        self.save_name_2 = QLineEdit()
-        self.save_name_2.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; min-width: 120px;")
+        self.save_name_2 = QLineEdit("")
+        self.save_name_2.setStyleSheet("""
+            QLineEdit { padding: 10px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; width: 120px; }
+        """)
         bottom_layout.addWidget(self.save_name_2)
         
-        save_btn = QPushButton("💾 선택 파일 분할 및 저장")
-        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_btn.setStyleSheet("QPushButton { background-color: #E03E3E; color: white; font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 8px; border: none; } QPushButton:hover { background-color: #C93434; }")
-        save_btn.clicked.connect(self.controller.split_and_save)
+        save_btn = StyledButton("💾 선택 파일 분할 및 저장", "danger")
+        save_btn.clicked.connect(self.start_split)
         
         bottom_layout.addWidget(save_btn)
         layout.addLayout(bottom_layout)
-
-    # ====================================================
-    # 이전된 UI 렌더링 함수들
-    # ====================================================
 
     def toggle_search_mode(self, state):
         if state == 2:
@@ -223,108 +174,80 @@ class Tab4PdfSplit(QWidget):
         else:
             self.local_widget.show()
             self.drive_widget.hide()
-            
-        self.file_list.blockSignals(True)
         self.file_list.clear()
+        self.file_paths.clear()
         self.clear_preview()
-        self.file_list.blockSignals(False)
 
     def browse_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "검색할 폴더 선택", self.folder_input.text())
         if folder: self.folder_input.setText(folder)
 
-    def on_item_changed(self, item):
-        """파일 리스트 체크박스 변경 시 단일 선택으로 제한하고 썸네일을 로드합니다."""
-        self.file_list.blockSignals(True)
-        if item.checkState() == Qt.CheckState.Checked:
-            for i in range(self.file_list.count()):
-                other_item = self.file_list.item(i)
-                if other_item != item:
-                    other_item.setCheckState(Qt.CheckState.Unchecked)
-            self.load_preview(item)
-        else:
-            self.clear_preview()
-        self.file_list.blockSignals(False)
-
-    def clear_preview(self):
-        """미리보기 영역 초기화"""
-        self.split_lines.clear()
-        
-        while self.preview_layout.count():
-            child = self.preview_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
-                
-        self.save_name_1.clear()
-        self.save_name_2.clear()
-
-    def load_preview(self, item):
-        """선택된 PDF 파일의 썸네일을 렌더링합니다."""
-        self.clear_preview()
+    def start_fetch_files(self):
         is_drive = self.drive_check.isChecked()
-        path_or_id = self.controller.file_paths.get(item.text())
+        target_dir = self.folder_input.text()
+        start_str = self.start_date.date().toString("MMdd")
+        end_str = self.end_date.date().toString("MMdd")
+        self.file_list.clear()
+        self.file_paths.clear()
+        self.clear_preview()
+        self.controller.start_fetch_file_list(is_drive, target_dir, start_str, end_str)
+
+    def on_file_list_ready(self, file_paths):
+        self.file_paths = file_paths
+        for text in self.file_paths.keys():
+            self.file_list.addItem(QListWidgetItem(text))
+
+    def on_file_selected(self, item):
+        self.clear_preview()
+        filename = item.text()
+        path_or_id = self.file_paths.get(filename)
+        is_drive = self.drive_check.isChecked()
+        if not path_or_id: return
+        self.preview_label.setText("미리보기 준비 중...")
+        self.controller.start_prepare_preview(path_or_id, is_drive)
         
-        if not path_or_id:
-            return
-
-        self.log_signal.emit(f"🔄 [{item.text()}] 미리보기를 로딩합니다...")
-
-        # 1. 컨트롤러에 로컬 파일 경로와 전체 페이지 수를 준비해달라고 요청
-        local_path, total_pages = self.controller.prepare_file_for_preview(path_or_id, is_drive)
-        if not local_path or total_pages == 0:
-            return
-
-        # 2. UI 렌더링
-        for i in range(total_pages):
-            image_bytes = get_page_image_bytes(local_path, i, zoom=0.2)
-            
-            page_frame = QFrame()
-            page_frame.setFixedHeight(100)
-            page_frame.setStyleSheet("background-color: white; border: 1px solid #EAEAEA; border-radius: 4px;")
-            v_layout = QVBoxLayout(page_frame)
-            v_layout.setContentsMargins(5, 5, 5, 5)
-
-            if image_bytes:
-                pixmap = bytes_to_pixmap(image_bytes)
-                if pixmap:
-                    scaled = pixmap.scaledToHeight(80, Qt.TransformationMode.SmoothTransformation)
-                    img_label = QLabel()
-                    img_label.setPixmap(scaled)
-                    img_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                    v_layout.addWidget(img_label)
-
-            lbl = QLabel(f"Page {i+1}")
-            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl.setStyleSheet("color: #37352f; font-size: 10px; font-weight: bold;")
-            v_layout.addWidget(lbl)
-
-            self.preview_layout.addWidget(page_frame)
-
-            if i < total_pages - 1:
-                red_line = QFrame()
-                red_line.setFrameShape(QFrame.Shape.VLine)
-                red_line.setStyleSheet("color: #E03E3E; border: 2px solid #E03E3E; border-radius: 2px;")
-                red_line.hide()
-                self.preview_layout.addWidget(red_line)
-                self.split_lines[i + 1] = red_line 
-
-        # 파일명 자동 분할 처리
-        original_name = item.text().replace("📄 ", "").replace("☁️ ", "").replace(".pdf", "")
-        match = re.search(r'^(\d{4})_(\d)(\d)(.*)$', original_name)
+        # 파일명 추천 로직
+        import os, re
+        base, ext = os.path.splitext(filename)
+        m = re.search(r'(\d+)_([1-9])([1-9])(.*)', base)
+        m2 = re.search(r'(\d+)_([1-9]),([1-9])(.*)', base)
         
-        if match:
-            date_part = match.group(1)
-            p1 = match.group(2)
-            p2 = match.group(3)
-            rest = match.group(4)
-            self.save_name_1.setText(f"{date_part}_{p1}{rest}.pdf")
-            self.save_name_2.setText(f"{date_part}_{p2}{rest}.pdf")
+        if m:
+            n1 = f"{m.group(1)}_{m.group(2)}{m.group(4)}{ext}"
+            n2 = f"{m.group(1)}_{m.group(3)}{m.group(4)}{ext}"
+        elif m2:
+            n1 = f"{m2.group(1)}_{m2.group(2)}{m2.group(4)}{ext}"
+            n2 = f"{m2.group(1)}_{m2.group(3)}{m2.group(4)}{ext}"
         else:
-            self.save_name_1.setText(f"{original_name}_1.pdf")
-            self.save_name_2.setText(f"{original_name}_2.pdf")
+            n1 = f"{base}_Part 1{ext}"
+            n2 = f"{base}_Part 2{ext}"
+            
+        self.save_name_1.setText(n1)
+        self.save_name_2.setText(n2)
 
-        self.log_signal.emit("✅ 렌더링 완료")
-        self.update_split_lines(self.split_input.text())
+    def on_preview_ready(self, result):
+        self.local_path = result['local_path']
+        self.total_pages = result['total_pages']
+        self.preview_label.setText(f"총 {self.total_pages} 페이지")
+        
+        # UI 프리징 방지를 위해 백그라운드 워커에서 렌더링 시작
+        self.controller.start_render_pages(self.local_path, self.total_pages)
+
+    def on_page_rendered(self, page_idx, img_data):
+        img = QImage.fromData(img_data)
+        pixmap = QPixmap.fromImage(img)
+        self.page_images.append(pixmap)
+        
+        try:
+            split_point = int(self.split_input.text().strip())
+        except ValueError:
+            split_point = -1
+            
+        self.scroll_area.add_page(
+            pixmap=pixmap,
+            border_color="danger" if (page_idx + 1 == split_point) else None,
+            top_text=f"{page_idx+1}페이지"
+        )
 
     def update_split_lines(self, text):
         try:
@@ -332,8 +255,40 @@ class Tab4PdfSplit(QWidget):
         except ValueError:
             split_point = -1
 
-        for page_num, line_widget in self.split_lines.items():
-            if page_num == split_point:
-                line_widget.show()
-            else:
-                line_widget.hide()
+        if not hasattr(self, 'page_images'):
+            return
+
+        self.scroll_area.clear()
+        for idx, pixmap in enumerate(self.page_images):
+            self.scroll_area.add_page(
+                pixmap=pixmap,
+                border_color="danger" if (idx + 1 == split_point) else None,
+                top_text=f"{idx+1}페이지"
+            )
+
+    def clear_preview(self):
+        self.local_path = None
+        self.total_pages = 0
+        self.page_images = []
+        self.preview_label.setText("")
+        self.scroll_area.clear()
+
+    def start_split(self):
+        self.controller.start_split_and_save(
+            local_path=self.local_path,
+            total_pages=self.total_pages,
+            split_page_text=self.split_input.text(),
+            out1=self.save_name_1.text(),
+            out2=self.save_name_2.text(),
+            is_drive=self.drive_check.isChecked(),
+            target_dir=self.folder_input.text()
+        )
+
+    def on_split_completed(self, msg):
+        QMessageBox.information(self, "완료", msg)
+        self.save_name_1.clear()
+        self.save_name_2.clear()
+        self.split_input.clear()
+        
+    def show_error(self, msg):
+        QMessageBox.critical(self, "오류", msg)

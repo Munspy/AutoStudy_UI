@@ -1,12 +1,15 @@
 from PyQt6.QtWidgets import QWidget, QMessageBox
 from PyQt6.QtCore import pyqtSignal, QSettings, Qt
 
-class BaseTab(QWidget):
+class BaseUI(QWidget):
     # 1. 모든 탭 공통 시그널
     log_signal = pyqtSignal(str)
     
-    def __init__(self, parent=None):
+    def __init__(self, task_manager=None, parent=None):
         super().__init__(parent)
+
+        # main.py에서 단일 gloabl task manger을 생성하여 내려줌. 다시 받아서 controller로 내려주면 됨
+        self.task_manager = task_manager
         
         # 2. 공통 설정 객체 초기화 (모든 탭에서 self.settings 로 접근 가능)
         self.settings = QSettings("MyAutoStudy", "DriveSyncPipeline")

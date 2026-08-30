@@ -1,26 +1,29 @@
+from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QTableWidget, QTableWidgetItem, QLabel, 
-                             QHeaderView, QComboBox, QDateEdit, QAbstractSpinBox,
-                             QFileDialog, QFrame, QCheckBox)
+                             QTableWidgetItem, QLabel, QHeaderView,
+                             QAbstractSpinBox, QFileDialog, QFrame)
 from PyQt6.QtCore import Qt, QDate
 
-from base.base_ui import BaseTab
+from base.base_ui import BaseUI
+from base.base_ui_components import (LoadingButton, StyledButton, CardWidget, 
+                                     StyledTableWidget, StyledListWidget, StyledCheckBox, 
+                                     StyledComboBox, StyledDateEdit, PreviewScrollArea, StatusBadge)
 from controller.drive_sync_controller import DriveSyncController  # 👈 이제 Thread가 아닌 Func만 바라봄
 
-class Tab1DriveSync(BaseTab):
-    def __init__(self):             # 처음 생성될 때의 초기값. UI다 보니 따로 변수를 받지는 않음
-        super().__init__()        
+class DriveSyncUi(BaseUI):
+    def __init__(self, task_manager=None):             # 처음 생성될 때의 초기값. UI다 보니 따로 변수를 받지는 않음
+        super().__init__(task_manager=task_manager)        
         default_path = os.path.expanduser("~/Downloads")
             # 로컬 검색의 기본값은 Downloads 폴더, 윈도우에서는 카카오톡 폴더를 주로 쓸 것으로 보임
         self.local_download_path = self.load_setting("local_download_path", default_path)
             # QSettings을 뒤져서 local_download_path가 있으면 그걸 반환하고
-            # 아니면 default_path를 사용 (BaseTab 메서드 활용)
+            # 아니면 default_path를 사용 (BaseUI 메서드 활용)
         
         # 👈 UI를 위한 컨트롤러 생성 및 시그널 연결
-        self.controller = DriveSyncController()
+        self.controller = DriveSyncController(task_manager=self.task_manager)
         self.controller.sync_completed.connect(self.update_table)
-        self.controller.sync_error.connect(self.handle_worker_error)
+        self.controller.error_signal.connect(self.show_error)
         self.controller.sync_finished.connect(self.reset_search_btn)
         self.controller.log_signal.connect(self.emit_log)
         
@@ -31,7 +34,7 @@ class Tab1DriveSync(BaseTab):
         # QWidget, QLabel, QCheckBox 등에 사용할 기본 설정 정하기
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            Tab1DriveSync {
+            DriveSyncUi {
                 background-color: #FFFFFF;
             }
             QWidget {
@@ -60,16 +63,7 @@ class Tab1DriveSync(BaseTab):
 
         # --- 상단 필터 영역 (연한 회색 배경) ---
             # 이게 이번 프로젝트 기준 설정 부위 양식
-        control_frame = QFrame()
-        control_frame.setObjectName("ControlBox")
-        control_frame.setStyleSheet("""
-            #ControlBox { 
-                background-color: #F4F5F7; /* 기준 설정 박스에만 색상 부여 */
-                border-radius: 12px; 
-                border: 1px solid #EAEAEA; 
-            }
-            QLabel { font-weight: bold; color: #37352f; }
-        """)
+        control_frame = CardWidget()
 
         # 프레임 위에는 수평 레이아웃(QHBoxLayout)을 배치하여 요소들을 좌에서 우로 정렬
             # 약간의 마진과 구조물들 사이 간격도 설정
@@ -82,23 +76,13 @@ class Tab1DriveSync(BaseTab):
         filter_layout.addWidget(QLabel("시험 기준:"))
 
         # 2. 두번째 구조물: 선택지가 있는 리본박스
-        self.exam_combo = QComboBox()
+        self.exam_combo = StyledComboBox()
 
             # 사용안함은 고정
             # 나머지는 드라이브의 전체 폴더 구조를 보고 정하는 것인데 현재는 목업 데이터
         self.exam_combo.addItems(["사용 안함", "Block 1 : 심혈관계/1차"])
             # ----- 수정 필요!!!!!!!!!!!!!!!! -----
             # 폴더 구조는 언제마다 읽어야 할까?
-
-            # 스타일 내용
-            # 정확히는 모르겠으나 현 상태가 맘에 드니 냅두기로
-        self.exam_combo.setStyleSheet("""
-            QComboBox {
-                padding: 6px 10px; border: 1px solid #D1D1CE; border-radius: 6px; 
-                background-color: #FFFFFF; min-width: 160px; font-weight: normal;
-            }
-            QComboBox::drop-down { border: none; }
-        """)
 
         # 1 + 2. 첫번쨰 구조물 바로 옆으로 두번쨰 구조물을 붙임
             # 왼쪽 정렬시킬 구조물들은 앞으로도 다 이런식으로 붙임
@@ -116,29 +100,19 @@ class Tab1DriveSync(BaseTab):
         # 4. 네번째 구조물: 날짜 범위 시작 ~ 날짜 범위 끝
         today = QDate.currentDate()     # 기본값: 오늘
 
-        # QDateEdit, QDateEdit:disabled 상태의 스타일 지정
-            # 비활성화 되면 흐려짐
-        date_style = """
-            QDateEdit {
-                padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; 
-                background-color: #FFFFFF; min-width: 80px; font-weight: normal;
-            }
-            QDateEdit:disabled { background-color: #EFEFEF; color: #A0A0A0; }
-        """
-
         # 기본값으로 오늘 날짜를 사용
-        self.start_date = QDateEdit(today)
+        self.start_date = StyledDateEdit()
+        self.start_date.setDate(today)
         self.start_date.setDisplayFormat("MM-dd")
         self.start_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.start_date.setCalendarPopup(True)
-        self.start_date.setStyleSheet(date_style)   # 위에서 정의한 date_style 사용
 
         # 기본값으로 오늘 날짜를 사용
-        self.end_date = QDateEdit(today)
+        self.end_date = StyledDateEdit()
+        self.end_date.setDate(today)
         self.end_date.setDisplayFormat("MM-dd")
         self.end_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.end_date.setCalendarPopup(True)
-        self.end_date.setStyleSheet(date_style)     # 위에서 정의한 date_style 사용
 
         # 날짜 시작 ~ 날짜 끝
         # ex. 08-26 ~ 08-26
@@ -196,14 +170,7 @@ class Tab1DriveSync(BaseTab):
         mid_bar_layout.setContentsMargins(5, 5, 5, 5)
 
         # 1. 전체 선택
-        self.select_all_cb = QCheckBox("전체 선택")
-        self.select_all_cb.setCursor(Qt.CursorShape.PointingHandCursor) # 갖다대면 커서 모양이 바뀜
-        # 체크박스 옆 글씨 양식, 체크박스 선택/선택 해제 모양 제시됨
-        self.select_all_cb.setStyleSheet("""
-            QCheckBox { font-weight: bold; font-size: 14px; color: #37352f; margin-left: 5px; }
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #2383E2; border: 1px solid #2383E2; }
-        """)
+        self.select_all_cb = StyledCheckBox("전체 선택")
         # 클릭되면 '알아서 잘' 전체선택/해제 : toggle_all_rows_smart
         self.select_all_cb.clicked.connect(self.toggle_all_rows_smart)
 
@@ -214,7 +181,7 @@ class Tab1DriveSync(BaseTab):
         mid_bar_layout.addStretch()
 
         # 2. 데이터 동기화 및 조회
-        self.search_btn = QPushButton("데이터 동기화 및 조회")
+        self.search_btn = LoadingButton("데이터 동기화 및 조회", "primary")
         self.search_btn.setCursor(Qt.CursorShape.PointingHandCursor)    # 갖다대면 커서 모양이 바뀜
         # 기본 양식 + 커서 갖다댔을 때 색상 + 눌렸을 때 대기중인 색상 설정
         self.search_btn.setStyleSheet("""
@@ -237,27 +204,13 @@ class Tab1DriveSync(BaseTab):
         # --- 테이블 영역 ---
 
         # 초기 행(Row)은 0개, 열(Column)은 10개인 표 틀 만들기
-        self.table = QTableWidget(0, 10)
+        self.table = StyledTableWidget(0, 10)
 
         # 각 열의 상단 제목 일괄 등록
         self.table.setHorizontalHeaderLabels([
             "", "수업 교시", "교수", "강의명", "필기", "음성 스크립트", 
             "최종교정본", "요약본", "Anki", "스크립트 합본"
         ])
-
-        # 대충 표 스타일 설정
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background-color: #FFFFFF; border: 1px solid #EAEAEA;
-                border-radius: 8px; gridline-color: #F4F4F4; font-size: 13px;
-                alternate-background-color: #FAFAFA;
-            }
-            QHeaderView::section {
-                background-color: #FFFFFF; border: none; border-bottom: 2px solid #EAEAEA;
-                padding: 10px 5px; font-weight: bold; color: #787774;
-            }
-            QTableWidget::item { padding: 5px; border-bottom: 1px solid #F4F4F4; }
-        """)
 
         # 원래 있는 기능으로 'alternate-background-color' 설정해놨으니 알아서 잘해줌 bb
         self.table.setAlternatingRowColors(True)
@@ -293,49 +246,32 @@ class Tab1DriveSync(BaseTab):
         actions_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         # 큰 버튼들 모양 지정
-        primary_btn_style = """
-            QPushButton {
-                background-color: %s; color: white; 
-                font-weight: bold; font-size: 14px; padding: 14px 20px; border-radius: 8px; border: none;
-            }
-            QPushButton:hover { background-color: %s; }
-        """
-
-        btn_run_local = QPushButton("누락 로컬 작업 모두 실행")
-        btn_run_local.setStyleSheet(primary_btn_style % ("#2EA043", "#238636"))
-        btn_run_local.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        btn_run_local = StyledButton("누락 로컬 작업 모두 실행", "success")
+        
+        
         btn_run_local.clicked.connect(self.controller.execute_local_tasks)
         actions_layout.addWidget(btn_run_local)
 
-        btn_run_whisper = QPushButton("🎙️ Whisper AI 전사 실행")
-        btn_run_whisper.setStyleSheet(primary_btn_style % ("#A374DB", "#8D5CBF"))
-        btn_run_whisper.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_run_whisper = StyledButton("🎙️ Whisper AI 전사 실행", "primary")
+        
+        
         btn_run_whisper.clicked.connect(self.controller.execute_whisper_transcription)
         actions_layout.addWidget(btn_run_whisper)
+
+        btn_dl_script = StyledButton("📄 스크립트 합본 다운로드", "primary")
         
-        btn_dl_script = QPushButton("📄 스크립트 합본 다운로드")
-        btn_dl_script.setStyleSheet(primary_btn_style % ("#E03E3E", "#C93434"))
-        btn_dl_script.setCursor(Qt.CursorShape.PointingHandCursor)
+        
         btn_dl_script.clicked.connect(self.controller.download_script_merged)
         actions_layout.addWidget(btn_dl_script)
         
         actions_layout.addStretch() 
 
         # 작은 버튼들 모양 지정
-        secondary_style = """
-            QPushButton {
-                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                border-radius: 6px; padding: 8px 12px; color: #555555; font-size: 12px;
-            }
-            QPushButton:hover { background-color: #F8F9FA; color: #111111; }
-        """
-        btn_dl_summary = QPushButton("📝 요약본 다운로드")
-        btn_dl_anki = QPushButton("🗂️ Anki 다운로드")
-
-        for btn in [btn_dl_summary, btn_dl_anki]:
-            btn.setStyleSheet(secondary_style)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            actions_layout.addWidget(btn)
+        btn_dl_summary = StyledButton("📝 요약본 다운로드", "secondary")
+        btn_dl_anki = StyledButton("🗂️ Anki 다운로드", "secondary")
+        actions_layout.addWidget(btn_dl_summary)
+        actions_layout.addWidget(btn_dl_anki)
         
         # 👈 컨트롤러 호출로 변경
         btn_dl_summary.clicked.connect(self.controller.download_summary)
@@ -349,7 +285,7 @@ class Tab1DriveSync(BaseTab):
         folder = QFileDialog.getExistingDirectory(self, "로컬 검색 폴더 선택", self.local_download_path)
         if folder:
             self.local_download_path = folder
-            self.save_setting("local_download_path", folder)  # BaseTab의 save_setting 헬퍼 활용
+            self.save_setting("local_download_path", folder)  # BaseUI의 save_setting 헬퍼 활용
             self.emit_log(f"설정 완료: 검색 폴더가 [{folder}] (으)로 변경되었습니다.")
 
     def toggle_date_inputs(self, text):
@@ -360,8 +296,7 @@ class Tab1DriveSync(BaseTab):
     def execute_search_log(self):
         """ 🔄 변경점: 직접 Thread를 부르는 대신 Controller(Func)에게 지시를 내립니다. """
         current_exam = self.exam_combo.currentText()
-        self.search_btn.setEnabled(False)
-        self.search_btn.setText("조회 중...")
+        self.search_btn.start_loading("조회 중")
         
         if current_exam == "사용 안함":
             start = self.start_date.date().toString("yyyy-MM-dd")
@@ -381,8 +316,7 @@ class Tab1DriveSync(BaseTab):
         self.controller.execute_sync(search_mode, filter_value, self.local_download_path)
 
     def reset_search_btn(self):
-        self.search_btn.setEnabled(True)
-        self.search_btn.setText("데이터 동기화 및 조회")
+        self.search_btn.stop_loading()
 
     def handle_worker_error(self, err):
         self.emit_log(f"[오류 발생] {err}")
@@ -433,25 +367,18 @@ class Tab1DriveSync(BaseTab):
         layout.setContentsMargins(5, 2, 5, 2)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        badge = QLabel(text)
-        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        style_map = {
-            "완료": ("#EDF3EC", "#448361"),
-            "줄": ("#F9F3EA", "#D9730D"),
-            "없음": ("#F1F1EF", "#787774"),
-            "O (완료)": ("#E7F3F8", "#2B59C3"),
-            "Whisper AI 전사 필요": ("#F4E8FB", "#7C3AED"),
-            "Youtube 동기화 필요": ("#FBE4E4", "#C14C4C"),
-            "영상 없음": ("#F1F1EF", "#787774"),
+        state_map = {
+            "완료": "success",
+            "줄": "warning",
+            "없음": "warning",
+            "O (완료)": "primary",
+            "Whisper AI 전사 필요": "secondary",
+            "Youtube 동기화 필요": "danger",
+            "영상 없음": "danger",
         }
         
-        bg_color, text_color = style_map.get(text, ("#F1F1EF", "#787774"))
-        
-        badge.setStyleSheet(f"""
-            background-color: {bg_color}; color: {text_color};
-            border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold;
-        """)
+        state = state_map.get(text, "primary")
+        badge = StatusBadge(text, state)
         
         layout.addWidget(badge)
         return container
@@ -463,11 +390,10 @@ class Tab1DriveSync(BaseTab):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        cb = QCheckBox()
+        cb = StyledCheckBox()
         cb.setChecked(checked)
         cb.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         cb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        cb.setStyleSheet("QCheckBox { background: transparent; }")
         
         layout.addWidget(cb)
         return container

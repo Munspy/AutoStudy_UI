@@ -17,7 +17,7 @@ class WhisperScannerWorker(BaseWorker):
         incomplete_audio_files = whisper_service.get_pending_audio_files()
         
         # 취소 여부 확인
-        if not self._is_running:
+        if self.is_cancelled():
             return []
             
         return incomplete_audio_files
@@ -43,7 +43,7 @@ class WhisperExecutionWorker(BaseWorker):
         time.sleep(1) # 연결 지연 시뮬레이션
         
         for i, filepath in enumerate(self.file_paths):
-            if not self._is_running:
+            if self.is_cancelled():
                 self.log_signal.emit("⚠️ 작업이 사용자에 의해 취소되었습니다.")
                 break
                 
@@ -51,7 +51,7 @@ class WhisperExecutionWorker(BaseWorker):
             
             # 통신 및 전사 진행률 시뮬레이션
             for step in range(1, 11):
-                if not self._is_running: 
+                if self.is_cancelled(): 
                     break
                 time.sleep(0.5) # 실제 서버 통신 대기 로직으로 교체될 부분
                 
@@ -59,11 +59,11 @@ class WhisperExecutionWorker(BaseWorker):
                 # BaseWorker 규격에 맞춰 (int, str) 두 개의 인자를 전송
                 self.progress_signal.emit(current_progress, f"{filepath} 전사 중...")
                 
-            if self._is_running:
+            if not self.is_cancelled():
                 completed_files.append(filepath)
                 self.log_signal.emit(f"✅ [{i+1}/{total_files}] 전사 완료: {filepath}")
             
-        if self._is_running:
+        if not self.is_cancelled():
             self.log_signal.emit("🎉 모든 Whisper 전사 작업이 완료되었습니다.")
             
         return completed_files

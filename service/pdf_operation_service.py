@@ -47,7 +47,7 @@ class PdfOperationService(BaseService):
 
     def split_and_save(
         self, 
-        current_pdf_path: PathLike, 
+        local_path: PathLike, 
         split_page: int, 
         out1_name: str, 
         out2_name: str, 
@@ -68,7 +68,7 @@ class PdfOperationService(BaseService):
         메모리나 디스크 누수 없이 안정적으로 동작합니다.
 
         Args:
-            current_pdf_path (PathLike): 분할 대상이 되는 원본 PDF 파일의 로컬 경로.
+            local_path (PathLike): 분할 대상이 되는 원본 PDF 파일의 로컬 경로.
             split_page (int): 분할 기준이 되는 페이지 번호 (1-based index 기준, 해당 페이지 뒤에서 분할됨).
             out1_name (str): 분할되어 생성될 첫 번째 파트의 결과물 파일명.
             out2_name (str): 분할되어 생성될 두 번째 파트의 결과물 파일명.
@@ -101,7 +101,7 @@ class PdfOperationService(BaseService):
                 self._log(f"✂️ 물리적 PDF 분할을 시작합니다 (기준: {split_page}페이지 뒤)")
                 
                 # 1. 물리적 PDF 분할 연산
-                split_pdf_two_parts(current_pdf_path, split_page, temp_out1, temp_out2)
+                split_pdf_two_parts(local_path, split_page, temp_out1, temp_out2)
                 
                 # 2. 지정된 위치로 파일 전송
                 if is_drive:

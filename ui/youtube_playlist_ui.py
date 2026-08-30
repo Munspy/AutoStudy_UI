@@ -1,3 +1,6 @@
+from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from base.base_ui import BaseUI
+from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledTableWidget, StyledListWidget, StyledCheckBox, StyledComboBox, StyledDateEdit, StatusBadge
 import sys
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QTableWidget, QTableWidgetItem, QLabel, 
@@ -26,13 +29,7 @@ class PlaylistManagerDialog(QDialog):
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(20, 20, 20, 20)
         
-        self.combo = QComboBox()
-        self.combo.setStyleSheet("""
-            QComboBox {
-                padding: 6px 10px; border: 1px solid #D1D1CE; border-radius: 6px; 
-                background-color: #FFFFFF; font-weight: normal;
-            }
-        """)
+        self.combo = StyledComboBox()
         self.load_data()
         
         title_label = QLabel("관리할 재생목록을 선택하세요:")
@@ -43,18 +40,8 @@ class PlaylistManagerDialog(QDialog):
         btn_layout = QHBoxLayout()
         btn_layout.addStretch()
         
-        self.rename_btn = QPushButton("이름 변경")
-        self.delete_btn = QPushButton("삭제")
-        
-        for btn in [self.rename_btn, self.delete_btn]:
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                    border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold;
-                }
-                QPushButton:hover { background-color: #F8F9FA; color: #111111; }
-            """)
+        self.rename_btn = StyledButton("이름 변경", "secondary")
+        self.delete_btn = StyledButton("삭제", "danger")
             
         self.rename_btn.clicked.connect(self.rename_pl)
         self.delete_btn.clicked.connect(self.delete_pl)
@@ -93,20 +80,26 @@ class PlaylistManagerDialog(QDialog):
             QMessageBox.information(self, "성공", "삭제되었습니다.")
 
 
-class Tab8YoutubePlaylist(QWidget):
-    log_signal = pyqtSignal(str)
-    global_progress_signal = pyqtSignal(int)
+class YoutubePlaylistUi(BaseUI):
+    global_progress_signal = pyqtSignal(int, str)
 
-    def __init__(self):
-        super().__init__()
-        backend.init_csv()
+    def __init__(self, task_manager=None):
+        super().__init__(task_manager=task_manager)
+        self.controller = backend.YoutubePlaylistController(task_manager=self.task_manager)
+        self.controller.ui = self
+        self.controller.fetch_completed.connect(self.populate_table)
+        self.controller.checker_completed.connect(self.on_checker_finished)
+        self.controller.upload_completed.connect(self.on_upload_finished)
+        self.controller.error_signal.connect(self.on_upload_error)
+        self.controller.progress_signal.connect(self.global_progress_signal.emit)
+
         self.videos_data = [] 
         self.init_ui()
 
     def init_ui(self):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            Tab8YoutubePlaylist {
+            YoutubePlaylistUi {
                 background-color: #FFFFFF;
             }
             QWidget {
@@ -133,16 +126,7 @@ class Tab8YoutubePlaylist(QWidget):
         layout.addWidget(header_label)
 
         # --- 상단 컨트롤 박스 ---
-        control_frame = QFrame()
-        control_frame.setObjectName("ControlBox")
-        control_frame.setStyleSheet("""
-            #ControlBox { 
-                background-color: #F4F5F7; 
-                border-radius: 12px; 
-                border: 1px solid #EAEAEA; 
-            }
-            QLabel { font-weight: bold; color: #37352f; }
-        """)
+        control_frame = CardWidget()
         
         control_layout = QHBoxLayout(control_frame)
         control_layout.setContentsMargins(20, 16, 20, 16)
@@ -150,45 +134,21 @@ class Tab8YoutubePlaylist(QWidget):
 
         control_layout.addWidget(QLabel("현재 재생목록:"))
         
-        self.playlist_combo = QComboBox()
-        self.playlist_combo.setStyleSheet("""
-            QComboBox {
-                padding: 6px 10px; border: 1px solid #D1D1CE; border-radius: 6px; 
-                background-color: #FFFFFF; min-width: 250px; font-weight: normal;
-            }
-            QComboBox::drop-down { border: none; }
-        """)
+        self.playlist_combo = StyledComboBox()
         control_layout.addWidget(self.playlist_combo)
         
-        refresh_video_btn = QPushButton("데이터 새로고침")
-        refresh_video_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        refresh_video_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #F8F9FA; color: #111111; }
-        """)
+        refresh_video_btn = StyledButton("데이터 새로고침", "secondary")
         refresh_video_btn.clicked.connect(self.load_playlist_data)
         control_layout.addWidget(refresh_video_btn)
         
         control_layout.addStretch()
 
-        manage_pl_btn = QPushButton("⚙️ 관리")
-        add_pl_btn = QPushButton("➕ 추가")
-        refresh_list_btn = QPushButton("🔄 목록 갱신")
-        
-        secondary_btn_style = """
-            QPushButton {
-                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #F8F9FA; color: #111111; }
-        """
-        for btn in [manage_pl_btn, add_pl_btn, refresh_list_btn]:
-            btn.setStyleSheet(secondary_btn_style)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            control_layout.addWidget(btn)
+        manage_pl_btn = StyledButton("⚙️ 관리", "secondary")
+        add_pl_btn = StyledButton("➕ 추가", "secondary")
+        refresh_list_btn = StyledButton("🔄 목록 갱신", "secondary")
+        control_layout.addWidget(manage_pl_btn)
+        control_layout.addWidget(add_pl_btn)
+        control_layout.addWidget(refresh_list_btn)
             
         manage_pl_btn.clicked.connect(self.open_manage_dialog)
         add_pl_btn.clicked.connect(self.add_playlist_dialog)
@@ -200,48 +160,22 @@ class Tab8YoutubePlaylist(QWidget):
         mid_bar_layout = QHBoxLayout()
         mid_bar_layout.setContentsMargins(5, 5, 5, 5)
         
-        self.select_all_cb = QCheckBox("전체 선택")
+        self.select_all_cb = StyledCheckBox("전체 선택")
         self.select_all_cb.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_all_cb.setStyleSheet("""
-            QCheckBox { font-weight: bold; font-size: 14px; color: #37352f; margin-left: 5px; }
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #2383E2; border: 1px solid #2383E2; }
-        """)
         self.select_all_cb.clicked.connect(self.toggle_all_rows_smart)
         mid_bar_layout.addWidget(self.select_all_cb)
         
         mid_bar_layout.addStretch()
 
-        sel_unex_btn = QPushButton("🎯 음성 미추출 자동 선택")
-        sel_unex_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        sel_unex_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #F4F5F7; border: 1px solid #D1D1CE; 
-                border-radius: 6px; padding: 8px 14px; font-weight: bold; font-size: 13px; color: #37352f;
-            }
-            QPushButton:hover { background-color: #EAEAEA; }
-        """)
+        sel_unex_btn = StyledButton("🎯 음성 미추출 자동 선택", "secondary")
         sel_unex_btn.clicked.connect(self.select_unextracted)
         mid_bar_layout.addWidget(sel_unex_btn)
 
         layout.addLayout(mid_bar_layout)
 
         # --- 테이블 영역 ---
-        self.table = QTableWidget(0, 6)
+        self.table = StyledTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels(["", "영상 제목", "추출 Prefix", "영상 길이", "음성 추출 여부", "링크"])
-        
-        self.table.setStyleSheet("""
-            QTableWidget {
-                background-color: #FFFFFF; border: 1px solid #EAEAEA;
-                border-radius: 8px; gridline-color: #F4F4F4; font-size: 13px;
-                alternate-background-color: #FAFAFA;
-            }
-            QHeaderView::section {
-                background-color: #FFFFFF; border: none; border-bottom: 2px solid #EAEAEA;
-                padding: 10px 5px; font-weight: bold; color: #787774;
-            }
-            QTableWidget::item { padding: 5px; border-bottom: 1px solid #F4F4F4; }
-        """)
         self.table.setAlternatingRowColors(True)
         
         self.table.setColumnWidth(0, 40)
@@ -264,16 +198,7 @@ class Tab8YoutubePlaylist(QWidget):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         
-        self.upload_btn = QPushButton("☁️ 선택 영상 음성 추출 및 업로드")
-        self.upload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.upload_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2383E2; color: white; 
-                font-weight: bold; font-size: 14px; padding: 14px 24px; border-radius: 8px; border: none;
-            }
-            QPushButton:hover { background-color: #1A6FB0; }
-            QPushButton:disabled { background-color: #A5C9F3; }
-        """)
+        self.upload_btn = LoadingButton("☁️ 선택 영상 음성 추출 및 업로드", "primary")
         self.upload_btn.clicked.connect(self.execute_upload)
         bottom_layout.addWidget(self.upload_btn)
         
@@ -303,10 +228,7 @@ class Tab8YoutubePlaylist(QWidget):
             self.playlist_combo.blockSignals(False)
             return
 
-        self.checker = backend.AllPlaylistUpdateChecker(playlists)
-        self.checker.log_signal.connect(self.emit_log)
-        self.checker.finished_signal.connect(self.on_checker_finished)
-        self.checker.start()
+        self.controller.start_update_checker(playlists)
 
     def on_checker_finished(self, sorted_playlists):
         self.playlist_combo.clear()
@@ -355,11 +277,7 @@ class Tab8YoutubePlaylist(QWidget):
         self.table.setRowCount(0)
         self.videos_data.clear()
         
-        self.fetcher = backend.PlaylistFetcher(playlist_id)
-        self.fetcher.log_signal.connect(self.emit_log)
-        self.fetcher.finished_signal.connect(self.populate_table)
-        self.fetcher.error_signal.connect(lambda e: self.emit_log(f"로드 실패: {e}"))
-        self.fetcher.start()
+        self.controller.start_fetch_playlist(playlist_id)
 
     def toggle_all_rows_smart(self):
         total = self.table.rowCount()
@@ -475,25 +393,19 @@ class Tab8YoutubePlaylist(QWidget):
             self.emit_log("업로드 가능한 영상이 선택되지 않았습니다.")
             return
 
-        self.upload_btn.setEnabled(False)
+        self.upload_btn.start_loading("업로드 중")
         self.emit_log(f"총 {len(target_videos)}개의 영상 추출 및 업로드를 시작합니다...")
-        self.global_progress_signal.emit(0)
+        self.global_progress_signal.emit(0, "준비 중...")
         
-        self.upload_worker = backend.UploadWorker(target_videos)
-        self.upload_worker.progress_signal.connect(self.emit_log)
-        self.upload_worker.progress_val_signal.connect(self.global_progress_signal.emit)
-        
-        self.upload_worker.error_signal.connect(self.on_upload_error)
-        self.upload_worker.finished_signal.connect(self.on_upload_finished)
-        self.upload_worker.start()
+        self.controller.start_upload_videos(target_videos)
 
     def on_upload_error(self, err_msg):
         self.emit_log(f"업로드 오류: {err_msg}")
-        self.upload_btn.setEnabled(True)
+        self.upload_btn.stop_loading()
 
     def on_upload_finished(self):
         self.emit_log("🎉 모든 업로드 작업이 완료되었습니다! '영상 새로고침'을 눌러 상태를 확인하세요.")
-        self.upload_btn.setEnabled(True)
+        self.upload_btn.stop_loading()
 
     def create_badge(self, text):
         container = QWidget()
@@ -502,13 +414,10 @@ class Tab8YoutubePlaylist(QWidget):
         layout.setContentsMargins(5, 2, 5, 2)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
-        badge = QLabel("완료" if text == "O" else "미추출")
-        badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
         if text == "O":
-            badge.setStyleSheet("background-color: #EDF3EC; color: #448361; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold;")
+            badge = StatusBadge("완료", "success")
         else:
-            badge.setStyleSheet("background-color: #FBE4E4; color: #C14C4C; border-radius: 4px; padding: 4px 8px; font-size: 11px; font-weight: bold;")
+            badge = StatusBadge("미추출", "danger")
             
         layout.addWidget(badge)
         return container

@@ -1,7 +1,8 @@
 # Threads/watchdog_thread.py
 import os
 import time
-from PyQt6.QtCore import QThread, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
+from base.base_worker import BaseWorker
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
@@ -34,7 +35,7 @@ class StudyFileEventHandler(FileSystemEventHandler):
             self.signal_emitter.emit("PDF", file_path)
 
 
-class WatchdogThread(QThread):
+class WatchdogThread(BaseWorker):
     """
     백그라운드에서 특정 폴더를 무한히 감시하는 스레드입니다.
     """
@@ -48,7 +49,7 @@ class WatchdogThread(QThread):
         self.observer = Observer()
         self._is_running = False
 
-    def run(self):
+    def do_work(self):
         try:
             if not os.path.exists(self.watch_path):
                 os.makedirs(self.watch_path, exist_ok=True)

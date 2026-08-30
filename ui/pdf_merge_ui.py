@@ -1,26 +1,62 @@
 import sys
+
+from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+
 from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QFileDialog, QScrollArea, QFrame, 
                              QCheckBox, QListWidget, QListWidgetItem,
-                             QDateEdit, QAbstractSpinBox)
+                             QDateEdit, QAbstractSpinBox, QMessageBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QDate
+from PyQt6.QtGui import QImage, QPixmap
+import os
+import pymupdf
 
-import controller.pdf_merge_controller as backend
+from controller.pdf_merge_controller import PdfMergeController
+from utils.drive_api import download_from_drive
+from utils.auth_util import get_drive_service
+from base.base_ui_components import create_pdf_thumbnail_frame, LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit, PreviewScrollArea
 
-class Tab3PdfMerge(QWidget):
-    log_signal = pyqtSignal(str)
+class PreviewState:
+    def __init__(self, doc, path, is_drive):
+        self.doc = doc
+        self.path = path
+        self.is_drive = is_drive
+        self.total_pages = doc.page_count
+        self.loaded_pages = 0
 
-    def __init__(self):
+
+
+class PdfMergeUi(QWidget):
+    global_progress_signal = pyqtSignal(int, str)
+    global_loading_signal = pyqtSignal(bool)
+
+    def __init__(self, task_manager=None):
         super().__init__()
+        self.task_manager = task_manager
+        self.controller = PdfMergeController(task_manager=self.task_manager)
         
-        self.controller = backend.PdfMergeController(self)
+        self.controller.log_signal.connect(lambda msg: print(msg))
+        self.controller.progress_signal.connect(self.global_progress_signal.emit)
+        self.controller.error_signal.connect(self.show_error)
+        self.controller.loading_signal.connect(self.global_loading_signal.emit)
+        self.controller.file_list_ready.connect(self.on_file_list_ready)
+        self.controller.merge_completed.connect(self.on_merge_completed)
+        self.controller.preview_prepared.connect(self.on_item_prepared)
+        self.controller.preview_finished.connect(self.on_preview_worker_finished)
+
+        self.file_paths = {}
+        self.preview_states = {}
+        self.drive_cache = {}
+        self.temp_dir = "/tmp/antigravity_pdf_cache"
+        os.makedirs(self.temp_dir, exist_ok=True)
+        
         self.init_ui()
 
     def init_ui(self):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            Tab3PdfMerge { background-color: #FFFFFF; }
+            PdfMergeUi { background-color: #FFFFFF; }
             QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
@@ -38,33 +74,16 @@ class Tab3PdfMerge(QWidget):
         layout.addWidget(header_label)
 
         # 2. 제어 박스
-        control_frame = QFrame()
-        control_frame.setObjectName("ControlBox")
-        control_frame.setStyleSheet("""
-            #ControlBox { 
-                background-color: #F4F5F7; 
-                border-radius: 12px; 
-                border: 1px solid #EAEAEA; 
-            }
-            QLabel { font-weight: bold; color: #37352f; }
-        """)
+        control_frame = CardWidget()
         
         control_layout = QHBoxLayout(control_frame)
         control_layout.setContentsMargins(20, 16, 20, 16)
         control_layout.setSpacing(10)
         
-        # 대상 폴더 왼쪽 구름 체크박스
-        self.drive_check = QCheckBox("☁️")
-        self.drive_check.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.drive_check.setStyleSheet("""
-            QCheckBox { font-size: 18px; margin-right: 5px; }
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #2383E2; border: 1px solid #2383E2; }
-        """)
+        self.drive_check = StyledCheckBox("☁️")
         self.drive_check.stateChanged.connect(self.toggle_search_mode)
         control_layout.addWidget(self.drive_check)
 
-        # 2-1. 로컬 폴더 검색 위젯
         self.local_widget = QWidget()
         local_layout = QHBoxLayout(self.local_widget)
         local_layout.setContentsMargins(0, 0, 0, 0)
@@ -77,18 +96,12 @@ class Tab3PdfMerge(QWidget):
         self.folder_input.setReadOnly(True)
         local_layout.addWidget(self.folder_input)
         
-        browse_btn = QPushButton("폴더 변경")
-        browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_btn.setStyleSheet("""
-            QPushButton { background-color: #FFFFFF; border: 1px solid #D1D1CE; border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold; }
-            QPushButton:hover { background-color: #F8F9FA; color: #111111; }
-        """)
+        browse_btn = StyledButton("폴더 변경", "secondary")
         browse_btn.clicked.connect(self.browse_folder)
         local_layout.addWidget(browse_btn)
 
         control_layout.addWidget(self.local_widget)
 
-        # 2-2. 드라이브 날짜 검색 위젯
         self.drive_widget = QWidget()
         drive_layout = QHBoxLayout(self.drive_widget)
         drive_layout.setContentsMargins(0, 0, 0, 0)
@@ -97,24 +110,15 @@ class Tab3PdfMerge(QWidget):
         drive_layout.addWidget(QLabel("📅 날짜 범위:"))
         
         today = QDate.currentDate()
-        date_style = """
-            QDateEdit {
-                padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; 
-                background-color: #FFFFFF; min-width: 80px; font-weight: normal;
-            }
-        """
-        
-        self.start_date = QDateEdit(today)
+        self.start_date = StyledDateEdit(today)
         self.start_date.setDisplayFormat("MM-dd")
         self.start_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.start_date.setCalendarPopup(True)
-        self.start_date.setStyleSheet(date_style)
         
-        self.end_date = QDateEdit(today)
+        self.end_date = StyledDateEdit(today)
         self.end_date.setDisplayFormat("MM-dd")
         self.end_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.end_date.setCalendarPopup(True)
-        self.end_date.setStyleSheet(date_style)
 
         drive_layout.addWidget(self.start_date)
         drive_layout.addWidget(QLabel("~"))
@@ -125,14 +129,9 @@ class Tab3PdfMerge(QWidget):
 
         control_layout.addStretch()
         
-        search_btn = QPushButton("파일 조회")
-        search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        search_btn.setStyleSheet("""
-            QPushButton { background-color: #2383E2; color: white; font-weight: bold; border-radius: 6px; padding: 6px 15px; border: none; }
-            QPushButton:hover { background-color: #1A6FB0; }
-        """)
-        search_btn.clicked.connect(self.controller.populate_file_list)
-        control_layout.addWidget(search_btn)
+        self.search_btn = LoadingButton("파일 조회", "primary")
+        self.search_btn.clicked.connect(self.fetch_files)
+        control_layout.addWidget(self.search_btn)
         
         layout.addWidget(control_frame)
 
@@ -143,40 +142,18 @@ class Tab3PdfMerge(QWidget):
         mid_bar_layout = QHBoxLayout()
         mid_bar_layout.setContentsMargins(5, 5, 5, 5)
         
-        self.select_all_cb = QCheckBox("전체 선택")
-        self.select_all_cb.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_all_cb.setStyleSheet("""
-            QCheckBox { font-weight: bold; font-size: 14px; color: #37352f; margin-left: 5px; }
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #2383E2; border: 1px solid #2383E2; }
-        """)
+        self.select_all_cb = StyledCheckBox("전체 선택")
         self.select_all_cb.clicked.connect(self.toggle_all_items)
         mid_bar_layout.addWidget(self.select_all_cb)
         
-        # --- 스크립트본 선택 버튼 추가 ---
-        self.select_scripted_btn = QPushButton("스크립트본 선택")
-        self.select_scripted_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_scripted_btn.setStyleSheet("""
-            QPushButton { background-color: #F4F5F7; border: 1px solid #D1D1CE; border-radius: 4px; padding: 2px 10px; font-weight: bold; font-size: 13px; color: #37352f; margin-left: 10px; }
-            QPushButton:hover { background-color: #EAEAEA; }
-        """)
+        self.select_scripted_btn = StyledButton("스크립트본 선택", "secondary")
         self.select_scripted_btn.clicked.connect(self.select_scripted_items)
         mid_bar_layout.addWidget(self.select_scripted_btn)
         
         mid_bar_layout.addStretch()
-        
         file_selection_layout.addLayout(mid_bar_layout)
         
-        self.file_list = QListWidget()
-        self.file_list.setStyleSheet("""
-            QListWidget {
-                background-color: #FFFFFF; border: 1px solid #EAEAEA;
-                border-radius: 8px; font-size: 13px; alternate-background-color: #FAFAFA; outline: none;
-            }
-            QListWidget::item { padding: 8px; border-bottom: 1px solid #F4F4F4; color: #37352f; }
-            QListWidget::item:selected { background-color: #E7F3F8; color: #37352f; border: none; }
-            QListWidget::item:hover { background-color: #F8F9FA; }
-        """)
+        self.file_list = StyledListWidget()
         self.file_list.setAlternatingRowColors(True)
         self.file_list.setMaximumHeight(120)
         self.file_list.itemChanged.connect(self.on_item_changed)
@@ -197,6 +174,7 @@ class Tab3PdfMerge(QWidget):
         self.preview_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         
         self.scroll_area.setWidget(self.preview_container)
+        self.scroll_area.verticalScrollBar().valueChanged.connect(self.on_scroll)
         layout.addWidget(self.scroll_area, stretch=1)
 
         # 5. 하단 저장 영역
@@ -209,23 +187,34 @@ class Tab3PdfMerge(QWidget):
             QLineEdit { padding: 10px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; width: 180px; }
         """)
         
-        save_btn = QPushButton("💾 선택 파일 병합 및 저장")
-        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2EA043; color: white; 
-                font-weight: bold; font-size: 14px; padding: 12px 24px; border-radius: 8px; border: none;
-            }
-            QPushButton:hover { background-color: #238636; }
-        """)
-        save_btn.clicked.connect(self.controller.merge_files)
+        save_btn = StyledButton("💾 선택 파일 병합 및 저장", "success")
+        save_btn.clicked.connect(self.start_merge)
         
         bottom_layout.addWidget(self.save_name_input)
         bottom_layout.addWidget(save_btn)
         layout.addLayout(bottom_layout)
 
-    # --- UI 전용 헬퍼 함수 ---
-    
+    def fetch_files(self):
+        is_drive = self.drive_check.isChecked()
+        target_dir = self.folder_input.text()
+        start_str = self.start_date.date().toString("MMdd")
+        end_str = self.end_date.date().toString("MMdd")
+        self.file_list.blockSignals(True)
+        self.file_list.clear()
+        self.file_paths.clear()
+        self.file_list.blockSignals(False)
+        self.controller.start_fetch_file_list(is_drive, target_dir, start_str, end_str)
+
+    def on_file_list_ready(self, file_paths):
+        self.file_paths = file_paths
+        self.file_list.blockSignals(True)
+        for text in self.file_paths.keys():
+            item = QListWidgetItem(text)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Unchecked)
+            self.file_list.addItem(item)
+        self.file_list.blockSignals(False)
+
     def select_scripted_items(self):
         total = self.file_list.count()
         if total == 0: return
@@ -240,36 +229,32 @@ class Tab3PdfMerge(QWidget):
         self.file_list.blockSignals(False)
         
         self.update_select_all_ui()
-        self.controller.update_preview()
+        self.update_preview()
 
     def toggle_all_items(self):
         total = self.file_list.count()
         if total == 0: return
 
-        checked_count = sum(1 for row in range(total) 
-                            if self.file_list.item(row).checkState() == Qt.CheckState.Checked)
-        
+        checked_count = sum(1 for row in range(total) if self.file_list.item(row).checkState() == Qt.CheckState.Checked)
         new_state = Qt.CheckState.Unchecked if checked_count == total else Qt.CheckState.Checked
         
         self.file_list.blockSignals(True)
         for row in range(total):
             item = self.file_list.item(row)
-            if item:
-                item.setCheckState(new_state)
+            if item: item.setCheckState(new_state)
         self.file_list.blockSignals(False)
         
         self.update_select_all_ui()
-        self.controller.update_preview()
+        self.update_preview()
 
     def on_item_changed(self, item):
         self.update_select_all_ui()
-        self.controller.update_preview()
+        self.update_preview()
 
     def update_select_all_ui(self):
         total = self.file_list.count()
         if total == 0: return
-        checked_count = sum(1 for row in range(total) 
-                            if self.file_list.item(row).checkState() == Qt.CheckState.Checked)
+        checked_count = sum(1 for row in range(total) if self.file_list.item(row).checkState() == Qt.CheckState.Checked)
         
         self.select_all_cb.blockSignals(True)
         if checked_count == total:
@@ -290,13 +275,132 @@ class Tab3PdfMerge(QWidget):
             
         self.file_list.blockSignals(True)
         self.file_list.clear()
-        self.controller.file_paths.clear()
+        self.file_paths.clear()
         self.file_list.blockSignals(False)
         
         self.update_select_all_ui()
-        self.controller.update_preview()
+        self.update_preview()
 
     def browse_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "검색할 폴더 선택", self.folder_input.text())
-        if folder: 
-            self.folder_input.setText(folder)
+        if folder: self.folder_input.setText(folder)
+
+    def update_preview(self):
+        # We don't have direct access to preview_worker here anymore
+        # The controller handles worker management
+        
+        for i in reversed(range(self.preview_layout.count())):
+            widget = self.preview_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+        
+        selected_items = [self.file_list.item(i).text() for i in range(self.file_list.count()) if self.file_list.item(i).checkState() == Qt.CheckState.Checked]
+        
+        items_to_prepare = []
+        for item_text in selected_items:
+            if item_text not in self.preview_states:
+                items_to_prepare.append(item_text)
+                
+        if items_to_prepare:
+            self.global_loading_signal.emit(True)
+            self.controller.start_prepare_previews(
+                items_to_prepare, 
+                self.file_paths, 
+                self.drive_cache, 
+                self.temp_dir, 
+                self.drive_check.isChecked()
+            )
+        else:
+            for item_text in selected_items:
+                if item_text in self.preview_states:
+                    self.add_preview_widget(item_text)
+
+    def on_item_prepared(self, item_text, doc, path_or_id, is_drive, local_path):
+        self.preview_states[item_text] = PreviewState(doc, path_or_id, is_drive)
+        if is_drive and local_path:
+            self.drive_cache[path_or_id] = local_path
+
+    def on_preview_worker_finished(self, _=None):
+        self.global_loading_signal.emit(False)
+        selected_items = [self.file_list.item(i).text() for i in range(self.file_list.count()) if self.file_list.item(i).checkState() == Qt.CheckState.Checked]
+        
+        for i in reversed(range(self.preview_layout.count())):
+            widget = self.preview_layout.itemAt(i).widget()
+            if widget:
+                widget.setParent(None)
+                widget.deleteLater()
+
+        for item_text in selected_items:
+            if item_text in self.preview_states:
+                self.add_preview_widget(item_text)
+
+    def add_preview_widget(self, item_text):
+        state = self.preview_states[item_text]
+        frame = QFrame()
+        frame.setProperty("item_text", item_text)
+        l = QVBoxLayout(frame)
+        l.setContentsMargins(0, 0, 0, 10)
+        l.setSpacing(5)
+        title = QLabel(item_text)
+        title.setStyleSheet("font-weight: bold; font-size: 14px;")
+        l.addWidget(title)
+        
+        pages_layout = QHBoxLayout()
+        pages_layout.setContentsMargins(0, 0, 0, 0)
+        pages_layout.setSpacing(5)
+        pages_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        l.addLayout(pages_layout)
+        self.preview_layout.addWidget(frame)
+        
+        state.loaded_pages = 0
+        self.load_more_pages(state, frame, 8)
+            
+    def load_more_pages(self, state, frame, batch_size=8):
+        if not state.doc or state.loaded_pages >= state.total_pages: return
+        
+        pages_layout = frame.layout().itemAt(1).layout()
+        end = min(state.loaded_pages + batch_size, state.total_pages)
+        for i in range(state.loaded_pages, end):
+            try:
+                page = state.doc.load_page(i)
+                pix = page.get_pixmap(matrix=pymupdf.Matrix(0.3, 0.3))
+                img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format.Format_RGB888)
+                lbl = QLabel()
+                lbl.setPixmap(QPixmap.fromImage(img))
+                pages_layout.addWidget(lbl)
+            except:
+                pass
+        state.loaded_pages = end
+        
+    def on_scroll(self, value):
+        if value >= self.scroll_area.verticalScrollBar().maximum() - 10:
+            for i in range(self.preview_layout.count()):
+                frame = self.preview_layout.itemAt(i).widget()
+                if frame:
+                    item_text = frame.property("item_text")
+                    if item_text in self.preview_states:
+                        self.load_more_pages(self.preview_states[item_text], frame)
+
+    def start_merge(self):
+        selected = [self.file_list.item(i).text() for i in range(self.file_list.count()) if self.file_list.item(i).checkState() == Qt.CheckState.Checked]
+        if len(selected) < 2:
+            self.show_error("오류", "병합할 파일을 2개 이상 선택해주세요.")
+            return
+            
+        is_drive = self.drive_check.isChecked()
+        files = [self.file_paths[t] for t in selected]
+        
+        task_data = {
+            'files': files,
+            'out_name': self.save_name_input.text() or "merged.pdf",
+            'is_drive': is_drive,
+            'target_dir': self.folder_input.text() if not is_drive else None
+        }
+        self.controller.start_merge(task_data)
+
+    def on_merge_completed(self, msg):
+        QMessageBox.information(self, "완료", msg)
+
+    def show_error(self, title, msg):
+        QMessageBox.critical(self, title, msg)

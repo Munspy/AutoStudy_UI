@@ -28,8 +28,8 @@ _creds_instance = None
 _drive_service = None
 _youtube_service = None
 
-# 멀티스레드 환경 Race Condition 방지 Lock
-_auth_lock = threading.Lock()
+# 멀티스레드 환경 Race Condition 방지 Lock (Reentrant Lock으로 변경하여 데드락 방지)
+_auth_lock = threading.RLock()
 
 def get_credentials():
     """Google API 접근을 위한 유효한 OAuth 2.0 자격 증명(Credentials)을 가져옵니다.
@@ -102,7 +102,7 @@ def get_credentials():
                 str(CREDENTIALS_PATH), 
                 Config.GOOGLE_API_SCOPES
             )
-            _creds_instance = flow.run_local_server(port=0)
+            _creds_instance = flow.run_local_server(port=0, timeout_seconds=30)
             
         # 5. 갱신되거나 새로 발급받은 토큰을 안전하게 파일로 저장
         try:

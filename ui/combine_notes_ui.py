@@ -1,6 +1,9 @@
 # ui/combine_notes_ui.py
 import sys
 import os
+
+from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+
 from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QLineEdit, QFileDialog, 
@@ -8,16 +11,20 @@ from PyQt6.QtWidgets import (QApplication, QVBoxLayout,
                              QListWidgetItem, QCheckBox, QDialog, QMessageBox, QWidget)
 from PyQt6.QtCore import Qt
 
-from base.base_ui import BaseTab
+from base.base_ui import BaseUI
 import controller.combine_notes_controller as backend
+import utils.pdf_data_util as pdf_data_util
 
 # ==========================================
 # 🌟 분리해둔 utils 공구함 및 UI 헬퍼 임포트
 # ==========================================
 # (수정) 순수 바이트를 반환하는 함수로 변경
+
+# 이거 나중에 그냥 합쳐줘. 이걸 두번 쪼개야 할 이유가?
 from utils.pdf_core_util import get_page_image_bytes
 # (수정) 바이트를 픽스맵으로 변환해주는 헬퍼 함수 추가
-from base.base_ui_components import create_pdf_thumbnail_frame, bytes_to_pixmap
+from base.base_ui_components import (create_pdf_thumbnail_frame, bytes_to_pixmap, LoadingButton, StyledButton, CardWidget,
+                                     StyledListWidget, StyledCheckBox, PreviewScrollArea)
 
 # ==========================================
 # 헬퍼 함수: UI 프레임 조립기
@@ -61,7 +68,7 @@ class FullScreenEditDialog(QDialog):
             QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
         """)
         
-        self.edit_data = backend.prepare_edit_data(base_data)
+        self.edit_data = pdf_data_util.prepare_edit_data(base_data)
         
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(28, 28, 28, 28)
@@ -71,12 +78,10 @@ class FullScreenEditDialog(QDialog):
         self.info_label.setStyleSheet("font-size: 16px; color: #111111; font-weight: 800; padding-bottom: 10px;")
         self.main_layout.addWidget(self.info_label)
         
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("QScrollArea { border: 1px solid #EAEAEA; border-radius: 8px; background-color: #FFFFFF; }")
+        self.scroll_area = PreviewScrollArea()
         
         self.preview_container = QWidget()
-        self.preview_container.setStyleSheet("background-color: #FAFAFA;")
+        self.preview_container.setStyleSheet("background-color: transparent;")
         self.preview_layout = QHBoxLayout(self.preview_container)
         self.preview_layout.setContentsMargins(20, 20, 20, 20)
         self.preview_layout.setSpacing(20)
@@ -88,26 +93,10 @@ class FullScreenEditDialog(QDialog):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         
-        cancel_btn = QPushButton("수정 취소 (Cancel)")
-        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        cancel_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                border-radius: 8px; padding: 12px 28px; color: #E03E3E; font-weight: bold; font-size: 14px;
-            }
-            QPushButton:hover { background-color: #FBE4E4; }
-        """)
+        cancel_btn = StyledButton("수정 취소 (Cancel)", "danger")
         cancel_btn.clicked.connect(self.reject)
         
-        save_btn = QPushButton("수정 완료 (Save)")
-        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2EA043; color: white; 
-                font-weight: bold; font-size: 14px; padding: 12px 28px; border-radius: 8px; border: none;
-            }
-            QPushButton:hover { background-color: #238636; }
-        """)
+        save_btn = StyledButton("수정 완료 (Save)", "success")
         save_btn.clicked.connect(self.accept)
         
         bottom_layout.addWidget(cancel_btn)
@@ -163,9 +152,8 @@ class FullScreenEditDialog(QDialog):
             top_page.setGraphicsEffect(op_top)
             layout.addWidget(top_page)
             
-            chk_top = QCheckBox("줄필기 포함")
+            chk_top = StyledCheckBox("줄필기 포함")
             chk_top.setChecked(item.get("jul_checked", False))
-            chk_top.setStyleSheet("font-weight: bold; color: #37352f; margin-bottom: 10px;")
             chk_top.stateChanged.connect(lambda state, i=idx: self.update_check_state(i, 'jul', state))
             
             chk_layout_top = QHBoxLayout()
@@ -186,9 +174,8 @@ class FullScreenEditDialog(QDialog):
                 bottom_page.setStyleSheet("background-color: white; border: 3px solid #2383E2; border-radius: 4px;")
             layout.addWidget(bottom_page)
             
-            chk_bottom = QCheckBox("야붙 포함")
+            chk_bottom = StyledCheckBox("야붙 포함")
             chk_bottom.setChecked(item.get("yaboot_checked", False))
-            chk_bottom.setStyleSheet("font-weight: bold; color: #37352f;")
             chk_bottom.stateChanged.connect(lambda state, i=idx: self.update_check_state(i, 'yaboot', state))
             
             chk_layout_bottom = QHBoxLayout()
@@ -207,7 +194,7 @@ class FullScreenEditDialog(QDialog):
         self.preview_layout.addWidget(column)
 
     def move_item(self, idx, direction):
-        self.edit_data = backend.swap_items(self.edit_data, idx, direction)
+        self.edit_data = pdf_data_util.swap_items(self.edit_data, idx, direction)
         self.render_preview()
 
     def update_check_state(self, idx, role, state):
@@ -219,7 +206,7 @@ class FullScreenEditDialog(QDialog):
         elif role == 'yaboot':
             item["yaboot_checked"] = is_checked
             if item["type"] == "matched" and is_checked:
-                item_jul, item_yaboot = backend.split_item_on_yaboot_check(item)
+                item_jul, item_yaboot = pdf_data_util.split_item_on_yaboot_check(item)
                 self.edit_data = self.edit_data[:idx] + [item_jul, item_yaboot] + self.edit_data[idx+1:]
                 
         self.render_preview()
@@ -227,13 +214,20 @@ class FullScreenEditDialog(QDialog):
 # ==========================================
 # 기존 메인 탭 UI 개편
 # ==========================================
-class Tab2CombineNotes(BaseTab):  
-    def __init__(self):
-        super().__init__()
+class CombineNotesUi(BaseUI):  
+    def __init__(self, task_manager=None):
+        super().__init__(task_manager=task_manager)
+        self.controller = backend.CombineNotesController(task_manager=self.task_manager)
+        self.controller.ui = self
+        
+        # 컨트롤러의 비동기 시그널 연결 (레이스 컨디션 해결)
+        self.controller.match_list_completed.connect(self.on_matched_groups_ready)
+        self.controller.inspection_completed.connect(self.on_inspection_ready)
+        self.controller.merge_completed.connect(self.on_merge_ready)
         
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            Tab2CombineNotes {
+            CombineNotesUi {
                 background-color: #FFFFFF;
             }
             QWidget {
@@ -248,6 +242,7 @@ class Tab2CombineNotes(BaseTab):
         
         self.base_data = [] 
         self.matched_groups = {} 
+        self._pending_action = None
 
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(28, 28, 28, 28)
@@ -269,16 +264,7 @@ class Tab2CombineNotes(BaseTab):
         """)
         self.main_layout.addWidget(header_label)
 
-        control_frame = QFrame()
-        control_frame.setObjectName("ControlBox")
-        control_frame.setStyleSheet("""
-            #ControlBox { 
-                background-color: #F4F5F7; 
-                border-radius: 12px; 
-                border: 1px solid #EAEAEA; 
-            }
-            QLabel { font-weight: bold; color: #37352f; }
-        """)
+        control_frame = CardWidget()
         
         control_layout = QHBoxLayout(control_frame)
         control_layout.setContentsMargins(20, 16, 20, 16)
@@ -300,15 +286,7 @@ class Tab2CombineNotes(BaseTab):
         self.folder_input.setReadOnly(True)
         control_layout.addWidget(self.folder_input)
         
-        browse_btn = QPushButton("폴더 변경")
-        browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold;
-            }
-            QPushButton:hover { background-color: #F8F9FA; color: #111111; }
-        """)
+        browse_btn = StyledButton("폴더 변경", "secondary")
         browse_btn.clicked.connect(self.browse_folder)
         control_layout.addWidget(browse_btn)
         
@@ -318,38 +296,16 @@ class Tab2CombineNotes(BaseTab):
         mid_bar_layout = QHBoxLayout()
         mid_bar_layout.setContentsMargins(5, 5, 5, 5)
 
-        self.select_all_cb = QCheckBox("전체 선택")
-        self.select_all_cb.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.select_all_cb.setStyleSheet("""
-            QCheckBox { font-weight: bold; font-size: 14px; color: #37352f; margin-left: 5px; }
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #2383E2; border: 1px solid #2383E2; }
-        """)
+        self.select_all_cb = StyledCheckBox("전체 선택")
         self.select_all_cb.clicked.connect(self.toggle_all_items)
         mid_bar_layout.addWidget(self.select_all_cb)
 
         mid_bar_layout.addStretch()
 
-        auto_run_btn = QPushButton("🚀 선택 파일 알아서 진행하기")
-        auto_run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        auto_run_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2EA043; color: white; 
-                font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 8px; border: none;
-            }
-            QPushButton:hover { background-color: #238636; }
-        """)
+        auto_run_btn = StyledButton("🚀 선택 파일 알아서 진행하기", "success")
         auto_run_btn.clicked.connect(self.run_auto_merge)
         
-        manual_run_btn = QPushButton("👀 선택 파일 검수하기")
-        manual_run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        manual_run_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2383E2; border: none; 
-                border-radius: 8px; padding: 10px 20px; color: white; font-weight: bold; font-size: 14px;
-            }
-            QPushButton:hover { background-color: #1A6FB0; }
-        """)
+        manual_run_btn = StyledButton("👀 선택 파일 검수하기", "primary")
         manual_run_btn.clicked.connect(self.run_manual_inspection)
         
         mid_bar_layout.addWidget(auto_run_btn)
@@ -357,17 +313,7 @@ class Tab2CombineNotes(BaseTab):
         
         self.main_layout.addLayout(mid_bar_layout)
 
-        self.file_list = QListWidget()
-        self.file_list.setStyleSheet("""
-            QListWidget {
-                background-color: #FFFFFF; border: 1px solid #EAEAEA;
-                border-radius: 8px; font-size: 13px; alternate-background-color: #FAFAFA;
-                outline: none;
-            }
-            QListWidget::item { padding: 8px; border-bottom: 1px solid #F4F4F4; color: #37352f; }
-            QListWidget::item:selected { background-color: #E7F3F8; color: #37352f; border: none; }
-            QListWidget::item:hover { background-color: #F8F9FA; }
-        """)
+        self.file_list = StyledListWidget()
         self.file_list.setAlternatingRowColors(True)
         self.file_list.setMaximumHeight(90) 
         self.file_list.itemChanged.connect(self.check_individual_row_state)
@@ -375,12 +321,10 @@ class Tab2CombineNotes(BaseTab):
         self.main_layout.addWidget(self.file_list)
 
     def init_preview_area(self):
-        self.scroll_area = QScrollArea()
-        self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("QScrollArea { border: 1px solid #EAEAEA; border-radius: 8px; background-color: #FFFFFF; }")
+        self.scroll_area = PreviewScrollArea()
         
         self.preview_container = QWidget()
-        self.preview_container.setStyleSheet("background-color: #FAFAFA;")
+        self.preview_container.setStyleSheet("background-color: transparent;")
         self.preview_layout = QHBoxLayout(self.preview_container)
         self.preview_layout.setContentsMargins(20, 20, 20, 20)
         self.preview_layout.setSpacing(20)
@@ -393,26 +337,10 @@ class Tab2CombineNotes(BaseTab):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         
-        self.edit_btn = QPushButton("상세 검수 및 수정 (전체화면)")
-        self.edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.edit_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                border-radius: 8px; padding: 14px 20px; color: #555555; font-weight: bold; font-size: 14px;
-            }
-            QPushButton:hover { background-color: #F8F9FA; color: #111111; }
-        """)
+        self.edit_btn = StyledButton("상세 검수 및 수정 (전체화면)", "secondary")
         self.edit_btn.clicked.connect(self.open_fullscreen_editor)
         
-        self.approve_btn = QPushButton("최종 승인 및 병합 저장")
-        self.approve_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.approve_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #E03E3E; color: white; 
-                font-weight: bold; font-size: 14px; padding: 14px 20px; border-radius: 8px; border: none;
-            }
-            QPushButton:hover { background-color: #C93434; }
-        """)
+        self.approve_btn = StyledButton("최종 승인 및 병합 저장", "danger")
         self.approve_btn.clicked.connect(self.execute_final_save) 
         
         bottom_layout.addWidget(self.edit_btn)
@@ -423,14 +351,20 @@ class Tab2CombineNotes(BaseTab):
         folder = QFileDialog.getExistingDirectory(self, "검색할 폴더 선택", self.folder_input.text())
         if folder:
             self.folder_input.setText(folder)
-            # BaseTab의 save_setting 헬퍼 활용
+            # BaseUI의 save_setting 헬퍼 활용
             self.save_setting("target_folder_tab2", folder)
             self.refresh_file_list(folder)
 
     def refresh_file_list(self, folder_path):
         self.file_list.blockSignals(True)
         self.file_list.clear()
-        self.matched_groups = backend.get_matched_file_groups(folder_path)
+        # 백그라운드 워커 시작 (결과는 on_matched_groups_ready 시그널로 수신)
+        self.controller.start_get_matched_groups(folder_path)
+
+    def on_matched_groups_ready(self, matched_groups):
+        self.matched_groups = matched_groups
+        self.file_list.blockSignals(True)
+        self.file_list.clear()
         
         for base_name, group in self.matched_groups.items():
             save_name = group["save_name"]
@@ -500,9 +434,9 @@ class Tab2CombineNotes(BaseTab):
             return
         
         folder_path = self.folder_input.text()
-        self.base_data = backend.generate_real_data(folder_path, selected_keys, self.matched_groups)
-        self.render_main_preview()
-        self.show_info("알림", "검수 데이터 생성이 완료되었습니다.\n하단의 미리보기를 확인하세요.")
+        self._pending_action = 'inspection'
+        # 백그라운드 워커 시작 (결과는 on_inspection_ready 시그널로 수신)
+        self.controller.start_inspection(folder_path, selected_keys, self.matched_groups)
 
     def run_auto_merge(self):
         selected_keys = self.get_selected_keys()
@@ -511,8 +445,20 @@ class Tab2CombineNotes(BaseTab):
             return
             
         folder_path = self.folder_input.text()
-        self.base_data = backend.generate_real_data(folder_path, selected_keys, self.matched_groups)
-        self.execute_final_save()
+        self._pending_action = "auto_merge"
+        # 백그라운드 워커 시작 (결과는 on_inspection_ready 시그널로 수신)
+        self.controller.start_inspection(folder_path, selected_keys, self.matched_groups)
+
+    def on_inspection_ready(self, base_data):
+        self.base_data = base_data
+        if self._pending_action == 'inspection':
+            self.render_main_preview()
+            self.show_info("알림", "검수 데이터 생성이 완료되었습니다.\n하단의 미리보기를 확인하세요.")
+        elif self._pending_action == 'auto_merge':
+            folder_path = self.folder_input.text()
+            self.controller.start_merge(self.base_data, folder_path)
+            
+        self._pending_action = None
 
     def execute_final_save(self):
         if not self.base_data:
@@ -520,12 +466,11 @@ class Tab2CombineNotes(BaseTab):
             return
             
         folder_path = self.folder_input.text()
-        
-        try:
-            saved_files = backend.execute_merge(self.base_data, folder_path)
-            self.show_info("저장 완료", f"총 {len(saved_files)}개의 파일이 병합되어 저장되었습니다.\n\n[저장 위치]\n{folder_path}")
-        except Exception as e:
-            self.show_error("오류", f"저장 중 오류가 발생했습니다:\n{str(e)}")
+        self.controller.start_merge(self.base_data, folder_path)
+
+    def on_merge_ready(self, saved_files):
+        folder_path = self.folder_input.text()
+        self.show_info("저장 완료", f"총 {len(saved_files)}개의 파일이 병합되어 저장되었습니다.\n\n[저장 위치]\n{folder_path}")
 
     def open_fullscreen_editor(self):
         if not self.base_data:
@@ -534,7 +479,7 @@ class Tab2CombineNotes(BaseTab):
             
         dialog = FullScreenEditDialog(self.base_data, self)
         if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.base_data = backend.save_edits(dialog.edit_data)
+            self.base_data = pdf_data_util.save_edits(dialog.edit_data)
             self.render_main_preview()
 
     def render_main_preview(self):
@@ -571,6 +516,6 @@ class Tab2CombineNotes(BaseTab):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion") 
-    window = Tab2CombineNotes()
+    window = CombineNotesUi()
     window.show()
     sys.exit(app.exec())

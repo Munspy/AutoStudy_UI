@@ -1,28 +1,40 @@
 import sys
 import os
+
+from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+
 from pathlib import Path
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QLabel, QLineEdit, QFileDialog, QScrollArea, QFrame, 
-                             QListWidget, QDateEdit, QAbstractSpinBox, QStackedWidget,
-                             QSizePolicy, QTextEdit, QMessageBox, QCheckBox, QApplication)
+                             QDateEdit, QAbstractSpinBox, QStackedWidget,
+                             QSizePolicy, QTextEdit, QMessageBox, QCheckBox, QApplication,
+                             QListWidget)
 from PyQt6.QtCore import Qt, pyqtSignal, QDate
-from PyQt6.QtGui import QKeySequence, QTextCursor, QShortcut
+
+from base.base_ui import BaseUI
+from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledTableWidget, StyledListWidget, StyledCheckBox, StyledComboBox, StyledDateEdit, StatusBadge
 
 import controller.transcript_merge_split_controller as backend
 
-class Tab5TranscriptMergeSplit(QWidget):
-    log_signal = pyqtSignal(str)
+class TranscriptMergeSplitUi(BaseUI):
 
-    def __init__(self):
-        super().__init__()
-        self.controller = backend.TranscriptController(self)
+    def __init__(self, task_manager=None):
+        super().__init__(task_manager=task_manager)
+        self.controller = backend.TranscriptController(task_manager=self.task_manager)
+        self.controller.view = self
+        
+        # 기본 시그널 연결
+        self.controller.log_signal.connect(self.log_signal.emit)
+        self.controller.error_signal.connect(self.show_error)
+        self.controller.loading_signal.connect(self.set_loading_state)
+        
         self.current_text_edits = []
         self.init_ui()
 
     def init_ui(self):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            Tab5TranscriptMergeSplit { background-color: #FFFFFF; }
+            TranscriptMergeSplitUi { background-color: #FFFFFF; }
             QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
@@ -37,22 +49,12 @@ class Tab5TranscriptMergeSplit(QWidget):
         layout.addWidget(header_label)
 
         # 2. 제어 박스
-        control_frame = QFrame()
-        control_frame.setObjectName("ControlBox")
-        control_frame.setStyleSheet("""
-            #ControlBox { background-color: #F4F5F7; border-radius: 12px; border: 1px solid #EAEAEA; }
-            QLabel { font-weight: bold; color: #37352f; }
-        """)
+        control_frame = CardWidget()
         control_layout = QHBoxLayout(control_frame)
         control_layout.setContentsMargins(20, 16, 20, 16)
         
-        self.drive_check = QCheckBox("☁️")
+        self.drive_check = StyledCheckBox("☁️")
         self.drive_check.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.drive_check.setStyleSheet("""
-            QCheckBox { font-size: 18px; margin-right: 5px; }
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #2383E2; border: 1px solid #2383E2; }
-        """)
         self.drive_check.stateChanged.connect(self.toggle_search_mode)
         control_layout.addWidget(self.drive_check)
 
@@ -67,9 +69,7 @@ class Tab5TranscriptMergeSplit(QWidget):
         self.folder_input.setReadOnly(True)
         local_layout.addWidget(self.folder_input)
         
-        browse_btn = QPushButton("폴더 찾기")
-        browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        browse_btn.setStyleSheet("QPushButton { background-color: #FFFFFF; border: 1px solid #D1D1CE; border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold; } QPushButton:hover { background-color: #F8F9FA; color: #111111; }")
+        browse_btn = StyledButton("폴더 찾기", "secondary")
         browse_btn.clicked.connect(self.browse_folder)
         local_layout.addWidget(browse_btn)
         control_layout.addWidget(self.local_widget)
@@ -82,23 +82,15 @@ class Tab5TranscriptMergeSplit(QWidget):
         drive_layout.addWidget(QLabel("📅 날짜 범위:"))
         
         today = QDate.currentDate()
-        date_style = """
-            QDateEdit {
-                padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; 
-                background-color: #FFFFFF; min-width: 80px; font-weight: normal;
-            }
-        """
-        self.start_date = QDateEdit(today)
+        self.start_date = StyledDateEdit(today)
         self.start_date.setDisplayFormat("MM-dd")
         self.start_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.start_date.setCalendarPopup(True)
-        self.start_date.setStyleSheet(date_style)
         
-        self.end_date = QDateEdit(today)
+        self.end_date = StyledDateEdit(today)
         self.end_date.setDisplayFormat("MM-dd")
         self.end_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.end_date.setCalendarPopup(True)
-        self.end_date.setStyleSheet(date_style)
 
         drive_layout.addWidget(self.start_date)
         drive_layout.addWidget(QLabel("~"))
@@ -109,23 +101,15 @@ class Tab5TranscriptMergeSplit(QWidget):
 
         control_layout.addStretch()
         
-        self.search_btn = QPushButton("파일 조회")
-        self.search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.search_btn.setStyleSheet("QPushButton { background-color: #2383E2; color: white; font-weight: bold; border-radius: 6px; padding: 6px 15px; border: none; } QPushButton:hover { background-color: #1A6FB0; }")
+        self.search_btn = LoadingButton("파일 조회", "primary")
         self.search_btn.clicked.connect(self.populate_file_list)
         control_layout.addWidget(self.search_btn)
         
         layout.addWidget(control_frame)
 
         # 3. 파일 리스트업 영역
-        self.file_list = QListWidget()
+        self.file_list = StyledListWidget()
         self.file_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
-        self.file_list.setStyleSheet("""
-            QListWidget { background-color: #FFFFFF; border: 1px solid #EAEAEA; border-radius: 8px; font-size: 13px; alternate-background-color: #FAFAFA; outline: none; }
-            QListWidget::item { padding: 8px; border-bottom: 1px solid #F4F4F4; color: #37352f; }
-            QListWidget::item:selected { background-color: #E7F3F8; color: #37352f; border: none; }
-            QListWidget::item:hover { background-color: #F8F9FA; }
-        """)
         self.file_list.setAlternatingRowColors(True)
         self.file_list.setMaximumHeight(100)
         self.file_list.itemSelectionChanged.connect(self.on_file_selection_changed)
@@ -142,12 +126,12 @@ class Tab5TranscriptMergeSplit(QWidget):
         self.search_input.returnPressed.connect(self.find_text)
         search_layout.addWidget(self.search_input)
         
-        find_btn = QPushButton("검색")
-        find_btn.setStyleSheet("QPushButton { background-color: #F4F5F7; border: 1px solid #D1D1CE; border-radius: 4px; padding: 6px 12px; font-weight: bold; color: #37352f; } QPushButton:hover { background-color: #EAEAEA; }")
+        find_btn = StyledButton("검색", "secondary")
         find_btn.clicked.connect(self.find_text)
         search_layout.addWidget(find_btn)
         layout.addWidget(self.search_bar_widget)
-        
+
+        from PyQt6.QtGui import QKeySequence, QTextCursor, QShortcut
         shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
         shortcut.activated.connect(self.search_input.setFocus)
 
@@ -200,9 +184,7 @@ class Tab5TranscriptMergeSplit(QWidget):
         
         split_layout.addStretch()
         
-        save_split_btn = QPushButton("💾 선택 파일 분할 및 저장")
-        save_split_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_split_btn.setStyleSheet("QPushButton { background-color: #E03E3E; color: white; font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 8px; border: none; } QPushButton:hover { background-color: #C93434; }")
+        save_split_btn = StyledButton("💾 선택 파일 분할 및 저장", "danger")
         save_split_btn.clicked.connect(self.execute_split_save)
         split_layout.addWidget(save_split_btn)
         self.bottom_stack.addWidget(split_widget)
@@ -222,9 +204,7 @@ class Tab5TranscriptMergeSplit(QWidget):
         
         merge_layout.addStretch()
         
-        save_merge_btn = QPushButton("💾 선택 파일 병합 및 저장")
-        save_merge_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        save_merge_btn.setStyleSheet("QPushButton { background-color: #2EA043; color: white; font-weight: bold; font-size: 14px; padding: 10px 20px; border-radius: 8px; border: none; } QPushButton:hover { background-color: #238636; }")
+        save_merge_btn = StyledButton("💾 선택 파일 병합 및 저장", "success")
         save_merge_btn.clicked.connect(self.execute_merge_save)
         merge_layout.addWidget(save_merge_btn)
         self.bottom_stack.addWidget(merge_widget)
@@ -262,20 +242,11 @@ class Tab5TranscriptMergeSplit(QWidget):
             start_date = self.start_date.date().toString("yyyy-MM-dd")
             end_date = self.end_date.date().toString("yyyy-MM-dd")
             
-            self.search_btn.setText("조회 중...")
-            self.search_btn.setEnabled(False)
+            self.search_btn.start_loading("조회 중")
             self.log_signal.emit(f"☁️ 구글 드라이브 검색 요청: {start_date} ~ {end_date}")
-            QApplication.processEvents() # UI 새로고침(먹통 방지)
             
-            try:
-                files = self.controller.get_drive_text_files(start_date, end_date)
-                for f in files: self.file_list.addItem(f)
-                self.log_signal.emit(f"☁️ 총 {len(files)}개의 드라이브 파일을 성공적으로 불러왔습니다.")
-            except Exception as e:
-                QMessageBox.critical(self, "오류", f"드라이브 검색 실패: {str(e)}")
-            finally:
-                self.search_btn.setText("파일 조회")
-                self.search_btn.setEnabled(True)
+            # 워커 실행
+            self.controller.execute_drive_search(start_date, end_date)
             return
 
         folder_path = self.folder_input.text()
@@ -289,6 +260,11 @@ class Tab5TranscriptMergeSplit(QWidget):
         except Exception as e:
             QMessageBox.critical(self, "오류", str(e))
 
+    def _on_search_finished(self, files):
+        for f in files: self.file_list.addItem(f)
+        self.log_signal.emit(f"☁️ 총 {len(files)}개의 드라이브 파일을 성공적으로 불러왔습니다.")
+        self.search_btn.stop_loading()
+
     def on_file_selection_changed(self):
         selected_items = self.file_list.selectedItems()
         count = len(selected_items)
@@ -301,36 +277,28 @@ class Tab5TranscriptMergeSplit(QWidget):
             self.bottom_stack.setCurrentIndex(0)
             return
             
-        try:
-            # 상태 메시지 변경 및 UI 즉시 적용
-            self.status_label.setText("파일을 불러오는 중입니다... 잠시만 기다려주세요.")
-            self.bottom_stack.setCurrentIndex(0) 
-            QApplication.processEvents()
-            
-            if count == 1:
-                filename = selected_items[0].text()
-                content = self.controller.read_drive_file(filename) if is_drive else self.controller.read_local_file(folder_path, filename)
-                
-                self.add_text_edit(filename, content, mode="split")
-                split_names = backend.generate_split_filenames(filename)
-                self.split_name_1.setText(split_names[0])
-                self.split_name_2.setText(split_names[1])
-                self.bottom_stack.setCurrentIndex(1)
-                
-            else:
-                filenames = []
-                for item in selected_items:
-                    filename = item.text()
-                    filenames.append(filename)
-                    content = self.controller.read_drive_file(filename) if is_drive else self.controller.read_local_file(folder_path, filename)
-                    self.add_text_edit(filename, content, mode="merge", min_width=350)
-                    
-                self.merge_name_input.setText(backend.generate_merged_filename(filenames))
-                self.bottom_stack.setCurrentIndex(2)
-                
-        except Exception as e:
-            QMessageBox.critical(self, "오류", f"파일 읽기 실패: {str(e)}")
-            self.bottom_stack.setCurrentIndex(0)
+        self.status_label.setText("파일을 불러오는 중입니다... 잠시만 기다려주세요.")
+        self.bottom_stack.setCurrentIndex(0) 
+        
+        filenames = [item.text() for item in selected_items]
+        
+        # 워커 실행
+        self.controller.execute_read_files(filenames, folder_path, is_drive)
+
+    def _on_files_read(self, count, filenames, contents):
+        if count == 1:
+            filename = filenames[0]
+            content = contents[0]
+            self.add_text_edit(filename, content, mode="split")
+            split_names = backend.generate_split_filenames(filename)
+            self.split_name_1.setText(split_names[0])
+            self.split_name_2.setText(split_names[1])
+            self.bottom_stack.setCurrentIndex(1)
+        else:
+            for fname, content in zip(filenames, contents):
+                self.add_text_edit(fname, content, mode="merge", min_width=350)
+            self.merge_name_input.setText(backend.generate_merged_filename(filenames))
+            self.bottom_stack.setCurrentIndex(2)
 
     def add_text_edit(self, title, content, mode="split", min_width=None):
         container = QWidget()
@@ -363,7 +331,9 @@ class Tab5TranscriptMergeSplit(QWidget):
         vbox.addWidget(text_edit)
         self.preview_layout.addWidget(container)
 
+    from PyQt6.QtGui import QTextCursor
     def find_text(self):
+        from PyQt6.QtGui import QTextCursor
         search_text = self.search_input.text()
         if not search_text or not self.current_text_edits: return
             
@@ -401,28 +371,15 @@ class Tab5TranscriptMergeSplit(QWidget):
             QMessageBox.warning(self, "경고", "저장할 파일명을 모두 입력해주세요.")
             return
 
-        try:
-            self.log_signal.emit(f"[{filename}] 분할 저장을 시작합니다...")
-            saved_files = self.controller.split_text_file(
-                folder_path, filename, text_content, name1, name2
-            )
-            
-            msg = f"총 {len(saved_files)}개의 파일로 분할되어 로컬에 저장되었습니다."
-            
-            if is_drive:
-                self.log_signal.emit("☁️ 드라이브 자동 업로드를 진행합니다...")
-                for path in saved_files:
-                    self.controller.upload_to_drive(path)
-                msg += "\n(드라이브 업로드도 완료되었습니다!)"
-                
-            QMessageBox.information(self, "완료", msg)
-            self.log_signal.emit("✅ 분할 작업 및 저장이 완료되었습니다.")
-            self.populate_file_list()
-            
-        except ValueError as ve:
-            QMessageBox.warning(self, "오류", str(ve))
-        except Exception as e:
-            QMessageBox.critical(self, "오류", f"분할 저장 중 오류 발생:\n{str(e)}")
+        self.log_signal.emit(f"[{filename}] 분할 저장을 시작합니다...")
+        
+        # 워커 실행
+        self.controller.execute_split_save(folder_path, filename, text_content, name1, name2, is_drive)
+
+    def _on_split_save_finished(self, msg):
+        QMessageBox.information(self, "완료", msg)
+        self.log_signal.emit("✅ 분할 작업 및 저장이 완료되었습니다.")
+        self.populate_file_list()
 
     def execute_merge_save(self):
         if len(self.file_list.selectedItems()) < 2: return
@@ -437,23 +394,14 @@ class Tab5TranscriptMergeSplit(QWidget):
             QMessageBox.warning(self, "경고", "병합 저장할 파일명을 입력해주세요.")
             return
             
-        try:
-            self.log_signal.emit(f"{files_to_merge} 파일 병합을 시작합니다...")
-            saved_file = self.controller.merge_text_files(
-                folder_path, files_to_merge, merged_content, custom_name
-            )
-            
-            new_filename = os.path.basename(saved_file)
-            msg = f"파일이 성공적으로 병합되어 로컬에 저장되었습니다:\n{new_filename}"
-            
-            if is_drive:
-                self.log_signal.emit("☁️ 드라이브 자동 업로드를 진행합니다...")
-                self.controller.upload_to_drive(saved_file)
-                msg += "\n\n(드라이브 업로드도 완료되었습니다!)"
-            
-            QMessageBox.information(self, "완료", msg)
-            self.log_signal.emit(f"✅ 병합 작업 및 저장이 완료되었습니다: {new_filename}")
-            self.populate_file_list()
-            
-        except Exception as e:
-            QMessageBox.critical(self, "오류", f"병합 저장 중 오류 발생:\n{str(e)}")
+        self.log_signal.emit(f"{files_to_merge} 파일 병합을 시작합니다...")
+        
+        # 워커 실행
+        self.controller.execute_merge_save(folder_path, files_to_merge, merged_content, custom_name, is_drive)
+        
+    def _on_merge_save_finished(self, res):
+        msg, new_filename = res
+        QMessageBox.information(self, "완료", msg)
+        self.log_signal.emit(f"✅ 병합 작업 및 저장이 완료되었습니다: {new_filename}")
+        self.populate_file_list()
+

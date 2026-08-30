@@ -1,3 +1,4 @@
+from base.base_service import BaseService
 """API 키 추적 및 상태 관리 유틸리티 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Utils(유틸리티) 계층**에 속합니다.
@@ -37,7 +38,7 @@ STATE_NOT_FOUND = "NOT_FOUND"
 # ==========================================
 
 
-class APIManager:
+class APIManager(BaseService):
     """Gemini API 키의 가용 상태, 에러, 쿨타임을 관리하고 동시성을 제어하는 단일 책임 클래스.
 
     이 클래스는 시스템 내에 하나만 존재하는 싱글톤(모듈 레벨 인스턴스 `api_mgr`)으로 동작합니다. 

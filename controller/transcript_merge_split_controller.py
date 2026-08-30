@@ -3,18 +3,33 @@ import os
 import re
 from datetime import datetime
 
+from PyQt6.QtCore import pyqtSignal
+
 from base.base_controller import BaseController
 from service.text_processing_service import TextProcessingService
 from utils.file_util import list_local_files
 from utils.drive_api import get_all_drive_files, in_memory_download_from_drive, upload_to_drive
 from utils.auth_util import get_drive_service
 from utils.config import Config
+from worker.transcript_worker import (
+    TranscriptDriveSearchWorker, 
+    TranscriptReadWorker, 
+    TranscriptSplitSaveWorker, 
+    TranscriptMergeSaveWorker
+)
 
 
 class TranscriptController(BaseController):
-    def __init__(self, view):
-        super().__init__()
-        self.view = view
+    # ==========================================
+    # 📡 기능별 전용 결과 중계 안테나 (Signal)
+    # ==========================================
+    search_completed = pyqtSignal(list)                    # 드라이브 탐색 완료 (파일 리스트)
+    files_read_completed = pyqtSignal(int, list, list)     # 파일 읽기 완료 (개수, 파일명 리스트, 내용 리스트)
+    split_save_completed = pyqtSignal(list)                # 분할 저장 완료 (저장된 경로 리스트)
+    merge_save_completed = pyqtSignal(str)                 # 병합 저장 완료 (저장된 단일 경로)
+
+    def __init__(self, task_manager=None):
+        super().__init__(task_manager)
         self.text_service = TextProcessingService()
         self.drive_files_cache = {}  # 드라이브 파일 ID를 기억해둘 캐시
 
@@ -95,3 +110,46 @@ class TranscriptController(BaseController):
         drive_service = get_drive_service()
         target_folder_id = Config.TARGET_DRIVE_DIR
         return upload_to_drive(local_file_path, target_folder_id, mime_type='text/plain', drive_service=drive_service)
+
+    # ==========================================
+    # 4. 워커 실행 메서드들
+    # ==========================================
+    def execute_drive_search(self, start_date, end_date):
+        worker = TranscriptDriveSearchWorker(self, start_date, end_date)
+        # 작업이 끝나면 신규 안테나(search_completed)로 토스합니다.
+        worker.finished_signal.connect(self.search_completed.emit)
+        self.start_worker(worker)
+
+    def execute_read_files(self, filenames, folder_path, is_drive):
+        worker = TranscriptReadWorker(self, filenames, folder_path, is_drive)
+        # 워커가 딕셔너리로 주는 결과를 람다로 풀어서 예쁘게 쏴줍니다.
+        worker.finished_signal.connect(
+            lambda res: self.files_read_completed.emit(len(res["filenames"]), res["filenames"], res["contents"])
+        )
+        self.start_worker(worker)
+
+    def execute_split_save(self, folder_path, filename, text_content, name1, name2, is_drive):
+        worker = TranscriptSplitSaveWorker(self, folder_path, filename, text_content, name1, name2, is_drive)
+        # 작업이 끝나면 신규 안테나(split_save_completed)로 토스합니다.
+        worker.finished_signal.connect(self.split_save_completed.emit)
+        self.start_worker(worker)
+
+    def execute_merge_save(self, folder_path, files_to_merge, merged_content, custom_name, is_drive):
+        worker = TranscriptMergeSaveWorker(self, folder_path, files_to_merge, merged_content, custom_name, is_drive)
+        # 작업이 끝나면 신규 안테나(merge_save_completed)로 토스합니다.
+        worker.finished_signal.connect(self.merge_save_completed.emit)
+        self.start_worker(worker)
+
+    # 🚫 기존에 있던 뚱뚱한 handle_result는 완전히 삭제되었습니다!
+
+
+# ==========================================
+# 모듈 단위 유틸 함수들
+# ==========================================
+def generate_split_filenames(filename: str) -> list:
+    from service.file_naming_service import FileNamingService
+    return FileNamingService().generate_split_filenames(filename)
+
+def generate_merged_filename(filenames: list) -> str:
+    from service.file_naming_service import FileNamingService
+    return FileNamingService().generate_merged_filename(filenames)

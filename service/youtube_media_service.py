@@ -1,3 +1,4 @@
+from base.base_service import BaseService
 """유튜브 미디어 다운로드 및 구글 드라이브 업로드 전담 서비스 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
@@ -15,7 +16,7 @@ from typing import Any
 from googleapiclient.http import MediaFileUpload
 from utils.auth_util import get_drive_service
 
-class YoutubeMediaService:
+class YoutubeMediaService(BaseService):
     """유튜브 음원 추출(yt-dlp) 및 구글 드라이브 업로드를 전담하는 서비스 클래스.
 
     단일 책임 원칙(SRP)에 따라 이 클래스는 재생목록의 메타데이터를 관리하거나 

@@ -108,7 +108,7 @@ class YoutubePlaylistService(BaseService):
         Returns:
             str: 획득한 재생목록 제목. 네트워크 오류 등으로 실패할 경우 기본값인 '새 재생목록'을 반환합니다.
         """
-        ydl_opts = {'extract_flat': True, 'quiet': True, 'no_warnings': True}
+        ydl_opts = {'extract_flat': True, 'quiet': True, 'no_warnings': True, 'nocache': True}
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=False)
@@ -236,7 +236,7 @@ class YoutubePlaylistService(BaseService):
             list: `real_last_updated` 필드가 추가되고, 최신 업데이트 순으로 정렬된 새로운 재생목록 리스트.
         """
         def check_update_date(pl):
-            ydl_opts = {'extract_flat': True, 'quiet': True, 'no_warnings': True, 'playlistend': 1}
+            ydl_opts = {'extract_flat': True, 'quiet': True, 'no_warnings': True, 'playlistend': 1, 'nocache': True}
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                     info = ydl.extract_info(pl['url'], download=False)

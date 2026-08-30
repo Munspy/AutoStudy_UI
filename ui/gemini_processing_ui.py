@@ -1,3 +1,4 @@
+from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
 import sys
 import time
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
@@ -5,6 +6,9 @@ from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QP
                              QTableWidgetItem, QHeaderView, QDateEdit)
 from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QDate, QThread
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
+
+from base.base_ui import BaseUI
+from base.base_ui_components import LoadingButton, CardWidget, StyledTableWidget, StyledListWidget, StyledCheckBox, StyledComboBox, StyledDateEdit, StatusBadge
 
 import controller.gemini_processing_controller as backend
 from service.api_key_tracker import api_mgr
@@ -14,23 +18,6 @@ STATE_READY = "READY"        # 🟢 대기 중
 STATE_BUSY = "BUSY"          # 🟡 사용 중
 STATE_COOLDOWN = "COOLDOWN"  # 🩶 짧은 쿨타임
 STATE_DAILY_LIMIT = "DAILY"  # 🔴 일일 한도 초과
-
-class ScanWorker(QThread):
-    result_ready = pyqtSignal(list, bool)
-    error_occurred = pyqtSignal(str)
-
-    def __init__(self, is_force_rerun, target_mmdd):
-        super().__init__()
-        self.is_force_rerun = is_force_rerun
-        self.target_mmdd = target_mmdd
-
-    def run(self):
-        try:
-            # 드라이브 스캔 작업을 백그라운드에서 실행
-            real_data = backend.fetch_gemini_tasks_from_drive(self.is_force_rerun, self.target_mmdd)
-            self.result_ready.emit(real_data, self.is_force_rerun)
-        except Exception as e:
-            self.error_occurred.emit(str(e))
 
 class KeyBadge(QWidget):
     """쿨타임 애니메이션 API 키/모델 뱃지"""
@@ -98,12 +85,17 @@ class KeyBadge(QWidget):
 
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, display_text)
 
-class Tab7GeminiProcessing(QWidget):
-    log_signal = pyqtSignal(str)
+class GeminiProcessingUi(BaseUI):
 
-    def __init__(self):
-        super().__init__()
-        # api_manager.py의 식별자와 일치
+    def __init__(self, task_manager=None):
+        super().__init__(task_manager=task_manager)
+        self.controller = backend.GeminiProcessingController(task_manager=self.task_manager)
+        self.controller.ui = self
+        self.controller.scan_completed.connect(self.handle_scan_result)
+        self.controller.cell_update_signal.connect(self.update_task_cell)
+        self.controller.error_signal.connect(self.handle_scan_error)
+        self.controller.loading_signal.connect(self.handle_loading_state)
+
         self.api_keys = ["KEY_1", "KEY_2", "KEY_3"]
         self.models = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"] 
         
@@ -118,6 +110,7 @@ class Tab7GeminiProcessing(QWidget):
     def init_ui(self):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
+            GeminiProcessingUi { background-color: #FFFFFF; }
             QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
             QLabel { background-color: transparent; }
             QCheckBox { background-color: transparent; border: none; }
@@ -132,9 +125,7 @@ class Tab7GeminiProcessing(QWidget):
         layout.addWidget(header_label)
 
         # --- 상단 키 상태 및 조회 영역 ---
-        top_frame = QFrame()
-        top_frame.setObjectName("TopBox")
-        top_frame.setStyleSheet("#TopBox { background-color: #F8F9FA; border-radius: 12px; border: 1px solid #EAEAEA; }")
+        top_frame = CardWidget()
         top_layout = QHBoxLayout(top_frame)
         top_layout.setContentsMargins(20, 16, 20, 16)
         
@@ -165,28 +156,19 @@ class Tab7GeminiProcessing(QWidget):
         right_action_layout = QVBoxLayout()
         right_action_layout.setSpacing(8)
 
-        self.force_rerun_cb = QCheckBox("강제 재실행")
+        self.force_rerun_cb = StyledCheckBox("강제 재실행", theme="danger")
         self.force_rerun_cb.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.force_rerun_cb.setStyleSheet("QCheckBox { font-weight: bold; font-size: 13px; color: #E03E3E; }")
         self.force_rerun_cb.toggled.connect(self.toggle_force_rerun)
         
         scan_row_layout = QHBoxLayout()
         scan_row_layout.setSpacing(10)
         
-        self.date_picker = QDateEdit(QDate.currentDate())
+        self.date_picker = StyledDateEdit(QDate.currentDate())
         self.date_picker.setDisplayFormat("yyyy-MM-dd")
         self.date_picker.setCalendarPopup(True)
-        self.date_picker.setStyleSheet("""
-            QDateEdit { padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF; font-weight: normal; }
-        """)
         self.date_picker.setVisible(False)
         
-        self.scan_btn = QPushButton("🔄 작업 상태 및 파일 조회")
-        self.scan_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.scan_btn.setStyleSheet("""
-            QPushButton { background-color: #1890FF; color: white; font-weight: bold; font-size: 14px; padding: 12px 20px; border-radius: 8px; border: none; }
-            QPushButton:hover { background-color: #096DD9; }
-        """)
+        self.scan_btn = LoadingButton("🔄 작업 상태 및 파일 조회", "primary")
         self.scan_btn.clicked.connect(self.scan_tasks)
         
         scan_row_layout.addWidget(self.date_picker)
@@ -200,25 +182,15 @@ class Tab7GeminiProcessing(QWidget):
 
         # --- 중간 컨트롤 바 ---
         mid_bar_layout = QHBoxLayout()
-        self.select_all_cb = QCheckBox("전체 선택 (All)")
-        self.select_all_cb.setStyleSheet("""
-            QCheckBox { font-weight: bold; font-size: 13px; color: #37352f; }
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #1890FF; border: 1px solid #1890FF; }
-        """)
+        self.select_all_cb = StyledCheckBox("전체 선택 (All)")
         self.select_all_cb.clicked.connect(self.toggle_all_items)
         mid_bar_layout.addWidget(self.select_all_cb)
         mid_bar_layout.addStretch()
         layout.addLayout(mid_bar_layout)
 
         # --- 작업 테이블 ---
-        self.table = QTableWidget(0, 7)
+        self.table = StyledTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(["행 선택", "수업 교시", "강의록", "음성스크립트", "📝 스크립트 교정", "📑 요약본 생성", "🗂️ Anki 카드 생성"])
-        self.table.setStyleSheet("""
-            QTableWidget { background-color: #FFFFFF; border: 1px solid #EAEAEA; border-radius: 8px; gridline-color: #F4F4F4; font-size: 13px; }
-            QHeaderView::section { background-color: #F8F9FA; border: none; border-bottom: 1px solid #D1D1CE; padding: 10px; font-weight: bold; color: #37352f; }
-            QTableWidget::item { padding: 5px; border-bottom: 1px solid #F4F4F4; }
-        """)
         self.table.verticalHeader().setVisible(False)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
@@ -238,12 +210,7 @@ class Tab7GeminiProcessing(QWidget):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch() 
         
-        self.auto_run_btn = QPushButton("선택 작업 진행하기")
-        self.auto_run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.auto_run_btn.setStyleSheet("""
-            QPushButton { background-color: #1890FF; color: white; font-weight: bold; font-size: 14px; padding: 12px 36px; border-radius: 8px; border: none; }
-            QPushButton:hover { background-color: #096DD9; }
-        """)
+        self.auto_run_btn = LoadingButton("선택 작업 진행하기", "primary")
         self.auto_run_btn.clicked.connect(self.execute_auto_run)
         bottom_layout.addWidget(self.auto_run_btn)
         
@@ -252,7 +219,6 @@ class Tab7GeminiProcessing(QWidget):
 
     def toggle_force_rerun(self, checked):
         self.date_picker.setVisible(checked)
-        self.populate_real_data() 
 
     def update_token_status_ui(self):
         for key_name in self.api_keys:
@@ -313,24 +279,17 @@ class Tab7GeminiProcessing(QWidget):
     # ---------------------------------------------------------
     def populate_real_data(self):
         self.emit_log("구글 드라이브에서 실제 데이터를 스캔하는 중입니다. 잠시만 기다려주세요...")
-        self.scan_btn.setEnabled(False)
-        self.scan_btn.setText("조회 중...")
+        self.scan_btn.start_loading("조회 중")
                 
         is_force_rerun = self.force_rerun_cb.isChecked()
         target_date = self.date_picker.date()
         target_mmdd = target_date.toString("MMdd") # 예: "0409"
         
-        # 워커 스레드 생성 및 실행
-        self.scan_worker = ScanWorker(is_force_rerun, target_mmdd)
-        self.scan_worker.result_ready.connect(self.handle_scan_result)
-        self.scan_worker.error_occurred.connect(self.handle_scan_error)
-        self.scan_worker.finished.connect(self.scan_worker.deleteLater)
-        self.scan_worker.start()
+        self.controller.start_scan(is_force_rerun, target_mmdd)
 
     def handle_scan_result(self, real_data, is_force_rerun):
         # UI 상태 복구 및 테이블 렌더링
-        self.scan_btn.setEnabled(True)
-        self.scan_btn.setText("🔄 작업 상태 및 파일 조회")
+        self.scan_btn.stop_loading()
         self.render_table_data(real_data, is_force_rerun)
         
         if is_force_rerun:
@@ -340,8 +299,7 @@ class Tab7GeminiProcessing(QWidget):
             self.emit_log(f"미완료 드라이브 데이터 전체 스캔 완료! (총 {len(real_data)}건 조회됨)")
 
     def handle_scan_error(self, err_msg):
-        self.scan_btn.setEnabled(True)
-        self.scan_btn.setText("🔄 작업 상태 및 파일 조회")
+        self.scan_btn.stop_loading()
         self.emit_log(f"데이터 스캔 중 오류 발생: {err_msg}")
 
     def create_check_label(self, is_exist, color="#1890FF"):
@@ -360,12 +318,7 @@ class Tab7GeminiProcessing(QWidget):
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cb = QCheckBox()
-        cb.setStyleSheet("""
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:checked { background-color: #1890FF; border: 1px solid #1890FF; }
-            QCheckBox::indicator:disabled { background-color: #F5F5F5; border: 1px solid #D9D9D9; }
-        """)
+        cb = StyledCheckBox("")
         layout.addWidget(cb)
         return container
 
@@ -379,25 +332,17 @@ class Tab7GeminiProcessing(QWidget):
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        cb = QCheckBox()
-        
-        cb.setProperty("is_originally_done", is_originally_done)
-        
-        base_style = """
-            QCheckBox::indicator { width: 18px; height: 18px; border-radius: 4px; border: 1px solid #D1D1CE; background-color: #FFFFFF; }
-            QCheckBox::indicator:disabled { background-color: #F5F5F5; border: 1px solid #D9D9D9; }
-        """
-        blue_checked = "QCheckBox::indicator:checked { background-color: #1890FF; border: 1px solid #1890FF; }"
-        red_checked = "QCheckBox::indicator:checked { background-color: #E03E3E; border: 1px solid #E03E3E; }"
         
         if is_originally_done and is_force_rerun:
+            cb = StyledCheckBox("", theme="danger")
             cb.setEnabled(True)
             cb.setChecked(False) 
-            cb.setStyleSheet(base_style + red_checked)
         else:
+            cb = StyledCheckBox("")
             if not has_dependency:
                 cb.setEnabled(False)
-            cb.setStyleSheet(base_style + blue_checked)
+        
+        cb.setProperty("is_originally_done", is_originally_done)
             
         if col == 4:
             cb.stateChanged.connect(lambda state, r=row: self.update_row_dependencies(r))
@@ -498,12 +443,14 @@ class Tab7GeminiProcessing(QWidget):
                             
         # 워커 스레드를 실행하여 UI 멈춤 방지
         if task_queue:
-            self.worker = backend.GeminiTaskWorker(task_queue)
-            self.worker.log_signal.connect(self.emit_log)
-            self.worker.cell_update_signal.connect(self.update_task_cell)
-            self.worker.start()
+            self.auto_run_btn.start_loading("작업 진행 중")
+            self.controller.start_tasks(task_queue)
         else:
             self.emit_log("실행할 작업이 선택되지 않았습니다.")
+
+    def handle_loading_state(self, is_loading):
+        if not is_loading:
+            self.auto_run_btn.stop_loading()
 
     def update_task_cell(self, row, col, status):
         """작업이 끝난 후 테이블 셀을 파란색 체크(완료)로 업데이트"""
@@ -519,7 +466,7 @@ class Tab7GeminiProcessing(QWidget):
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    window = Tab7GeminiProcessing()
+    window = GeminiProcessingUi()
     window.resize(980, 650)
     window.show()
     sys.exit(app.exec())

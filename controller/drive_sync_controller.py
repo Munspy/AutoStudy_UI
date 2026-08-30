@@ -1,7 +1,7 @@
 # func/func1_drive_sync.py
 from PyQt6.QtCore import pyqtSignal
 from base.base_controller import BaseController
-from worker.drive_worker import DriveSyncThread
+from worker.drive_worker import DriveSyncWorker
 
 class DriveSyncController(BaseController):
     """
@@ -10,35 +10,38 @@ class DriveSyncController(BaseController):
     sync_completed = pyqtSignal(list)
     sync_finished = pyqtSignal()
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, task_manager=None):
+        super().__init__(task_manager)
 
     def execute_sync(self, search_mode, filter_value, local_path):
-        self.worker = DriveSyncThread(search_mode, filter_value, local_path)
-        
-        # BaseThread의 정석 시그널에 직접 연결합니다.
-        self.worker.success_signal.connect(self.sync_completed.emit)
-        self.worker.error_signal.connect(self.emit_error)
-        
-        # 기본 공통 시그널 연결 (BaseController에 구현해둔 헬퍼 사용)
-        self.worker.log_signal.connect(self.emit_log)
+        self.worker = DriveSyncWorker(search_mode, filter_value, local_path)
         
         self.worker.finished.connect(self.worker.deleteLater)
         self.worker.finished.connect(self.sync_finished.emit)
         
-        self.worker.start()
+        self.start_worker(self.worker)
+        
+    def handle_result(self, result):
+        """지금은 작업이 하나라서 얘가 혼자 쓰긴 함..."""
+        if result is not None:
+            self.sync_completed.emit(result)
 
-    def execute_local_tasks(self):
-        self.emit_log("작업 실행: 누락 로컬 작업을 모두 실행합니다.")
+    # ===========================
+    # 버튼 동작부. 체크된 내용에 대해 작업 실행
+    # 결국 main.py에 선언된 task_manager한테
+    # 사용할 worker + 체크된 리스트 제공하는 식으로 구현 될 것.
+    # ===========================
+    def execute_local_tasks(self, task_manager):
+        self.log_signal.emit("작업 실행: 누락 로컬 작업을 모두 실행합니다.")
 
-    def execute_whisper_transcription(self):
-        self.emit_log("작업 실행: Whisper AI 기반 음성 스크립트 전사를 시작합니다.")
+    def execute_whisper_transcription(self, task_manager):
+        self.log_signal.emit("작업 실행: Whisper AI 기반 음성 스크립트 전사를 시작합니다.")
 
-    def download_script_merged(self):
+    def download_script_merged(self, task_manager):
         self.log_signal.emit("다운로드: 스크립트 합본 다운로드를 요청했습니다.")
 
-    def download_summary(self):
+    def download_summary(self, task_manager):
         self.log_signal.emit("다운로드: 요약본 전체 다운로드를 요청했습니다.")
 
-    def download_anki(self):
+    def download_anki(self, task_manager):
         self.log_signal.emit("다운로드: Anki 덱 전체 다운로드를 요청했습니다.")
