@@ -6,17 +6,18 @@
 # func/func1_drive_sync.py
 from PyQt6.QtCore import pyqtSignal
 from base.base_controller import BaseController
-from worker.drive.drive_worker import DriveSyncWorker
+from worker.drive.drive_worker import DriveSyncWorker, ExamCategoryFetchWorker
 
 class DriveSyncController(BaseController):
     """구글 드라이브 동기화 관련 백엔드 제어를 담당하는 컨트롤러 클래스입니다.
 
-    BaseController를 상속하며, DriveSyncWorker를 인스턴스화하여 백그라운드 작업을 실행합니다.
+    BaseController를 상속하며, DriveSyncWorker 및 ExamCategoryFetchWorker를 인스턴스화하여 백그라운드 작업을 실행합니다.
     작업 진행 상태 및 완료 결과를 시그널을 통해 UI로 전달합니다.
 
     Attributes:
         sync_completed (pyqtSignal): 동기화 성공 결과를 리스트로 반환하는 시그널.
         sync_finished (pyqtSignal): 워커의 작업이 완전히 종료되었음을 알리는 시그널.
+        categories_loaded (pyqtSignal): 구글 드라이브에서 조회된 시험 기준 목록을 반환하는 시그널.
     """
     
     # ===========================
@@ -24,10 +25,23 @@ class DriveSyncController(BaseController):
     # ===========================
     sync_completed = pyqtSignal(list)
     sync_finished = pyqtSignal()
+    categories_loaded = pyqtSignal(list)
 
     def __init__(self, task_manager=None):
         # BaseController의 초기화 메서드를 통해 기본 설정 적용
         super().__init__(task_manager)
+
+    # ===========================
+    # [시험 기준 폴더 목록 조회]
+    # ===========================
+    def start_fetch_categories(self, force_refresh: bool = False):
+        """구글 드라이브의 폴더 구조를 조회하여 시험 기준 목록을 가져옵니다."""
+        self.category_worker = ExamCategoryFetchWorker(force_refresh=force_refresh)
+        self.category_worker.finished_signal.connect(self.categories_loaded.emit)
+        self.category_worker.log_signal.connect(self.log_signal.emit)
+        self.category_worker.error_signal.connect(lambda msg: self.log_signal.emit(f"⚠️ 시험 기준 폴더 조회 오류: {msg}"))
+        self.category_worker.finished.connect(self.category_worker.deleteLater)
+        self.category_worker.start()
 
     # ===========================
     # [동기화 작업 실행]

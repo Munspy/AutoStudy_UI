@@ -49,6 +49,7 @@ class DriveSyncUi(BaseUI):
         self.controller.sync_completed.connect(self.update_table)
         self.controller.error_signal.connect(self.show_error)
         self.controller.sync_finished.connect(self.reset_search_btn)
+        self.controller.categories_loaded.connect(self.populate_exam_categories)
         self.controller.log_signal.connect(self.emit_log)
         
         self.init_ui()      # __init__가 자동 실행되고 이어서 실행되는 기본 UI
@@ -108,16 +109,24 @@ class DriveSyncUi(BaseUI):
 
         # 2. 두번째 구조물: 선택지가 있는 리본박스
         self.exam_combo = StyledComboBox()
-
-            # 사용안함은 고정
-            # 나머지는 드라이브의 전체 폴더 구조를 보고 정하는 것인데 현재는 목업 데이터
-        self.exam_combo.addItems(["사용 안함", "Block 1 : 심혈관계/1차"])
-            # ----- 수정 필요!!!!!!!!!!!!!!!! -----
-            # 폴더 구조는 언제마다 읽어야 할까?
-
-        # 1 + 2. 첫번쨰 구조물 바로 옆으로 두번쨰 구조물을 붙임
-            # 왼쪽 정렬시킬 구조물들은 앞으로도 다 이런식으로 붙임
+        self.exam_combo.addItem("사용 안함", None)
         filter_layout.addWidget(self.exam_combo)
+
+        # 시험 기준 새로고침 버튼
+        self.btn_refresh_exam = QPushButton("🔄")
+        self.btn_refresh_exam.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.btn_refresh_exam.setToolTip("시험 기준 폴더 새로고침")
+        self.btn_refresh_exam.setStyleSheet("""
+            QPushButton {
+                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
+                border-radius: 6px; padding: 6px 8px; color: #555555; font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #F7F7F5; border-color: #BCBCB8;
+            }
+        """)
+        self.btn_refresh_exam.clicked.connect(lambda: self.refresh_exam_categories(force_refresh=True))
+        filter_layout.addWidget(self.btn_refresh_exam)
 
         # 다음 구조물 전의 Seperator
         separator = QLabel("  |  ")
@@ -310,9 +319,35 @@ class DriveSyncUi(BaseUI):
         btn_dl_anki.clicked.connect(self.controller.download_anki)
 
         layout.addLayout(actions_layout)
-        layout.addLayout(actions_layout)
+
+        # 초기 시험 기준 폴더 목록 로드
+        self.refresh_exam_categories()
 
     # --- 기능 메서드 ---
+    def refresh_exam_categories(self, force_refresh: bool = False):
+        """구글 드라이브에서 시험 기준(과목/차수) 폴더 목록을 비동기 조회합니다."""
+        self.emit_log("구글 드라이브에서 시험 기준 폴더 목록을 조회합니다...")
+        self.controller.start_fetch_categories(force_refresh=force_refresh)
+
+    def populate_exam_categories(self, categories):
+        """조회된 시험 기준 목록을 콤보박스에 반영합니다."""
+        self.exam_combo.blockSignals(True)
+        current_data = self.exam_combo.currentData()
+        self.exam_combo.clear()
+        self.exam_combo.addItem("사용 안함", None)
+        
+        selected_idx = 0
+        for idx, (name, folder_id) in enumerate(categories, start=1):
+            self.exam_combo.addItem(name, folder_id)
+            if current_data and current_data == folder_id:
+                selected_idx = idx
+                
+        self.exam_combo.setCurrentIndex(selected_idx)
+        self.exam_combo.blockSignals(False)
+        self.toggle_date_inputs(self.exam_combo.currentText())
+        if categories:
+            self.emit_log(f"총 {len(categories)}개의 시험 기준(과목/차수) 폴더를 불러왔습니다.")
+
     def set_local_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "로컬 검색 폴더 선택", self.local_download_path)
         if folder:
@@ -326,11 +361,12 @@ class DriveSyncUi(BaseUI):
         self.end_date.setEnabled(not is_disabled)
 
     def execute_search_log(self):
-        """ 🔄 변경점: 직접 Thread를 부르는 대신 Controller(Func)에게 지시를 내립니다. """
+        """선택된 시험 기준(또는 날짜 범위)으로 구글 드라이브 동기화 조회를 실행합니다."""
         current_exam = self.exam_combo.currentText()
+        selected_folder_id = self.exam_combo.currentData()
         self.search_btn.start_loading("조회 중")
         
-        if current_exam == "사용 안함":
+        if current_exam == "사용 안함" or not selected_folder_id:
             start = self.start_date.date().toString("yyyy-MM-dd")
             end = self.end_date.date().toString("yyyy-MM-dd")
             display_start = self.start_date.date().toString("MM-dd")
@@ -341,8 +377,8 @@ class DriveSyncUi(BaseUI):
             self.emit_log(f"기간 [{display_start} ~ {display_end}] 기준으로 구글 드라이브 동기화 조회를 시작합니다...")
         else:
             search_mode = "EXAM"
-            filter_value = current_exam
-            self.emit_log(f"시험 기준 [{current_exam}] (으)로 최신 상태를 백그라운드에서 불러옵니다...")
+            filter_value = selected_folder_id
+            self.emit_log(f"시험 기준 [{current_exam}] (으)로 해당 폴더의 최신 상태를 불러옵니다...")
 
         # 👈 매니저(Controller)야, 스레드 띄워서 일 좀 처리해 줘!
         self.controller.execute_sync(search_mode, filter_value, self.local_download_path)

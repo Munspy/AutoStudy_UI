@@ -53,8 +53,16 @@ class DriveSyncWorker(BaseWorker):
         # ===========================
         # 2. 파일 전체 스캔
         self.log_signal.emit("로컬 및 드라이브의 파일 목록을 스캔하고 있습니다...")
+        
+        target_folder = sync_service.target_folder_id
+        if self.search_mode == "EXAM" and self.filter_value:
+            target_folder = self.filter_value
+
         # 로컬 경로와 드라이브를 스캔하여 파일 리스트를 가져옵니다.
-        drive_files, drive_filenames, local_files = sync_service.fetch_all_files(self.local_path)
+        drive_files, drive_filenames, local_files = sync_service.fetch_all_files(
+            self.local_path,
+            target_folder_id=target_folder
+        )
         
         # 🛑 스위치 확인
         # 작업이 취소되었는지 확인합니다.
@@ -66,11 +74,15 @@ class DriveSyncWorker(BaseWorker):
         # ===========================
         # 3. 고유 교시(Lesson ID) 추출
         self.log_signal.emit("파일 데이터 분석 및 수업 교시를 추출하는 중...")
-        # 드라이브와 로컬의 파일명을 합쳐서 분석 대상을 만듭니다.
-        combined_filenames = drive_filenames + local_files
+        # 시험 기준 검색 시 해당 드라이브 폴더의 파일들만 기준으로 교시 추출
+        if self.search_mode == "EXAM":
+            source_filenames = drive_filenames
+        else:
+            source_filenames = drive_filenames + local_files
+
         # 정렬된 교시 리스트를 추출합니다.
         sorted_lessons = sync_service.extract_and_filter_lessons(
-            combined_filenames, 
+            source_filenames, 
             self.search_mode, 
             self.filter_value
         )
@@ -94,8 +106,7 @@ class DriveSyncWorker(BaseWorker):
             progress = int(((index + 1) / total_lessons) * 100)
             self.progress_signal.emit(progress, "상태 판별 중...")
 
-            # 비즈니스 로직 위임 (상태 판별, "")
-            # 수업별 상태 데이터를 생성하여 리스트에 추가합니다.
+            # 비즈니스 로직 위임
             lesson_data = sync_service.build_lesson_status_data(
                 lesson_id, 
                 drive_files, 
@@ -109,3 +120,19 @@ class DriveSyncWorker(BaseWorker):
             self.log_signal.emit("✅ 모든 데이터 분석이 완료되었습니다.")
             
         return table_data
+
+
+class ExamCategoryFetchWorker(BaseWorker):
+    """구글 드라이브의 2연속 폴더 구조를 분석하여 시험 기준 목록을 가져오는 워커."""
+    
+    def __init__(self, force_refresh: bool = False):
+        super().__init__()
+        self.force_refresh = force_refresh
+        
+    def do_work(self):
+        self.log_signal.emit("구글 드라이브에서 시험 기준(과목/차수) 폴더 목록을 조회합니다...")
+        sync_service = DriveSyncService(logger_callback=self.log_signal.emit)
+        if self.is_cancelled():
+            return []
+        categories = sync_service.fetch_exam_categories(force_refresh=self.force_refresh)
+        return categories
