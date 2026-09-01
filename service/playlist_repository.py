@@ -26,13 +26,15 @@ class PlaylistRepository(BaseService):
     비동기 작업을 수행하는 Worker 계층에 의해 호출되어 데이터를 공급하거나 업데이트합니다.
     """
     def __init__(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         csv_file_path: str = "playlists.csv",
         logger_callback: Optional[Callable[[str], None]] = None
     ) -> None:
-        """PlaylistRepository 인스턴스를 초기화하고 스레드 락 및 데이터베이스 파일을 준비합니다.
-
-        Args:
+        """PlaylistRepository 인스턴스를 초기화하고 스레드 락 및 데이터베이스 파일을 준비합니다.        Args:
             csv_file_path (str, optional): 재생목록 데이터를 영속화할 로컬 CSV 파일의 경로. 기본값은 "playlists.csv"입니다.
             logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 로컬 DB 접근 로그를 
                 메인 UI 스레드로 안전하게 전달하기 위한 콜백 함수. Defaults to None.
@@ -58,12 +60,15 @@ class PlaylistRepository(BaseService):
         파이프라인의 연속성을 보장하는 강력한 방어 로직입니다. 내부적으로 `_lock`을 사용하여 
         여러 스레드가 동시에 초기화를 시도하는 Race Condition을 방지합니다.
 
-        Args:
-            없음
+        Args:            없음
 
         Returns:
             None
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         with self._lock:
             if not self.csv_file.exists():
                 try:
@@ -84,13 +89,16 @@ class PlaylistRepository(BaseService):
         전체 읽기 블록이 `_lock`으로 강하게 보호됩니다. 읽기 중 예외가 발생하더라도 빈 리스트를 반환하여 
         호출자(Controller/Service)가 에러 처리 없이 안전하게 Fallback 할 수 있도록 돕습니다.
 
-        Args:
-            없음
+        Args:            없음
 
         Returns:
             List[Dict[str, str]]: 각 딕셔너리가 단일 재생목록 정보('name', 'url', 'playlist_id')를 
                 포함하는 리스트. 파일이 없거나 오류 발생 시 빈 리스트(`[]`)를 반환합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         playlists: List[Dict[str, str]] = []
         with self._lock:
             if self.csv_file.exists():
@@ -112,12 +120,15 @@ class PlaylistRepository(BaseService):
         데이터 누락 방지를 위해 `.get()` 메서드를 활용하여 키 누락 예외를 방어하며, RLock 안에서 실행되므로 
         쓰기 도중 다른 스레드의 간섭을 원천 차단합니다.
 
-        Args:
-            playlists (List[Dict[str, str]]): CSV 파일에 기록할 최신 상태의 재생목록 딕셔너리 리스트.
+        Args:            playlists (List[Dict[str, str]]): CSV 파일에 기록할 최신 상태의 재생목록 딕셔너리 리스트.
 
         Returns:
             None
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         with self._lock:
             try:
                 with self.csv_file.open('w', newline='', encoding='utf-8') as f:
@@ -141,14 +152,17 @@ class PlaylistRepository(BaseService):
         일련의 과정을 하나의 원자적 트랜잭션(Atomic Transaction)으로 간주하고 `with self._lock:` 블록으로 묶어 
         데이터 경합(Race Condition)으로 인한 정보 유실을 방지합니다.
 
-        Args:
-            name (str): 사용자에게 보여질 재생목록의 이름.
+        Args:            name (str): 사용자에게 보여질 재생목록의 이름.
             url (str): 해당 유튜브 재생목록의 전체 URL 경로.
             playlist_id (str): API 통신 시 활용되는 재생목록의 고유 식별자(ID).
 
         Returns:
             None
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         # 읽기 -> 리스트 조작 -> 쓰기 전체 과정을 원자적 트랜잭션으로 보호
         with self._lock:
             playlists = self.load_playlists()
@@ -163,12 +177,15 @@ class PlaylistRepository(BaseService):
         메모리 상에 로드된 전체 리스트에서 대상 `playlist_id`와 일치하지 않는 항목들만으로 
         새로운 배열을 필터링(List Comprehension)한 뒤, 이를 디스크에 재기록(Rewrite)하여 물리적인 삭제를 달성합니다.
 
-        Args:
-            playlist_id (str): 데이터베이스에서 삭제하고자 하는 대상 재생목록의 고유 식별자(ID).
+        Args:            playlist_id (str): 데이터베이스에서 삭제하고자 하는 대상 재생목록의 고유 식별자(ID).
 
         Returns:
             None
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         with self._lock:
             playlists = self.load_playlists()
             # 해당 ID를 가진 항목을 제외하고 리스트 재구성
@@ -186,13 +203,16 @@ class PlaylistRepository(BaseService):
         메모리 리스트를 순회하며 타겟 ID를 찾아 이름(`name`) 필드만 단일 수정(In-place update)한 후, 
         실제 변경 사항이 발생했을 때만(디스크 I/O 최적화) `_rewrite_csv`를 호출하여 상태를 영속화합니다.
 
-        Args:
-            playlist_id (str): 이름을 변경할 대상 재생목록의 고유 식별자(ID).
+        Args:            playlist_id (str): 이름을 변경할 대상 재생목록의 고유 식별자(ID).
             new_name (str): 변경하고자 하는 새로운 재생목록의 이름 문자열.
 
         Returns:
             None
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         with self._lock:
             playlists = self.load_playlists()
             modified = False

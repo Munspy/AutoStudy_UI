@@ -20,6 +20,10 @@ from typing import Union, List, Tuple
 PathLike = Union[str, Path]
 
 
+# ===========================
+# [디렉토리 및 파일 탐색]
+# ===========================
+
 def ensure_parent_dir(file_path: PathLike) -> Path:
     """대상 파일 경로의 상위(부모) 디렉토리가 존재하는지 확인하고, 없다면 자동으로 생성합니다.
     
@@ -36,6 +40,7 @@ def ensure_parent_dir(file_path: PathLike) -> Path:
         Path: 내부적으로 부모 디렉토리 생성 및 확인 작업을 마친 파일의 전체 경로를 `Path` 객체로 반환합니다.
     """
     path = Path(file_path)
+    # 상위 디렉토리를 재귀적으로 생성 (존재해도 에러 발생 안함)
     path.parent.mkdir(parents=True, exist_ok=True)
     return path
 
@@ -80,10 +85,13 @@ def list_local_files(
 
     files = []
     try:
+        # 디렉토리 내 항목 순회
         for entry in dir_path.iterdir():
             if entry.is_file():
+                # 확장자 필터링 조건 확인
                 if extension and not entry.name.lower().endswith(extension):
                     continue
+                # 전체 경로 또는 파일명 추가
                 files.append(str(entry.resolve()) if full_path else entry.name)
     except PermissionError:
         print(f"⚠️ 권한 부족으로 디렉토리 접근 실패: {dir_path}")
@@ -92,6 +100,10 @@ def list_local_files(
             
     return files
 
+
+# ===========================
+# [파일 조작 (이동, 복사, 삭제)]
+# ===========================
 
 def move_file(src_path: PathLike, dest_path: PathLike) -> bool:
     """원본 파일을 대상 경로로 이동하거나 이름을 변경합니다.
@@ -116,6 +128,7 @@ def move_file(src_path: PathLike, dest_path: PathLike) -> bool:
     
     if src.exists() and src.is_file():
         try:
+            # 대상 경로의 부모 디렉토리 확보
             ensure_parent_dir(dest)
             shutil.move(str(src), str(dest))
             return True
@@ -148,7 +161,9 @@ def copy_file(src_path: PathLike, dest_path: PathLike) -> bool:
     
     if src.exists() and src.is_file():
         try:
+            # 대상 경로의 부모 디렉토리 확보
             ensure_parent_dir(dest)
+            # 파일 내용 및 메타데이터 복사
             shutil.copy2(str(src), str(dest))
             return True
         except FileNotFoundError:
@@ -180,6 +195,7 @@ def delete_file(file_path: PathLike) -> bool:
     path = Path(file_path)
     if path.exists() and path.is_file():
         try:
+            # 파일 안전 삭제
             path.unlink()
             return True
         except PermissionError:
@@ -188,6 +204,10 @@ def delete_file(file_path: PathLike) -> bool:
             print(f"⚠️ 파일 삭제 중 OS 오류 발생 ({path.name}): {e}")
     return False
 
+
+# ===========================
+# [텍스트 파일 I/O (원자적 쓰기 지원)]
+# ===========================
 
 def save_text_file(
     content: str, 
@@ -223,17 +243,22 @@ def save_text_file(
     
     # 'w' (덮어쓰기) 모드일 때만 원자적 쓰기(Atomic Write) 적용
     if mode == 'w':
+        # 임시 파일 경로 생성
         temp_p = save_p.with_name(save_p.name + '.tmp')
         try:
+            # 임시 파일에 데이터 기록
             with open(temp_p, mode=mode, encoding=encoding) as f:
                 f.write(content)
+            # 원자적 스왑(Atomic Swap)
             temp_p.replace(save_p)
         except PermissionError as e:
+            # 예외 발생 시 임시 파일 정리
             if temp_p.exists():
                 temp_p.unlink(missing_ok=True)
             print(f"⚠️ 저장 실패: 쓰기 권한이 없습니다. ({save_p.name})")
             raise e
         except OSError as e:
+            # 예외 발생 시 임시 파일 정리
             if temp_p.exists():
                 temp_p.unlink(missing_ok=True)
             print(f"⚠️ 저장 실패: 디스크 I/O 오류 발생. ({save_p.name})")
@@ -275,6 +300,7 @@ def read_text_file(file_path: PathLike, encoding: str = 'utf-8') -> str | None:
         return None
         
     try:
+        # 파일 내용을 문자열로 로드
         with open(path, mode='r', encoding=encoding) as f:
             return f.read()
     except UnicodeDecodeError:

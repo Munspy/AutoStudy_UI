@@ -55,15 +55,20 @@ def get_page_image_bytes(
     """
     try:
         path_str = str(file_path)
+        # PDF 문서를 안전하게 열기 (자동으로 닫힘)
         with pymupdf.open(path_str) as doc:
+            # 유효하지 않은 페이지 번호 체크
             if page_num < 0 or page_num >= len(doc):
                 print(f"⚠️ 유효하지 않은 페이지 번호입니다 ({page_num}p / 전체 {len(doc)}p)")
                 return None
                 
+            # 지정된 페이지 로드
             pdf_page = doc.load_page(page_num)
+            
+            # 확대/축소 배율 매트릭스 설정
             zoom_matrix = pymupdf.Matrix(zoom, zoom)
             
-            # alpha=False: 배경 투명도 제거
+            # alpha=False: 배경 투명도 제거하여 픽스맵(Pixmap) 생성
             pix = pdf_page.get_pixmap(matrix=zoom_matrix, alpha=False)
             
             # 순수 Bytes로 변환하여 반환
@@ -110,16 +115,21 @@ def merge_pdfs(pdf_paths: List[PathLike], output_path: PathLike) -> str:
     if not pdf_paths:
         raise ValueError("❌ 병합할 PDF 파일 목록이 비어있습니다.")
 
+    # 출력 경로의 부모 디렉토리가 없으면 생성
     out_path = ensure_parent_dir(output_path)
     
     # with 구문을 통해 out_pdf 자동 해제 보장
     with pymupdf.open() as out_pdf:
         for path in pdf_paths:
             p_str = str(path)
+            
+            # 대상 파일 존재 여부 확인
             if not Path(p_str).exists():
                 print(f"⚠️ 존재하지 않는 파일 스킵: {p_str}")
                 continue
+                
             try:
+                # 개별 PDF를 열어 출력 PDF에 병합 삽입
                 with pymupdf.open(p_str) as doc:
                     out_pdf.insert_pdf(doc)
             except pymupdf.FileDataError:
@@ -163,11 +173,14 @@ def split_pdf_two_parts(
     """
     p_str = str(file_path)
     
+    # 두 출력 파일의 부모 경로 미리 확인 및 생성
     out_path1 = ensure_parent_dir(output_path_1)
     out_path2 = ensure_parent_dir(output_path_2)
 
     with pymupdf.open(p_str) as doc:
         total_pages = len(doc)
+        
+        # 분할 경계 페이지의 유효성 검사
         if split_page_num <= 0 or split_page_num >= total_pages:
             raise ValueError(
                 f"❌ 분할 기준 페이지({split_page_num})가 유효하지 않습니다. "
@@ -220,6 +233,7 @@ def merge_specific_pages(
     if not page_recipe:
         raise ValueError("❌ 페이지 레시피 목록이 비어있습니다.")
 
+    # 저장할 출력 경로 확보
     out_path = ensure_parent_dir(output_path)
     
     # ExitStack을 활용하여 가변적인 개수의 PDF 객체를 안전하게 자동 해제
@@ -228,6 +242,8 @@ def merge_specific_pages(
         
         for path, page_num in page_recipe:
             p_str = str(path)
+            
+            # 캐시에 해당 문서가 없다면 새로 열기 시도
             if p_str not in opened_pdfs:
                 if not Path(p_str).exists():
                     print(f"⚠️ 존재하지 않는 파일 스킵: {p_str}")
@@ -240,6 +256,7 @@ def merge_specific_pages(
                     continue
                 
             src_pdf = opened_pdfs.get(p_str)
+            # 페이지 번호가 유효한지 검사한 후 삽입
             if src_pdf and 0 <= page_num < len(src_pdf):
                 out_pdf.insert_pdf(src_pdf, from_page=page_num, to_page=page_num)
             else:

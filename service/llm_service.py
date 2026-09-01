@@ -34,10 +34,13 @@ class LlmService(BaseService):
     def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
         """LlmService 인스턴스를 초기화합니다.
 
-        Args:
-            logger_callback (Optional[Callable[[str], None]], optional): 비동기 Worker 환경에서 
+        Args:            logger_callback (Optional[Callable[[str], None]], optional): 비동기 Worker 환경에서 
                 발생하는 상태 로그를 메인 UI 스레드로 안전하게 전달하기 위한 콜백 함수. Defaults to None.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         # BaseService 초기화 시 콜백을 등록하여 내부에서 self._log()로 일괄 처리
         super().__init__(logger_callback=logger_callback)
         self.active_processes: Dict[str, str] = {}
@@ -50,11 +53,14 @@ class LlmService(BaseService):
         어떤 태스크가 현재 진행 중인지, 성공했는지, 실패했는지를 파악하여 UI(로그 창)에 반영하기 위한 
         스레드 안전(Thread-safe) 상태 관리 로직입니다. 
 
-        Args:
-            task_id (str): 작업을 고유하게 식별하는 UUID 문자열.
+        Args:            task_id (str): 작업을 고유하게 식별하는 UUID 문자열.
             task_name (str): 수행 중인 작업의 이름과 모델 정보를 포함한 문자열.
             status (str, optional): 작업의 현재 상태 플래그 ("START", "DONE", "ERROR"). Defaults to "START".
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         with self.process_lock:
             if status == "START":
                 self.active_processes[task_id] = task_name
@@ -72,6 +78,10 @@ class LlmService(BaseService):
             self._log(summary)
 
     def _execute_llm_task(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         task_title: str, 
         model_name: str, 
@@ -79,9 +89,7 @@ class LlmService(BaseService):
         user_prompt: str, 
         task_id: Optional[str] = None
     ) -> Optional[str]:
-        """LLM 호출 시 반복되는 락킹, 로깅 및 예외 처리를 전담하는 내부 템플릿(Wrapper) 메서드입니다.
-
-        개별 비즈니스 로직(교정본, 요약본 등)이 직접 API를 호출하고 예외 처리를 중복 작성하는 것을 방지합니다. 
+        """LLM 호출 시 반복되는 락킹, 로깅 및 예외 처리를 전담하는 내부 템플릿(Wrapper) 메서드입니다.        개별 비즈니스 로직(교정본, 요약본 등)이 직접 API를 호출하고 예외 처리를 중복 작성하는 것을 방지합니다. 
         이 메서드는 API 호출 전 `api_mgr`로부터 사용 가능한 API 키를 안전하게 대여(Checkout) 받고, 
         `llm_client`를 통해 통신을 시도하며, 작업 완료(또는 실패) 시 
         성공 여부 및 에러 코드를 포함하여 키를 반드시 반납(Checkin)하도록 `finally` 블록으로 강제합니다. 
@@ -138,15 +146,17 @@ class LlmService(BaseService):
     # 1. 교정본 생성 (준비물: 음성 스크립트 + 강의록)
     # ==========================================
     def correct_script_with_gemini(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         audio_text: str, 
         pdf_text: str, 
         model_name: str, 
         task_id: Optional[str] = None
     ) -> Optional[str]:
-        """음성 스크립트와 강의록을 비교하여 강사의 발화를 보존하며 오타를 교정하는 비즈니스 메서드입니다.
-
-        Whisper AI가 음성을 텍스트로 변환할 때 흔히 발생하는 전문 의학 용어의 오인식(Hallucination)을 
+        """음성 스크립트와 강의록을 비교하여 강사의 발화를 보존하며 오타를 교정하는 비즈니스 메서드입니다.        Whisper AI가 음성을 텍스트로 변환할 때 흔히 발생하는 전문 의학 용어의 오인식(Hallucination)을 
         해결하기 위해 설계되었습니다. 원본 PDF(강의록) 텍스트를 Ground Truth(참조 데이터)로 제공하여 
         LLM이 발음이 유사한 단어를 문맥과 강의록에 맞게 추론하여 교정하도록 프롬프트 엔지니어링이 적용되어 있습니다. 
         강사의 팁이나 중요도(시험 관련) 발언이 훼손되지 않도록 엄격한 '삭제/생략 금지' 규칙이 포함되어 있습니다.
@@ -219,15 +229,17 @@ class LlmService(BaseService):
     # 2. 요약본 생성 (준비물: 교정본 + 강의록)
     # ==========================================
     def key_summary_with_gemini(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         corrected_text: str, 
         pdf_text: str, 
         model_name: str, 
         task_id: Optional[str] = None
     ) -> Optional[str]:
-        """강의록과 교정본을 바탕으로 핵심 단권화(Summary) 노트를 생성하는 비즈니스 메서드입니다.
-
-        교정이 완료된 스크립트와 강의록 텍스트를 입력받아, 의학 교육 전문가 수준의 
+        """강의록과 교정본을 바탕으로 핵심 단권화(Summary) 노트를 생성하는 비즈니스 메서드입니다.        교정이 완료된 스크립트와 강의록 텍스트를 입력받아, 의학 교육 전문가 수준의 
         구조화된 핵심 요약본을 도출합니다. 단순 요약이 아닌, 시험 출제 시그널 식별, 감별 진단 표 구성, 
         임상적 의사 결정 흐름(Decision Flow) 작성을 강제하는 고도화된 프롬프트가 적용되어 
         학습자의 실전 지식 향상을 돕습니다.
@@ -312,15 +324,17 @@ Definitive Treatment (최종 치료)
     # 3. Anki 데이터 생성 (준비물: 교정본 + 강의록)
     # ==========================================
     def generate_anki_csv_text(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         corrected_text: str, 
         pdf_text: str, 
         model_name: str, 
         task_id: Optional[str] = None
     ) -> Optional[str]:
-        """강의록과 교정본을 바탕으로 Anki 카드 생성을 위한 파이프(|) 구분 CSV 원시 텍스트를 생성합니다.
-
-        AnkiGenerationService(Anki 팀)가 `.apkg` 파일을 패키징하기 전, 필요한 핵심 데이터를 LLM을 통해 
+        """강의록과 교정본을 바탕으로 Anki 카드 생성을 위한 파이프(|) 구분 CSV 원시 텍스트를 생성합니다.        AnkiGenerationService(Anki 팀)가 `.apkg` 파일을 패키징하기 전, 필요한 핵심 데이터를 LLM을 통해 
         추출해내는 전처리 단계입니다. 프롬프트 내에 Basic, Cloze(빈칸뚫기), MCQ(객관식) 카드를 생성하는 
         구체적인 문법(`{{c1::}}` 등)과 CSV 포맷(`|` 구분)을 엄격하게 제한하여 기계가 쉽게 파싱할 수 있는 
         형태로 출력하도록 통제합니다.

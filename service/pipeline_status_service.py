@@ -40,13 +40,15 @@ class PipelineStatusService(BaseService):
     """
     
     def __init__(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         drive_service: Optional[Any] = None,
         logger_callback: Optional[Callable[[str], None]] = None
     ) -> None:
-        """PipelineStatusService 인스턴스를 초기화합니다.
-
-        Args:
+        """PipelineStatusService 인스턴스를 초기화합니다.        Args:
             drive_service (Optional[Any], optional): 인증된 구글 드라이브 API 서비스 리소스 객체. Defaults to None.
             logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 로그를 메인 UI로 
                 전달하기 위한 콜백 함수. 하위 `FileNamingService`에도 동일하게 주입됩니다. Defaults to None.
@@ -59,14 +61,16 @@ class PipelineStatusService(BaseService):
         self.naming_service = FileNamingService(logger_callback=logger_callback)
 
     def check_lesson_file_status(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         file_list: List[str], 
         target_lesson_id: str, 
         file_type: FileType
     ) -> bool:
-        """[파이프라인 진행도 검증] 특정 단계의 파이프라인 결과물 파일이 리스트에 존재하는지 확인합니다.
-
-        파일 시스템이나 클라우드를 직접 스캔하지 않고, 미리 긁어온(Fetched) 단순 파일명 배열(`file_list`)을 
+        """[파이프라인 진행도 검증] 특정 단계의 파이프라인 결과물 파일이 리스트에 존재하는지 확인합니다.        파일 시스템이나 클라우드를 직접 스캔하지 않고, 미리 긁어온(Fetched) 단순 파일명 배열(`file_list`)을 
         메모리 상에서 빠르게 스캔합니다. 
         `FileType`에 정의된 8가지 주요 파이프라인 마일스톤에 대해 `FileNamingService`의 
         정규식 필터링 능력을 빌려 해당 교시(`target_lesson_id`)에 속한 파일이 물리적으로 존재하는지 
@@ -118,13 +122,15 @@ class PipelineStatusService(BaseService):
         return False
 
     def get_ai_task_status_from_json(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         drive_files: List[Dict[str, Any]], 
         target_lesson_id: str
     ) -> tuple[bool, bool]:
-        """드라이브에 저장된 `done.json`을 열어, AI 교정과 요약 작업이 내부에 실제로 기록되었는지 논리적으로 확인합니다.
-
-        물리적으로 파일(`done.json`)이 존재하더라도, 중간에 시스템 오류로 인해 안의 내용이 비어있을 수 있습니다. 
+        """드라이브에 저장된 `done.json`을 열어, AI 교정과 요약 작업이 내부에 실제로 기록되었는지 논리적으로 확인합니다.        물리적으로 파일(`done.json`)이 존재하더라도, 중간에 시스템 오류로 인해 안의 내용이 비어있을 수 있습니다. 
         이 메서드는 파일을 디스크로 다운로드하는 오버헤드 대신 `in_memory_download_from_drive`를 사용해 
         RAM 상에서 즉시 JSON을 디코딩합니다. 또한 반복 조회를 막기 위해 `self.json_cache`에 디코딩된 
         딕셔너리를 캐싱합니다. JSON 내부의 `corrected_text`와 `summary` 키를 파싱하여, 
@@ -181,14 +187,16 @@ class PipelineStatusService(BaseService):
         return has_corrected, has_summary
 
     def fetch_files_by_date_range(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         start_date_str: str, 
         end_date_str: str, 
         file_extension: str = ".pdf"
     ) -> List[Dict[str, Any]]:
-        """드라이브에서 특정 확장자를 가진 파일 중, 지정된 날짜 범위(MMDD)에 해당하는 파일 목록만 추출 반환합니다.
-
-        사용자가 UI의 달력 위젯(Calendar Widget)에서 특정 기간을 선택하고 해당 기간 내의 
+        """드라이브에서 특정 확장자를 가진 파일 중, 지정된 날짜 범위(MMDD)에 해당하는 파일 목록만 추출 반환합니다.        사용자가 UI의 달력 위젯(Calendar Widget)에서 특정 기간을 선택하고 해당 기간 내의 
         PDF 학습 자료만 모아보려 할 때 호출되는 편의성(Utility) 메서드입니다. 
         모든 드라이브 파일을 긁어온 뒤, 1차로 확장자를 필터링하여 루프의 횟수를 줄이고, 
         2차로 `FileNamingService`의 도메인 파서(Parser)에 위임하여 파일명 내에 숨겨진 날짜 메타데이터를 

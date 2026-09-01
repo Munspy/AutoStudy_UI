@@ -31,12 +31,16 @@ class WhisperTranscriptionUi(BaseUI):
         layout.setContentsMargins(28, 28, 28, 28)
         layout.setSpacing(20)
         
-        # --- 상단 헤더 ---
+        # ===========================
+        # [상단 헤더 구성]
+        # ===========================
         header_label = QLabel("🎙️ Whisper AI 음성 전사 (Mac Mini 연동)")
         header_label.setStyleSheet("font-size: 24px; font-weight: 800; color: #111111; padding: 5px 0px 10px 0px;")
         layout.addWidget(header_label)
 
-        # --- 상단 컨트롤 박스 (1. 맥미니 연결 상태 및 7. 드라이브 조회 버튼) ---
+        # ===========================
+        # [상단 컨트롤 박스 (상태 및 조회)]
+        # ===========================
         control_frame = CardWidget()
         control_frame.setStyleSheet("QLabel { font-weight: bold; color: #37352f; }")
         
@@ -57,7 +61,9 @@ class WhisperTranscriptionUi(BaseUI):
         
         layout.addWidget(control_frame)
 
-        # --- 중앙부 미완료 리스트업 (전체 선택 포함) ---
+        # ===========================
+        # [중앙부 미완료 리스트업]
+        # ===========================
         mid_bar_layout = QHBoxLayout()
         mid_bar_layout.setContentsMargins(5, 5, 5, 5)
         
@@ -84,11 +90,13 @@ class WhisperTranscriptionUi(BaseUI):
         self.progress_bar.hide()
         layout.addWidget(self.progress_bar)
 
-        # --- 하단 실행 버튼 ---
+        # ===========================
+        # [하단 실행 버튼]
+        # ===========================
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         
-        # 우측 하단 보라색 실행 버튼 (Tab1 참고)
+        # 우측 하단 보라색 실행 버튼
         self.run_whisper_btn = LoadingButton("🎙️ Whisper 전사 실행", "whisper")
         self.run_whisper_btn.clicked.connect(self.execute_transcription)
         bottom_layout.addWidget(self.run_whisper_btn)

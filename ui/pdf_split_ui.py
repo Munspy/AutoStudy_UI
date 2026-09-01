@@ -41,6 +41,9 @@ class PdfSplitUi(BaseUI):
         layout.setContentsMargins(28, 28, 28, 28)
         layout.setSpacing(20)
         
+        # ===========================
+        # [상단 타이틀 구성]
+        # ===========================
         header_label = QLabel("✂️ PDF Split (다중 교시 분할)")
         header_label.setStyleSheet("""
             font-size: 24px; font-weight: 800; color: #111111; 
@@ -48,6 +51,9 @@ class PdfSplitUi(BaseUI):
         """)
         layout.addWidget(header_label)
 
+        # ===========================
+        # [상단 제어 박스 (컨트롤 프레임)]
+        # ===========================
         control_frame = CardWidget()
         
         control_layout = QHBoxLayout(control_frame)
@@ -109,6 +115,9 @@ class PdfSplitUi(BaseUI):
         
         layout.addWidget(control_frame)
 
+        # ===========================
+        # [파일 리스트업 영역]
+        # ===========================
         file_selection_layout = QVBoxLayout()
         
         self.file_list = StyledListWidget()
@@ -118,8 +127,15 @@ class PdfSplitUi(BaseUI):
         file_selection_layout.addWidget(self.file_list)
         layout.addLayout(file_selection_layout)
 
+        # ===========================
+        # [미리보기 영역]
+        # ===========================
         self.scroll_area = PreviewScrollArea()
         layout.addWidget(self.scroll_area, stretch=1)
+        
+        # ===========================
+        # [하단 저장 영역]
+        # ===========================
         bottom_layout = QHBoxLayout()
 
         bottom_layout.addWidget(QLabel("✂️"))

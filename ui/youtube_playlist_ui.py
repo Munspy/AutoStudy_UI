@@ -114,7 +114,9 @@ class YoutubePlaylistUi(BaseUI):
         layout.setContentsMargins(28, 28, 28, 28)
         layout.setSpacing(20)
         
-        # --- 상단 헤더 ---
+        # ===========================
+        # [상단 헤더 구성]
+        # ===========================
         header_label = QLabel("▶️ YouTube 재생목록 관리")
         header_label.setStyleSheet("""
             font-size: 24px; font-weight: 800; color: #111111; 
@@ -123,7 +125,9 @@ class YoutubePlaylistUi(BaseUI):
         """)
         layout.addWidget(header_label)
 
-        # --- 상단 컨트롤 박스 ---
+        # ===========================
+        # [상단 컨트롤 박스]
+        # ===========================
         control_frame = CardWidget()
         
         control_layout = QHBoxLayout(control_frame)
@@ -154,7 +158,9 @@ class YoutubePlaylistUi(BaseUI):
 
         layout.addWidget(control_frame)
 
-        # --- 중간 액션바 ---
+        # ===========================
+        # [중간 액션바]
+        # ===========================
         mid_bar_layout = QHBoxLayout()
         mid_bar_layout.setContentsMargins(5, 5, 5, 5)
         
@@ -171,7 +177,9 @@ class YoutubePlaylistUi(BaseUI):
 
         layout.addLayout(mid_bar_layout)
 
-        # --- 테이블 영역 ---
+        # ===========================
+        # [테이블 영역]
+        # ===========================
         self.table = StyledTableWidget(0, 6)
         self.table.setHorizontalHeaderLabels(["", "영상 제목", "추출 Prefix", "영상 길이", "음성 추출 여부", "링크"])
         self.table.setAlternatingRowColors(True)
@@ -192,7 +200,9 @@ class YoutubePlaylistUi(BaseUI):
         
         layout.addWidget(self.table)
         
-        # --- 하단 실행 버튼 ---
+        # ===========================
+        # [하단 실행 버튼]
+        # ===========================
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         
@@ -202,7 +212,9 @@ class YoutubePlaylistUi(BaseUI):
         
         layout.addLayout(bottom_layout)
 
-        # 시작 시 콤보박스 최신화 및 목록 자동 로드
+        # ===========================
+        # [초기화 완료 후 목록 로드]
+        # ===========================
         self.refresh_combo_box()
 
     def emit_log(self, message):

@@ -35,6 +35,10 @@ class YoutubePlaylistService(BaseService):
     - 파이프라인 식별자 추출: `service.file_naming_service.FileNamingService`[cite: 1]
     - 미완료 음원 필터링 및 병렬 처리: `concurrent.futures.ThreadPoolExecutor`
     """
+    
+    # ===========================
+    # [초기화]
+    # ===========================
     def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
         """YoutubePlaylistService 인스턴스를 초기화하고 의존성을 주입받습니다.
 
@@ -43,8 +47,12 @@ class YoutubePlaylistService(BaseService):
                 진행 상황과 오류를 메인 UI 스레드로 전달하기 위한 콜백. Defaults to None.
         """
         super().__init__(logger_callback=logger_callback)
+        # 도메인 식별자 추출을 위해 FileNamingService 인스턴스 초기화
         self.naming_service = FileNamingService(logger_callback=logger_callback)
 
+    # ===========================
+    # [헬퍼 함수]
+    # ===========================
     @staticmethod
     def _parse_iso_duration(duration: str) -> str:
         """YouTube ISO 8601 시간 포맷(PT1H2M10S 등)을 인간이 읽기 쉬운 HH:MM:SS 포맷으로 변환하는 내부 헬퍼 함수.
@@ -59,25 +67,29 @@ class YoutubePlaylistService(BaseService):
         Returns:
             str: 변환된 'HH:MM:SS' 또는 'MM:SS' 포맷의 문자열. 파싱할 수 없는 입력이 들어오면 "00:00"을 반환합니다.
         """
+        # 빈 문자열 처리
         if not duration:
             return "00:00"
             
+        # 정규식을 통한 시, 분, 초 단위 파싱
         match = re.match(r'^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$', duration)
         if not match:
             return "00:00"
             
+        # 추출된 값을 정수형으로 변환 (없으면 0)
         hours = int(match.group(1)) if match.group(1) else 0
         minutes = int(match.group(2)) if match.group(2) else 0
         seconds = int(match.group(3)) if match.group(3) else 0
         
+        # 포맷팅 후 반환
         if hours > 0:
             return f"{hours}:{minutes:02d}:{seconds:02d}"
         else:
             return f"{minutes:02d}:{seconds:02d}"
 
-    # ==========================================
-    # 1. 유튜브 메타데이터 및 URL 분석
-    # ==========================================
+    # ===========================
+    # [유튜브 메타데이터 및 URL 분석]
+    # ===========================
     def parse_playlist_id(self, url: str) -> Optional[str]:
         """주어진 YouTube 웹 URL에서 재생목록의 고유 식별자(playlist_id)를 파싱하여 추출합니다.
 
@@ -91,8 +103,10 @@ class YoutubePlaylistService(BaseService):
         Returns:
             Optional[str]: 파싱에 성공한 재생목록 고유 ID 문자열 (예: 'PLxyz...'). 파라미터가 없으면 None 반환.
         """
+        # URL 파싱 및 쿼리 파라미터 딕셔너리화
         parsed = urlparse.urlparse(url)
         query = urlparse.parse_qs(parsed.query)
+        # list 파라미터 반환
         return query["list"][0] if "list" in query else None
 
     def get_playlist_title(self, url: str) -> str:
@@ -108,6 +122,7 @@ class YoutubePlaylistService(BaseService):
         Returns:
             str: 획득한 재생목록 제목. 네트워크 오류 등으로 실패할 경우 기본값인 '새 재생목록'을 반환합니다.
         """
+        # 다운로드 없이 메타데이터만 얕게 조회하도록 설정
         ydl_opts = {'extract_flat': True, 'quiet': True, 'no_warnings': True, 'nocache': True}
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -136,12 +151,15 @@ class YoutubePlaylistService(BaseService):
         """
         youtube_service = get_youtube_service()
         try:
+            # 재생목록의 snippet 및 contentDetails 요청
             res = (
                 youtube_service.playlists()
                 .list(part="snippet,contentDetails", id=playlist_id)
                 .execute()
             )
             items = res.get("items", [])
+            
+            # 유효성 검사: 재생목록 존재 여부 확인
             if not items:
                 raise ValueError("재생목록을 찾을 수 없거나 비공개/삭제된 상태입니다.")
 
@@ -183,6 +201,7 @@ class YoutubePlaylistService(BaseService):
         next_page_token = None
         
         while True:
+            # 재생목록 내부 아이템 조회 (페이지네이션)
             pl_request = youtube_service.playlistItems().list(
                 part='snippet', playlistId=playlist_id, maxResults=50, pageToken=next_page_token
             )
@@ -196,29 +215,37 @@ class YoutubePlaylistService(BaseService):
 
             if not vid_ids: break
 
+            # 조회된 비디오 ID들을 콤마로 연결하여 한 번에 재생 시간 조회
             ids_string = ','.join([v[0] for v in vid_ids])
             vid_request = youtube_service.videos().list(part='contentDetails', id=ids_string)
             vid_response = vid_request.execute()
 
+            # 비디오 ID별 duration 매핑 테이블 생성
             duration_map = {v['id']: v['contentDetails'].get('duration', '') for v in vid_response.get('items', [])}
 
             for vid, title in vid_ids:
                 duration_iso = duration_map.get(vid, '')
                 # 내부 헬퍼 함수 적용
                 length_str = self._parse_iso_duration(duration_iso)
+                # 제목으로부터 lesson_id 추출
                 prefix = naming_service.extract_lesson_id(title)
                 
+                # 드라이브 상태와 교차 검증하여 상태 마킹
                 extracted_status = "O" if prefix and prefix in existing_prefixes else "X"
                 videos.append({
                     "title": title, "length": length_str, "extracted": extracted_status, 
                     "vid": vid, "prefix": prefix
                 })
 
+            # 다음 페이지 토큰 확인 후 루프 지속 여부 결정
             next_page_token = pl_response.get('nextPageToken')
             if not next_page_token: break
 
         return videos
 
+    # ===========================
+    # [재생목록 업데이트 확인]
+    # ===========================
     def check_playlists_updates(self, playlists: list) -> list:
         """yt-dlp를 이용해 로컬에 등록된 다수의 재생목록들의 최근 업데이트 날짜를 병렬(Parallel)로 확인합니다.
 
@@ -236,6 +263,7 @@ class YoutubePlaylistService(BaseService):
             list: `real_last_updated` 필드가 추가되고, 최신 업데이트 순으로 정렬된 새로운 재생목록 리스트.
         """
         def check_update_date(pl):
+            # 병렬로 실행될 단일 재생목록 업데이트 날짜 조회 로직
             ydl_opts = {'extract_flat': True, 'quiet': True, 'no_warnings': True, 'playlistend': 1, 'nocache': True}
             try:
                 with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -245,12 +273,17 @@ class YoutubePlaylistService(BaseService):
                 pl['real_last_updated'] = '00000000'
             return pl
 
+        # 스레드풀을 사용한 병렬 처리
         with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
             updated_playlists = list(executor.map(check_update_date, playlists))
 
+        # 가장 최신 업데이트 날짜 기준 내림차순 정렬
         updated_playlists.sort(key=lambda x: x.get('real_last_updated', '00000000'), reverse=True)
         return updated_playlists
 
+    # ===========================
+    # [드라이브 파일 교차 검증]
+    # ===========================
     def get_existing_prefixes_in_drive(self, drive_service: Any, folder_id: str) -> Set[str]:
         """구글 드라이브에 이미 전사 대상 오디오나 작업 폴더가 존재하는지 파이프라인 식별자 단위로 교차 검증합니다.
 
@@ -269,6 +302,7 @@ class YoutubePlaylistService(BaseService):
                 스캔 중 예외 발생 시 빈 Set을 반환하여 시스템 다운을 방지합니다.[cite: 1]
         """
         try:
+            # 타겟 폴더 내 휴지통이 아닌 파일들 스캔 쿼리
             query = f"'{folder_id}' in parents and trashed=false"
             results = drive_service.files().list(q=query, fields="files(id, name, mimeType)", pageSize=1000).execute()
             items = results.get('files', [])
@@ -276,13 +310,18 @@ class YoutubePlaylistService(BaseService):
             existing_prefixes = set()
             media_extensions = ('.wav', '.mp3', '.m4a', '.mp4', '.mkv', '.webm', '.avi')
             
+            # 조회된 각 드라이브 파일들을 순회하며 prefix 수집
             for item in items:
                 file_name = item.get('name', '')
                 mime_type = item.get('mimeType', '')
+                
+                # 파일명에서 lesson_id 추출
                 prefix = self.naming_service.extract_lesson_id(file_name)
                 
                 if not prefix:
                     continue
+                
+                # 추출된 prefix와 파일명/확장자가 매칭되면 기존에 존재하는 것으로 판별
                 if mime_type == 'application/vnd.google-apps.folder' and file_name == prefix:
                     existing_prefixes.add(prefix)
                 elif file_name.lower().endswith(media_extensions):

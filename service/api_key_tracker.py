@@ -37,7 +37,6 @@ STATE_ERROR = "ERROR"
 STATE_NOT_FOUND = "NOT_FOUND"
 # ==========================================
 
-
 class APIManager(BaseService):
     """Gemini API 키의 가용 상태, 에러, 쿨타임을 관리하고 동시성을 제어하는 단일 책임 클래스.
 
@@ -50,9 +49,12 @@ class APIManager(BaseService):
     def __init__(self, state_file_name: str = "api_key_state.json") -> None:
         """APIManager 객체를 초기화하고 로컬 상태 파일과 전역 설정을 연동합니다.
 
-        Args:
-            state_file_name (str, optional): API 키 가용성 상태를 캐싱할 로컬 JSON 파일명. 기본값은 "api_key_state.json"입니다.
+        Args:            state_file_name (str, optional): API 키 가용성 상태를 캐싱할 로컬 JSON 파일명. 기본값은 "api_key_state.json"입니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self.state_file: Path = BASE_DIR / state_file_name
         
         self.lock = threading.Condition()
@@ -75,12 +77,15 @@ class APIManager(BaseService):
         파일이 손상(Corruption)되었을 경우를 대비해 기존 파일을 백업하고 새로운 상태로 초기화하는 
         방어 로직이 포함되어 있습니다.
 
-        Args:
-            없음
+        Args:            없음
 
         Returns:
             Dict[str, Any]: 복원되었거나 새로 초기화된 `키::모델` 조합의 상태 딕셔너리.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         if self.state_file.exists():
             try:
                 with open(self.state_file, "r", encoding="utf-8") as f:
@@ -108,8 +113,7 @@ class APIManager(BaseService):
     def _save_state(self) -> None:
         """메모리 내의 현재 API 키 상태를 로컬 JSON 파일에 동기화하여 영속화합니다.
 
-        원자적(Atomic) 파일 쓰기 도입:
-        여러 스레드가 거의 동시에 키를 대여하거나 반납할 때 파일 I/O 충돌이나 
+        원자적(Atomic) 파일 쓰기 도입:        여러 스레드가 거의 동시에 키를 대여하거나 반납할 때 파일 I/O 충돌이나 
         크래시로 인해 JSON 구조가 0 byte로 손상되는 현상을 원천 방지합니다. 
         데이터를 임시 파일(`.tmp`)에 완전히 쓴 뒤 성공했을 때만 `replace`를 수행하여 무결성을 유지합니다.
 
@@ -119,6 +123,10 @@ class APIManager(BaseService):
         Returns:
             None
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         temp_file: Path = self.state_file.with_suffix('.json.tmp')
         try:
             with open(temp_file, "w", encoding="utf-8") as f:
@@ -137,12 +145,15 @@ class APIManager(BaseService):
         시점과 현재 시점의 날짜가 같은지(즉, 쿨타임이 하루 지나서 풀렸는지)를 정확히 비교하기 위해 
         로컬 시간을 강제로 PT 시간대로 캐스팅하는 핵심 시간 유틸리티입니다.
 
-        Args:
-            timestamp (float): 변환할 기준 UNIX 타임스탬프 (초 단위).
+        Args:            timestamp (float): 변환할 기준 UNIX 타임스탬프 (초 단위).
 
         Returns:
             str: "YYYY-MM-DD" 포맷의 태평양 표준시 기준 날짜 문자열.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         dt = datetime.fromtimestamp(timestamp, tz=PT_TIMEZONE)
         return dt.strftime("%Y-%m-%d")
 
@@ -155,14 +166,17 @@ class APIManager(BaseService):
         상태 업데이트 후 `lock.notify_all()`을 호출하여, 가용 키가 나오기를 기다리며 
         수면(Wait) 상태에 빠져있던 다른 워커 스레드들을 즉시 깨워(Wake-up) 처리율(Throughput)을 극대화합니다.
 
-        Args:
-            key_id (str): 작업을 마친 API 키의 식별자(ID).
+        Args:            key_id (str): 작업을 마친 API 키의 식별자(ID).
             model_name (str): 사용했던 LLM 모델의 이름.
             error_code (Optional[str], optional): 작업 중 발생한 에러가 있다면 그 식별 코드(예: "429"). 정상 종료 시 None.
 
         Returns:
             None
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         combo = f"{key_id}::{model_name}"
         current_time = time.time()
         
@@ -188,8 +202,7 @@ class APIManager(BaseService):
         현재 사용 중(BUSY)인지, 요청 속도 제한 대기 중(COOLDOWN)인지, 하루 할당량을 모두 소진(DAILY_LIMIT)했는지 등 
         자세한 내부 상태를 판별합니다.
 
-        Args:
-            key_id (str): 상태를 조회할 API 키의 식별자(ID).
+        Args:            key_id (str): 상태를 조회할 API 키의 식별자(ID).
             model_name (str): 상태를 조회할 LLM 모델의 이름.
 
         Returns:
@@ -197,6 +210,10 @@ class APIManager(BaseService):
                 - 첫 번째 요소: 현재 상태를 나타내는 문자열 상수 (READY, BUSY, COOLDOWN, DAILY, ERROR, NOT_FOUND 중 하나).
                 - 두 번째 요소: 남은 쿨타임 초(float). 상태가 COOLDOWN이 아닐 경우 0.0을 반환합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         combo = f"{key_id}::{model_name}"
         with self.lock:
             data = self.state.get(combo)
@@ -235,8 +252,7 @@ class APIManager(BaseService):
         즉시 깨어나 가용 키를 다시 탐색합니다. 이를 통해 다중 워커 환경에서 교착 상태(Deadlock)를 방지하고 
         API 호출량을 한계치까지 안전하게 밀어붙일 수 있습니다.
 
-        Args:
-            model_name (str): 작업을 요청할 대상 LLM 모델의 이름.
+        Args:            model_name (str): 작업을 요청할 대상 LLM 모델의 이름.
             timeout (int, optional): 가용 키를 찾지 못할 경우 대기할 최대 허용 시간(초). 기본값은 3600(1시간)입니다.
 
         Returns:
@@ -245,6 +261,10 @@ class APIManager(BaseService):
         Raises:
             TimeoutError: 지정된 `timeout` 시간을 모두 소진하고도 유효한 API 키를 할당받지 못한 경우 발생합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         print(f"\n🔍 [{model_name}] 사용 가능한 API Key 탐색 중...")
         start_time = time.time()
         

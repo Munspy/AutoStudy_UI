@@ -17,7 +17,6 @@ from notion_client import Client
 from utils.config import Config
 from base.base_service import BaseService
 
-
 class NotionSyncService(BaseService):
     """마크다운 텍스트를 Notion Block 객체로 변환하고 API 통신을 전담하는 통합 서비스 클래스.
 
@@ -34,12 +33,15 @@ class NotionSyncService(BaseService):
     def __init__(self, auth_token: Optional[str] = None, logger_callback: Optional[Callable[[str], None]] = None) -> None:
         """NotionSyncService 인스턴스를 초기화합니다.
 
-        Args:
-            auth_token (Optional[str], optional): 명시적으로 주입할 Notion API 토큰. 
+        Args:            auth_token (Optional[str], optional): 명시적으로 주입할 Notion API 토큰. 
                 생략될 경우 Config에서 전역 토큰을 자동으로 가져옵니다. Defaults to None.
             logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 
                 로그를 UI로 전달하기 위한 콜백 함수. Defaults to None.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         # BaseService 초기화 시 콜백을 등록하여 내부에서 self._log()로 일괄 처리
         super().__init__(logger_callback=logger_callback)
         self._auth_token: Optional[str] = auth_token
@@ -57,12 +59,15 @@ class NotionSyncService(BaseService):
         사용자가 환경 변수(.env)에 토큰을 기입하지 않고 파이프라인을 실행했을 때 
         사전에 에러를 캐치(Fail-fast)하여 명확한 안내를 제공합니다.
 
-        Returns:
-            Client: 인증이 완료된 notion_client.Client 인스턴스.
+        Returns:            Client: 인증이 완료된 notion_client.Client 인스턴스.
 
         Raises:
             ValueError: 'NOTION_TOKEN'이 명시되지 않았거나 Config에 존재하지 않을 경우 발생합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         if self._client is None:
             # [개선] config.py 업데이트에 따라 getattr 없이 명시적 속성으로 직접 안전하게 접근합니다.
             token = self._auth_token or Config.NOTION_TOKEN
@@ -73,14 +78,16 @@ class NotionSyncService(BaseService):
         return self._client
 
     def find_page_by_title(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         database_id: str, 
         title_query: str, 
         title_property_name: str = "이름"
     ) -> Optional[str]:
-        """데이터베이스 내에서 특정 제목을 포함하는 첫 번째 페이지의 ID를 검색합니다.
-        
-        자동화된 데이터 파이프라인(Watchdog 등)은 동일한 파일에 대해 여러 번 트리거될 수 있습니다. 
+        """데이터베이스 내에서 특정 제목을 포함하는 첫 번째 페이지의 ID를 검색합니다.        자동화된 데이터 파이프라인(Watchdog 등)은 동일한 파일에 대해 여러 번 트리거될 수 있습니다. 
         이때 무작정 새로운 노션 페이지를 계속 생성하면 워크스페이스가 중복 데이터로 오염됩니다. 
         이를 방지하기 위해 데이터 삽입 전 페이지의 존재 여부를 쿼리하여, 동일한 제목(교시 이름 등)의 
         페이지가 존재하면 해당 페이지를 반환해 업데이트를 유도하는 '멱등성(Idempotency)' 보장의 핵심 로직입니다.
@@ -122,8 +129,7 @@ class NotionSyncService(BaseService):
         지정된 데이터베이스 하위에 생성합니다. 생성 시 데이터베이스 스키마에 맞춘 메타데이터(Properties)를 
         초기 주입하여, 이후 내용을 블록(Blocks)으로 덧붙일 수 있도록 기틀을 마련합니다.
 
-        Args:
-            database_id (str): 새 페이지가 소속될 부모 데이터베이스의 고유 식별자.
+        Args:            database_id (str): 새 페이지가 소속될 부모 데이터베이스의 고유 식별자.
             properties (Dict[str, Any]): 페이지 생성 시 부여할 속성(제목, 태그, 생성일 등) 정보가 담긴 딕셔너리.
 
         Returns:
@@ -132,6 +138,10 @@ class NotionSyncService(BaseService):
         Raises:
             Exception: 스키마 불일치, API 권한 부족, 토큰 만료 등으로 페이지 생성이 거부될 경우.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         client = self._get_client()
         try:
             created_page = client.pages.create(
@@ -156,8 +166,7 @@ class NotionSyncService(BaseService):
         이를 통해 대용량 동기화 작업 중 `HTTP 429 Too Many Requests` 나 `HTTP 400 Bad Request` 
         에러로 파이프라인이 붕괴되는 것을 완벽히 방지합니다.
 
-        Args:
-            page_id (str): 블록들을 추가할 대상 노션 페이지의 고유 ID.
+        Args:            page_id (str): 블록들을 추가할 대상 노션 페이지의 고유 ID.
             children_blocks (List[Dict[str, Any]]): 노션 API 규격에 맞게 파싱 완료된 블록 객체들의 리스트.
 
         Returns:
@@ -166,6 +175,10 @@ class NotionSyncService(BaseService):
         Raises:
             Exception: 잘못된 블록 구조(Malformed JSON) 등 통신 거부 사유 발생 시.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         client = self._get_client()
         chunk_size = 100
         try:
@@ -195,12 +208,15 @@ class NotionSyncService(BaseService):
         2000자 단위로 텍스트를 강제 분할(Chunking)하여 배열에 이어붙이는 안전장치가 
         비동기 대용량 텍스트 파싱을 위해 견고하게 내장되어 있습니다.
 
-        Args:
-            text (str): 마크다운 문법이 포함된 원본 단일 문자열.
+        Args:            text (str): 마크다운 문법이 포함된 원본 단일 문자열.
 
         Returns:
             List[Dict[str, Any]]: 노션 API 규격을 준수하는 Rich Text JSON 객체들의 리스트.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         parts = re.split(r'(\*\*\*.*?\*\*\*|\*\*.*?\*\*|\*.*?\*)', text)
         rich_text_list = []
         
@@ -250,12 +266,15 @@ class NotionSyncService(BaseService):
         정규식을 통해 칸(Cell) 안의 문자열이 순수 하이픈(`-`)과 콜론(`:`)으로만 
         이루어져 있는지 검사하여 테이블 파싱 엔진의 오작동을 방지합니다.
 
-        Args:
-            line (str): 검사할 대상 문자열 라인.
+        Args:            line (str): 검사할 대상 문자열 라인.
 
         Returns:
             bool: 테이블 구분선 형식을 띄고 있으면 True, 아니면 False.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         if not line.startswith('|') or not line.endswith('|'):
             return False
         cells = [c.strip() for c in line.split('|')][1:-1]
@@ -274,12 +293,15 @@ class NotionSyncService(BaseService):
         열(Column) 수가 부족해 테이블 형태가 찌그러지는 현상을 막기 위해 빈 문자열 셀을 삽입(Padding)하여 
         `table_width`를 균일하게 맞추는 정교한 파싱 작업을 수행합니다.
 
-        Args:
-            table_lines (List[str]): 테이블을 구성하는 여러 줄의 마크다운 문자열 리스트.
+        Args:            table_lines (List[str]): 테이블을 구성하는 여러 줄의 마크다운 문자열 리스트.
 
         Returns:
             Optional[Dict[str, Any]]: 노션 API 규격에 맞는 최상위 Table Block JSON 객체. 유효한 데이터가 없으면 None 반환.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         has_header = False
         parsed_rows = []
         
@@ -329,12 +351,15 @@ class NotionSyncService(BaseService):
         전체 파이프라인에서 '비정형 데이터'를 클라우드 DB가 인식 가능한 '정형 데이터 구조'로 
         탈바꿈시키는 가장 중추적인 변환 로직입니다.
 
-        Args:
-            text (str): 다수의 마크다운 문법이 혼재된 긴 원본 문자열 텍스트.
+        Args:            text (str): 다수의 마크다운 문법이 혼재된 긴 원본 문자열 텍스트.
 
         Returns:
             List[Dict[str, Any]]: 노션 API 전송에 즉시 사용할 수 있도록 파싱 및 구조화된 블록 JSON 객체 리스트.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         blocks = []
         lines = [line.strip() for line in text.split('\n')]
         i = 0
@@ -418,12 +443,15 @@ class NotionSyncService(BaseService):
         `append_blocks_to_page`를 호출하여 청크 단위 딜레이를 주며 클라우드에 밀어넣는 
         일련의 과정(Orchestration)을 하나로 묶어 제공합니다.
 
-        Args:
-            page_id (str): 데이터가 삽입될 노션 페이지의 고유 식별자.
+        Args:            page_id (str): 데이터가 삽입될 노션 페이지의 고유 식별자.
             markdown_text (str): 페이지에 기록될 LLM 결과물 기반의 마크다운 포맷 문자열.
 
         Returns:
             None
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         blocks = self.create_markdown_blocks(markdown_text)
         self.append_blocks_to_page(page_id, blocks)

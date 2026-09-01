@@ -28,10 +28,13 @@ class FileNamingService(BaseService):
     def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
         """FileNamingService 객체를 초기화하고 성능 최적화를 위한 정규식 패턴을 사전 컴파일합니다.
 
-        Args:
-            logger_callback (Optional[Callable[[str], None]], optional): 로그 메시지를 UI나 상위 레이어로 
+        Args:            logger_callback (Optional[Callable[[str], None]], optional): 로그 메시지를 UI나 상위 레이어로 
                 전달하기 위한 콜백 함수입니다. Defaults to None.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         super().__init__(logger_callback=logger_callback)
         
         # [최적화] 자주 사용하는 정규식 패턴을 인스턴스 생성 시 한 번만 컴파일(번역)하여 저장해 둡니다.
@@ -48,8 +51,7 @@ class FileNamingService(BaseService):
         `normalize_text`를 가장 먼저 적용합니다. 그 후 사전 컴파일된 정규식을 통해 `MMDD_교시` 형태의 
         도메인 네이밍 룰에 따라 파일명을 분해합니다.
 
-        Args:
-            filename (str): 파싱할 대상 원본 파일명.
+        Args:            filename (str): 파싱할 대상 원본 파일명.
 
         Returns:
             Dict[str, Any]: 추출된 메타데이터 딕셔너리.
@@ -59,6 +61,10 @@ class FileNamingService(BaseService):
                 - 'rest': 교시 이후에 붙는 부가 설명 문자열
                 - 'ext': 파일 확장자 문자열 (기본값 '.pdf')
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         norm_name = normalize_text(filename)
         path = Path(norm_name)
         stem, ext = path.stem, path.suffix
@@ -81,12 +87,15 @@ class FileNamingService(BaseService):
         DriveSyncService나 Controller가 이 식별자를 통해 여러 흩어져 있는 관련 파일 
         (예: 필기본, 음성본, JSON 결과)들을 하나의 수업 교시 그룹으로 묶어 상태를 추적하게 해주는 핵심 키입니다.
 
-        Args:
-            filename (str): 분석할 대상 파일명.
+        Args:            filename (str): 분석할 대상 파일명.
 
         Returns:
             Optional[str]: 'MMDD_교시' 형태의 식별자 문자열(예: '1004_1'). 파싱 실패 시 None 반환.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         meta = self._parse_filename_meta(filename)
         if meta['date'] and meta['periods_str']:
             return f"{meta['date']}_{meta['periods_str']}"
@@ -98,14 +107,17 @@ class FileNamingService(BaseService):
         파이프라인 진행 중, 특정 교시에 해당하는 '원본 필기'나 '음성 파일'을 매칭하여 
         다음 단계(예: Whisper 또는 Gemini 처리)로 넘기기 위해 파일 리스트에서 타겟을 핀셋 탐색할 때 사용됩니다.
 
-        Args:
-            file_list (List[str]): 검색 대상이 되는 전체 파일명 리스트.
+        Args:            file_list (List[str]): 검색 대상이 되는 전체 파일명 리스트.
             target_lesson_id (str): 찾고자 하는 교시 식별자.
             keyword (Optional[str], optional): 파일명에 추가로 포함되어야 하는 키워드(예: 'script'). Defaults to None.
 
         Returns:
             Optional[str]: 조건을 모두 만족하는 첫 번째 파일명. 찾지 못하면 None.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         target_lesson_id = normalize_text(target_lesson_id)
         search_keyword = normalize_text(keyword) if keyword else ""
         
@@ -117,14 +129,16 @@ class FileNamingService(BaseService):
         return None
 
     def filter_files_by_date_range(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         file_list: List[Any], 
         start_mmdd: str, 
         end_mmdd: str
     ) -> List[Any]:
-        """파일 목록에서 지정된 날짜(MMDD) 범위에 해당하는 파일만 필터링하여 반환합니다.
-
-        메인 UI에서 사용자가 '특정 기간'의 학습 자료만 동기화하거나 보기 원할 때 호출됩니다. 
+        """파일 목록에서 지정된 날짜(MMDD) 범위에 해당하는 파일만 필터링하여 반환합니다.        메인 UI에서 사용자가 '특정 기간'의 학습 자료만 동기화하거나 보기 원할 때 호출됩니다. 
         입력값이 로컬에서 수집된 단순 문자열 리스트인지, 드라이브 API 통신으로 가져온 
         딕셔너리 메타데이터 리스트인지 구분하지 않고 다형성(Polymorphism)을 지원하여 
         호출부의 데이터 가공 부담을 줄였습니다.
@@ -164,13 +178,16 @@ class FileNamingService(BaseService):
         내부적으로 집합(Set) 연산을 사용해 중복 교시 번호를 제거하고 오름차순으로 정렬하여 
         항상 일관된 네이밍 컨벤션을 유지합니다.
 
-        Args:
-            filenames (List[str]): 병합 대상이 되는 원본 파일명들의 리스트.
+        Args:            filenames (List[str]): 병합 대상이 되는 원본 파일명들의 리스트.
 
         Returns:
             str: 규칙에 맞게 생성된 새로운 합본 파일명. 리스트가 비어있거나 규칙을 
                  분석할 수 없는 경우 기본값("merged_output...")을 반환합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         if not filenames: 
             return "merged_output.txt"
             
@@ -199,12 +216,15 @@ class FileNamingService(BaseService):
         이전 상태 메타데이터를 분석해 '1004_1.pdf'와 '1004_2.pdf'로 각각 나누어 질 수 있도록 
         논리적인 파일명 2개를 미리 계산하여 반환합니다.
 
-        Args:
-            filename (str): 분할 대상이 되는 원본 합본 파일명.
+        Args:            filename (str): 분할 대상이 되는 원본 합본 파일명.
 
         Returns:
             List[str]: 분할될 두 개의 새로운 파일명을 담은 리스트.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         meta = self._parse_filename_meta(filename)
         if meta['date'] and len(meta['periods']) == 2:
             p1, p2 = meta['periods']
@@ -225,12 +245,15 @@ class FileNamingService(BaseService):
         정규식 컴파일 패턴(`_save_name_pattern`)을 사용하여 복잡한 원본 이름에서 불필요한 태그나 
         콤마(,)를 제거하고, 사용자 친화적으로 깔끔하게 정돈된 최종 저장용 이름을 도출합니다.
 
-        Args:
-            base_name (str): 정리되지 않은 복잡한 형태의 원본 기본 이름.
+        Args:            base_name (str): 정리되지 않은 복잡한 형태의 원본 기본 이름.
 
         Returns:
             str: 불필요한 특수문자가 제거된 정돈된 PDF 파일명.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         norm_name = normalize_text(base_name)
         # 미리 만들어둔 컴파일 패턴을 사용해 빠른 검색만 수행합니다.
         match = self._save_name_pattern.search(norm_name)
@@ -248,13 +271,16 @@ class FileNamingService(BaseService):
         입력 폼(Form)을 채워주는 용도이므로 스크립트 합본(`_scripted`) 여부 등을 추가로 평가하여 
         더 직관적이고 친절한 파일명을 제안(Suggest)합니다.
 
-        Args:
-            file_names (List[str]): 병합을 위해 사용자가 선택한 원본 파일명 리스트.
+        Args:            file_names (List[str]): 병합을 위해 사용자가 선택한 원본 파일명 리스트.
 
         Returns:
             str: UI 입력창에 플레이스홀더(Placeholder)로 들어갈 추천 병합 파일명.
                  날짜가 다르거나 분석이 어려울 경우 기본값("merged_output.pdf" 등)을 반환합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         if len(file_names) < 2:
             return ""
             

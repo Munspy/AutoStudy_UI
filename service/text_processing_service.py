@@ -22,6 +22,9 @@ class TextProcessingService(BaseService):
     검증이 필요할 때 호출되며, 부모 클래스인 `BaseService`를 상속받아 일관된 로깅 시스템을 공유합니다.
     """
     
+    # ===========================
+    # [초기화]
+    # ===========================
     def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
         """TextProcessingService 인스턴스를 초기화합니다.
 
@@ -33,6 +36,9 @@ class TextProcessingService(BaseService):
         # [최적화 2] BaseService 초기화를 통해 로깅 시스템 통합
         super().__init__(logger_callback=logger_callback)
 
+    # ===========================
+    # [텍스트 분할 처리]
+    # ===========================
     def split_text_content(self, text_content: str) -> List[str]:
         """텍스트가 정확히 한 번의 줄바꿈으로 두 부분으로 나뉘는지 검증하고 분할합니다.
 
@@ -56,14 +62,17 @@ class TextProcessingService(BaseService):
             ValueError: 입력된 텍스트가 비어 있거나, 엔터(줄바꿈) 기준으로 나누었을 때 
                 정확히 2개의 조각으로 분리되지 않는 경우(구조적 규칙 위반 시) 발생합니다.
         """
+        # 입력 텍스트가 비어있는지 검사
         if not text_content:
             self._log("⚠️ 입력된 텍스트가 비어 있습니다.")
             raise ValueError("입력된 텍스트가 비어 있습니다.")
 
         # [최적화 1] splitlines()를 사용하여 운영체제(\n, \r\n) 무관하게 안전하게 분할
         # [최적화 3] List[str] 타입 힌트를 통해 명확한 반환 타입 보장
+        # 비어있지 않은 각 파트의 공백을 제거하여 리스트로 저장
         parts: List[str] = [p.strip() for p in text_content.splitlines() if p.strip()]
         
+        # 정확히 2개로 분할되었는지 검증
         if len(parts) != 2:
             # 에러 발생 시 명확한 사유를 로깅하고, 분할된 개수를 포함하여 예외 발생
             error_msg = f"엔터(줄바꿈)가 정확히 한 번 적용되어 두 부분으로 나뉘어야 합니다. (현재 분할된 조각 수: {len(parts)}개)"
@@ -72,6 +81,9 @@ class TextProcessingService(BaseService):
             
         return parts
 
+    # ===========================
+    # [텍스트 병합 처리]
+    # ===========================
     def merge_text_contents(self, contents: List[str]) -> str:
         """여러 텍스트 콘텐츠를 일정한 병합 규칙에 따라 하나의 문자열로 합칩니다.
 

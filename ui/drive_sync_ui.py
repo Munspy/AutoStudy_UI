@@ -1,3 +1,13 @@
+"""구글 드라이브 동기화 상태 관리 UI 모듈.
+
+이 모듈은 로컬 작업 폴더와 구글 드라이브 간의 파일 동기화 상태를 조회하고
+제어하는 UI 화면을 제공합니다. 필기 스크립트, 요약본, Anki 카드 등 파이프라인의
+진행 상태를 테이블 형태로 시각화하며, 누락된 작업 실행이나 Whisper 전사 요청 등을 
+수행할 수 있습니다.
+
+Classes:
+    DriveSyncUi: 동기화 상태 테이블과 제어 버튼을 포함하는 메인 탭 UI 클래스.
+"""
 from PyQt6.QtWidgets import QTableWidget, QHeaderView
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
@@ -12,7 +22,21 @@ from base.base_ui_components import (LoadingButton, StyledButton, CardWidget,
 from controller.drive_sync_controller import DriveSyncController  # 👈 이제 Thread가 아닌 Func만 바라봄
 
 class DriveSyncUi(BaseUI):
+    """로컬과 구글 드라이브의 동기화 상태를 모니터링하고 제어하는 메인 화면 클래스.
+    
+    데이터 파이프라인의 상태(필기, 음성 스크립트, 요약본 등)를 테이블로 표시하고,
+    DriveSyncController와 협력하여 백그라운드 동기화 및 파일 다운로드 작업을 수행합니다.
+    
+    Attributes:
+        local_download_path (str): 로컬 검색의 기준이 되는 다운로드 폴더 경로.
+        controller (DriveSyncController): 동기화 작업을 처리할 컨트롤러 인스턴스.
+    """
     def __init__(self, task_manager=None):             # 처음 생성될 때의 초기값. UI다 보니 따로 변수를 받지는 않음
+        """DriveSyncUi 인스턴스를 초기화합니다.
+        
+        Args:
+            task_manager (optional): 백그라운드 작업을 관리하는 태스크 매니저. 기본값은 None.
+        """
         super().__init__(task_manager=task_manager)        
         default_path = os.path.expanduser("~/Downloads")
             # 로컬 검색의 기본값은 Downloads 폴더, 윈도우에서는 카카오톡 폴더를 주로 쓸 것으로 보임
@@ -29,9 +53,11 @@ class DriveSyncUi(BaseUI):
         
         self.init_ui()      # __init__가 자동 실행되고 이어서 실행되는 기본 UI
 
-    def init_ui(self):      # __init__가 자동 실행되고 이어서 실행되는 기본 UI
-        # --- 배경에 흰색 칠하기 ---
-        # QWidget, QLabel, QCheckBox 등에 사용할 기본 설정 정하기
+    def init_ui(self):
+        # ===========================
+        # [기본 UI 스타일 설정]
+        # ===========================
+        # QWidget, QLabel, QCheckBox 등에 사용할 기본 색상 및 속성 지정
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
             DriveSyncUi {
@@ -47,12 +73,15 @@ class DriveSyncUi(BaseUI):
             }
         """)
 
-        # --- 전체적인 구조 설정  ---
+        # ===========================
+        # [전체 레이아웃 및 헤더 구성]
+        # ===========================
+        # 메인 수직 레이아웃 설정 (여백 및 간격)
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 28, 28, 28)   # 바깥쪽에 딱 붙지 않도록 살짝 여유
-        layout.setSpacing(20)                       # 구조물들 사이 간격
+        layout.setContentsMargins(28, 28, 28, 28)
+        layout.setSpacing(20)
 
-        # --- 제목 레이아웃  ---
+        # 제목 레이아웃 추가
         header_label = QLabel("📚 강의 데이터 파이프라인 상태")
         header_label.setStyleSheet("""
             font-size: 24px; font-weight: 800; color: #111111; 
@@ -61,8 +90,10 @@ class DriveSyncUi(BaseUI):
         """)
         layout.addWidget(header_label)
 
-        # --- 상단 필터 영역 (연한 회색 배경) ---
-            # 이게 이번 프로젝트 기준 설정 부위 양식
+        # ===========================
+        # [상단 필터 영역 (컨트롤 프레임)]
+        # ===========================
+        # 배경이 있는 카드 형태의 위젯으로 필터 영역 구성
         control_frame = CardWidget()
 
         # 프레임 위에는 수평 레이아웃(QHBoxLayout)을 배치하여 요소들을 좌에서 우로 정렬

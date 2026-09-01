@@ -23,7 +23,6 @@ from service.pdf_ocr_service import PdfOcrService
 from service.file_naming_service import FileNamingService
 from utils.filename_util import normalize_text
 
-
 class PdfAnalysisService(BaseService):
     """의학 강의 자료 PDF의 페이지 간 유사도를 분석하고 병합 레시피를 생성하는 서비스 클래스.
 
@@ -40,12 +39,15 @@ class PdfAnalysisService(BaseService):
     def __init__(self, sim_threshold: float = 0.8, hash_threshold: int = 12, lookahead: int = 5, logger_callback=None):
         """매칭 알고리즘 튜닝 파라미터 및 의존성 서비스를 초기화합니다.
 
-        Args:
-            sim_threshold (float, optional): 두 페이지가 동일하다고 판정할 텍스트 일치율 임계값 (0.0 ~ 1.0). 기본값은 0.8(80%).
+        Args:            sim_threshold (float, optional): 두 페이지가 동일하다고 판정할 텍스트 일치율 임계값 (0.0 ~ 1.0). 기본값은 0.8(80%).
             hash_threshold (int, optional): OCR이 실패했을 때 대체제로 사용하는 시각적 해시(pHash)의 최대 허용 차이(Hamming Distance). 값이 작을수록 엄격합니다. 기본값은 12.
             lookahead (int, optional): 현재 페이지가 불일치할 때, 매칭되는 페이지를 찾기 위해 앞/뒤로 탐색할 최대 페이지 수 (Look-ahead Window). 슬라이드 삽입/누락으로 인한 오프셋(Offset)을 교정합니다. 기본값은 5.
             logger_callback (callable, optional): 로그 메시지를 처리할 콜백 함수.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         super().__init__(logger_callback=logger_callback)
         # 매칭 알고리즘 튜닝 파라미터
         self.sim_threshold = sim_threshold
@@ -75,13 +77,16 @@ class PdfAnalysisService(BaseService):
         정규화(Normalize)하여 매칭 실패를 방지하고, 정규식을 통해 파일명에서 교시 식별자(Base Name)를 추출하여 
         분석 대상이 되는 페어(Pair)를 안전하게 구축합니다.
 
-        Args:
-            folder_path (str | Path): PDF 파일들을 탐색할 로컬 디렉토리 경로.
+        Args:            folder_path (str | Path): PDF 파일들을 탐색할 로컬 디렉토리 경로.
 
         Returns:
             Dict[str, Dict[str, Any]]: Base Name(교시 식별자)을 Key로 가지고, 해당 교시의 줄필기 파일명, 야붙 파일명, 
                 그리고 저장될 최종 표시명(save_name)을 Value 딕셔너리로 갖는 매핑 객체.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         p = Path(folder_path)
         groups: Dict[str, Dict[str, Any]] = {}
         
@@ -123,14 +128,16 @@ class PdfAnalysisService(BaseService):
         return groups
 
     def generate_matching_data(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         folder_path: str | Path, 
         selected_keys: List[str], 
         matched_groups: Dict[str, Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
-        """선택된 파일 쌍(Pair)의 페이지별 텍스트 및 이미지를 분석하여 최종 병합 레시피(Recipe)를 생성합니다.
-
-        이 메서드는 의학 강의 자료 자동화의 핵심 지능(Intelligence)입니다.
+        """선택된 파일 쌍(Pair)의 페이지별 텍스트 및 이미지를 분석하여 최종 병합 레시피(Recipe)를 생성합니다.        이 메서드는 의학 강의 자료 자동화의 핵심 지능(Intelligence)입니다.
         줄필기와 야붙 PDF는 강의 슬라이드를 기반으로 하지만, 필기 공간 추가나 요약 페이지 삽입 등으로 인해 
         페이지 번호가 1:1로 일치하지 않는 경우가 매우 흔합니다. 
 
@@ -178,6 +185,10 @@ class PdfAnalysisService(BaseService):
                     i, j = 0, 0
 
                     def add_item(t_val: str, j_path: Optional[Path], j_page: Optional[int], y_path: Optional[Path], y_page: Optional[int], met: str):
+                        # ===========================
+                        # [메인 비즈니스 로직]
+                        # ===========================
+                        # 입력값을 바탕으로 핵심 로직을 수행합니다.
                         base_data.append({
                             "type": t_val,
                             "save_name": save_name,
@@ -254,8 +265,6 @@ class PdfAnalysisService(BaseService):
 
 
 
-
-
     def execute_merge(self, base_data: List[Dict[str, Any]], output_folder: str | Path) -> List[str]:
         """확정된 레시피를 바탕으로 실제 물리적 PDF 병합을 수행하고 디스크에 저장합니다.
 
@@ -268,8 +277,7 @@ class PdfAnalysisService(BaseService):
         일괄적으로 메모리에서 해제(Close)합니다. 이는 장시간 실행되는 Worker 환경에서 
         OS의 "Too many open files" 에러를 원천 차단하는 매우 중요한 방어 메커니즘입니다.
 
-        Args:
-            base_data (List[Dict[str, Any]]): `save_edits` 등을 통해 정제 및 확정된 병합 레시피 데이터.
+        Args:            base_data (List[Dict[str, Any]]): `save_edits` 등을 통해 정제 및 확정된 병합 레시피 데이터.
             output_folder (str | Path): 조립이 완료된 PDF 파일들을 저장할 대상 로컬 디렉토리.
 
         Returns:
@@ -278,6 +286,10 @@ class PdfAnalysisService(BaseService):
         Raises:
             Exception: 파일 시스템 쓰기 권한 부족 등 I/O 통신 중 치명적인 에러 발생 시 로그를 남기고 다음 파일로 넘어갑니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         out_folder_p = Path(output_folder)
         out_folder_p.mkdir(parents=True, exist_ok=True)
             

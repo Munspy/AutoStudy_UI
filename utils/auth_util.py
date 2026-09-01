@@ -30,6 +30,10 @@ _youtube_service = None
 # 멀티스레드 환경 Race Condition 방지 Lock (Reentrant Lock으로 변경하여 데드락 방지)
 _auth_lock = threading.RLock()
 
+# ===========================
+# [Google API 인증 객체 생성 및 캐싱]
+# ===========================
+
 def get_credentials():
     """Google API 접근을 위한 유효한 OAuth 2.0 자격 증명(Credentials)을 가져옵니다.
 
@@ -112,6 +116,10 @@ def get_credentials():
             
         return _creds_instance
 
+# ===========================
+# [서비스 객체 생성]
+# ===========================
+
 def get_drive_service():
     """Google Drive API (v3) 서비스 객체를 반환합니다.
 
@@ -135,8 +143,11 @@ def get_drive_service():
     with _auth_lock:
         # 매번 요청 시점에 토큰이 유효한지 크레덴셜 검사 수행 (장기 실행 작업 대응)
         creds = get_credentials()
+        
+        # 서비스 객체가 없거나 크레덴셜이 무효화된 경우 새로 빌드
         if not _drive_service or not creds.valid:
             _drive_service = build('drive', 'v3', credentials=creds)
+            
         return _drive_service
 
 def get_youtube_service():
@@ -162,6 +173,9 @@ def get_youtube_service():
     with _auth_lock:
         # 매번 요청 시점에 토큰이 유효한지 크레덴셜 검사 수행
         creds = get_credentials()
+        
+        # 서비스 객체가 없거나 크레덴셜이 무효화된 경우 새로 빌드
         if not _youtube_service or not creds.valid:
             _youtube_service = build('youtube', 'v3', credentials=creds)
+            
         return _youtube_service

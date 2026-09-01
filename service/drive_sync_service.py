@@ -32,11 +32,14 @@ class DriveSyncService(BaseService):
     def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
         """DriveSyncService를 초기화하고 필요한 의존성 객체들을 주입받아 생성합니다.
 
-        Args:
-            logger_callback (Optional[Callable[[str], None]], optional): 
+        Args:            logger_callback (Optional[Callable[[str], None]], optional): 
                 백그라운드 스레드에서 발생하는 이벤트나 에러를 Controller를 통해 메인 UI 스레드로 
                 안전하게 전달하기 위한 로거 콜백 함수. Defaults to None.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         # BaseService 초기화 시 콜백을 한 번만 등록하여 이후 self._log()에서 자동 사용되도록 설정
         super().__init__(logger_callback=logger_callback)
         
@@ -61,8 +64,7 @@ class DriveSyncService(BaseService):
         또한 macOS 환경에서 발생하는 불필요한 시스템 숨김 파일(`.DS_Store`) 및 오피스 임시 파일(`~$`)을 
         선제적으로 필터링하여 비즈니스 로직의 오작동을 차단합니다.
 
-        Args:
-            local_path (str): 파일을 스캔할 로컬 디렉토리의 절대 또는 상대 경로 문자열.
+        Args:            local_path (str): 파일을 스캔할 로컬 디렉토리의 절대 또는 상대 경로 문자열.
 
         Returns:
             Tuple[List[Dict[str, Any]], List[str], List[str]]:
@@ -70,6 +72,10 @@ class DriveSyncService(BaseService):
                 - 두 번째 요소: 드라이브 파일들의 파일명 문자열만 추출한 리스트.
                 - 세 번째 요소: 로컬 시스템에서 스캔(필터링 완료)된 파일명 리스트.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         # 네트워크 및 권한 에러 방어 (Try-Except 적용)
         try:
             drive_files: List[Dict[str, Any]] = get_all_drive_files(self.target_folder_id, drive_service=self.drive_service)
@@ -102,14 +108,17 @@ class DriveSyncService(BaseService):
         결과 목록에서 제외시킵니다. 
         파일 네이밍 컨벤션이 깨진(IndexError 유발) 불량 파일이 발견되더라도 무시(continue)하고 스킵하여 안정성을 유지합니다.
 
-        Args:
-            filenames (List[str]): 교시 아이디를 추출할 원본 파일명 리스트.
+        Args:            filenames (List[str]): 교시 아이디를 추출할 원본 파일명 리스트.
             search_mode (str): 검색 및 필터링 모드 (예: "ALL" 전체 검색, "DATE" 날짜 범위 검색 등).
             filter_value (Any): 필터링에 사용될 기준 값. "DATE" 모드일 경우 시작 날짜와 종료 날짜 문자열 튜플.
 
         Returns:
             List[str]: 필터링을 통과하고 오름차순으로 정렬된 고유 교시(Lesson ID) 문자열 리스트.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         lesson_ids = set()
         
         for f in filenames:
@@ -148,8 +157,7 @@ class DriveSyncService(BaseService):
         네트워크 지연이나 JSON 파싱 에러 등으로 상태 조회가 실패하더라도 전체 스캔 프로세스를 죽이지 않도록 
         오류 전용 더미(Dummy) 데이터를 반환하는 예외 처리 방어선이 구축되어 있습니다.
 
-        Args:
-            lesson_id (str): 상태를 조회하고 조립할 기준이 되는 수업 교시 식별자(ID).
+        Args:            lesson_id (str): 상태를 조회하고 조립할 기준이 되는 수업 교시 식별자(ID).
             drive_files (List[Dict[str, Any]]): 구글 드라이브에서 가져온 파일들의 상세 메타데이터 리스트. (LLM JSON 읽기 시 사용)
             drive_filenames (List[str]): 단순 파일 이름 검색 효율을 위한 파일명 문자열 리스트.
             json_cache (Optional[Dict[str, Any]], optional): 반복적인 드라이브 통신을 줄이기 위한 
@@ -159,6 +167,10 @@ class DriveSyncService(BaseService):
             Dict[str, Any]: 파이프라인의 각 단계별 완료/대기 상태와 불리언 플래그 값들이 
                 포함된 통합 상태 데이터 딕셔너리.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         try:
             # PipelineStatusService 활용하여 파일 존재 여부 확인
             has_final_pdf: bool = self.pipeline_service.check_lesson_file_status(drive_filenames, lesson_id, "final_pdf")

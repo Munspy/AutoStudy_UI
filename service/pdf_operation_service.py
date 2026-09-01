@@ -37,15 +37,22 @@ class PdfOperationService(BaseService):
     def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
         """PdfOperationService를 초기화하고 Google Drive 서비스 객체를 준비합니다.
 
-        Args:
-            logger_callback (Optional[Callable[[str], None]], optional): 비동기 작업 중 
+        Args:            logger_callback (Optional[Callable[[str], None]], optional): 비동기 작업 중 
                 발생하는 상태 메시지를 UI 등 상위 계층으로 전달하기 위한 콜백 함수. Defaults to None.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         super().__init__(logger_callback=logger_callback)
         self.drive_service = get_drive_service()
         self.target_folder_id: str = Config.TARGET_DRIVE_DIR
 
     def split_and_save(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         local_path: PathLike, 
         split_page: int, 
@@ -54,9 +61,7 @@ class PdfOperationService(BaseService):
         is_drive: bool, 
         target_dir: Optional[PathLike] = None
     ) -> Tuple[bool, str]:
-        """하나의 PDF를 두 개로 분할하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다.
-
-        학습 자료 처리 파이프라인에서, 너무 용량이 큰 강의록이나 필기본이 인입되었을 때 
+        """하나의 PDF를 두 개로 분할하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다.        학습 자료 처리 파이프라인에서, 너무 용량이 큰 강의록이나 필기본이 인입되었을 때 
         API 페이로드 제한(Gemini 토큰 리밋 등)을 피하기 위해 파일을 쪼개야 하는 경우가 발생합니다. 
         이 메서드는 이러한 분할 요청을 처리할 때, 시스템 디스크 공간을 오염시키지 않도록 
         `tempfile.TemporaryDirectory()`를 활용한 격리 샌드박스를 구성합니다.
@@ -126,15 +131,17 @@ class PdfOperationService(BaseService):
             return False, msg
 
     def merge_and_save(
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         paths_to_merge: List[PathLike], 
         save_name: str, 
         is_drive: bool, 
         target_dir: Optional[PathLike] = None
     ) -> Tuple[bool, str]:
-        """여러 PDF 파일을 하나로 병합하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다.
-
-        여러 개로 흩어져 있던 필기본이나, LLM 요약 파이프라인의 결과로 나온 개별 스크립트들을 
+        """여러 PDF 파일을 하나로 병합하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다.        여러 개로 흩어져 있던 필기본이나, LLM 요약 파이프라인의 결과로 나온 개별 스크립트들을 
         최종 배포용 단일 학습 자료(합본)로 묶어낼 때 호출되는 필수 워크플로우입니다. 
         
         멀티스레드 기반의 비동기 큐(Queue) 환경에서는 여러 병합 작업이 동시에 발생할 수 있습니다. 

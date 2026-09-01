@@ -16,6 +16,10 @@ from google.genai import types
 from google.genai import errors 
 
 
+# ===========================
+# [LLM 에러 처리]
+# ===========================
+
 class GeminiAPIError(Exception):
     """LLM API 통신 중 발생한 에러를 캡슐화하는 커스텀 예외 클래스.
 
@@ -35,8 +39,13 @@ class GeminiAPIError(Exception):
             code (str): HTTP 상태 코드(예: '404', '500') 또는 에러의 종류를 나타내는 식별 문자열(예: 'network_error').
         """
         super().__init__(message)
+        # 에러 식별 코드를 인스턴스 변수로 저장
         self.code = code
 
+
+# ===========================
+# [LLM API 호출]
+# ===========================
 
 def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user_prompt: str, temperature: float = 0.1) -> str:
     """Google Gemini API를 호출하여 텍스트를 생성하는 코어 유틸리티 함수.
@@ -70,9 +79,11 @@ def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user
             - 네트워크 오류: 인터넷 연결 단절 또는 요청 시간 초과 (TimeoutError, ConnectionError)
             - 기타 알 수 없는 오류 (Exception)
     """
+    # 제공된 API 키를 사용하여 제미나이 클라이언트 인스턴스 생성
     client = genai.Client(api_key=api_key)
     
     try:
+        # 모델명, 프롬프트, 시스템 지시사항 및 온도를 설정하여 콘텐츠 생성 요청
         response = client.models.generate_content(
             model=model_name,
             contents=user_prompt,
@@ -81,9 +92,11 @@ def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user
                 temperature=temperature
             )
         )
+        # 생성된 텍스트 결과물 반환
         return response.text
         
     except errors.APIError as e:
+        # API 레벨의 에러 발생 시 커스텀 예외로 래핑하여 던짐
         raise GeminiAPIError(f"LLM API 통신 오류: {e.message}", str(e.code))
         
     except (TimeoutError, ConnectionError) as e:
@@ -91,4 +104,5 @@ def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user
         raise GeminiAPIError(f"네트워크 연결 오류 또는 타임아웃 발생: {str(e)}", "network_error")
         
     except Exception as e:
+        # 그 외 예상치 못한 에러에 대한 폴백 처리
         raise GeminiAPIError(f"알 수 없는 LLM API 오류: {str(e)}", "unknown")

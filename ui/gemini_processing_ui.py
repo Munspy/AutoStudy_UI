@@ -1,3 +1,12 @@
+"""Gemini AI를 활용한 스크립트 처리 UI 모듈.
+
+이 모듈은 구글 드라이브의 강의록과 음성 스크립트를 기반으로 Gemini AI를 사용하여
+교정 스크립트, 요약본, Anki 카드 생성 등의 파이프라인 작업을 일괄 수행하는 화면을 제공합니다.
+
+Classes:
+    KeyBadge: API 키와 모델의 사용 및 쿨타임 상태를 보여주는 커스텀 뱃지 위젯.
+    GeminiProcessingUi: Gemini 파이프라인 처리를 제어하는 메인 탭 UI.
+"""
 from PyQt6.QtWidgets import QTableWidget, QCheckBox, QHeaderView
 import sys
 from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
@@ -18,8 +27,23 @@ STATE_COOLDOWN = "COOLDOWN"  # 🩶 짧은 쿨타임
 STATE_DAILY_LIMIT = "DAILY"  # 🔴 일일 한도 초과
 
 class KeyBadge(QWidget):
-    """쿨타임 애니메이션 API 키/모델 뱃지"""
+    """쿨타임 애니메이션이 포함된 API 키 및 모델 상태 뱃지 클래스.
+    
+    API의 현재 상태(READY, BUSY, COOLDOWN, DAILY)에 따라 색상과 애니메이션을 변경하여
+    UI 상단에 키 가용성을 시각적으로 표시합니다.
+    
+    Attributes:
+        name (str): 모델 또는 키의 이름.
+        state (str): 현재 상태.
+        total_cd (float): 총 쿨타임(초).
+        remaining_cd (float): 남은 쿨타임(초).
+    """
     def __init__(self, name):
+        """KeyBadge 인스턴스를 초기화합니다.
+        
+        Args:
+            name (str): 뱃지에 표시될 모델 또는 키의 이름.
+        """
         super().__init__()
         self.name = name
         self.state = STATE_READY
@@ -86,8 +110,24 @@ class KeyBadge(QWidget):
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, display_text)
 
 class GeminiProcessingUi(BaseUI):
+    """Gemini AI 파이프라인 처리를 제어하는 탭 UI 클래스.
+    
+    작업 목록 테이블을 통해 드라이브 데이터 상태를 확인하고, API 상태 표시와
+    병렬 처리 작업을 스케줄링하는 역할을 합니다.
+    
+    Attributes:
+        controller (GeminiProcessingController): 작업을 처리할 컨트롤러 인스턴스.
+        api_keys (list): 등록된 API 키 목록.
+        models (list): 사용 가능한 모델 목록.
+        badge_widgets (dict): API 키와 모델 조합에 따른 상태 뱃지 위젯 매핑.
+    """
 
     def __init__(self, task_manager=None):
+        """GeminiProcessingUi 인스턴스를 초기화합니다.
+        
+        Args:
+            task_manager (optional): 백그라운드 작업을 관리하는 태스크 매니저. 기본값은 None.
+        """
         super().__init__(task_manager=task_manager)
         self.controller = GeminiProcessingController(task_manager=self.task_manager)
         self.controller.ui = self
@@ -124,7 +164,9 @@ class GeminiProcessingUi(BaseUI):
         header_label.setStyleSheet("font-size: 22px; font-weight: 800; color: #111111; padding-bottom: 5px;")
         layout.addWidget(header_label)
 
-        # --- 상단 키 상태 및 조회 영역 ---
+        # ===========================
+        # [상단 키 상태 및 조회 영역]
+        # ===========================
         top_frame = CardWidget()
         top_layout = QHBoxLayout(top_frame)
         top_layout.setContentsMargins(20, 16, 20, 16)
@@ -180,7 +222,9 @@ class GeminiProcessingUi(BaseUI):
         top_layout.addLayout(right_action_layout)
         layout.addWidget(top_frame)
 
-        # --- 중간 컨트롤 바 ---
+        # ===========================
+        # [중간 컨트롤 바]
+        # ===========================
         mid_bar_layout = QHBoxLayout()
         self.select_all_cb = StyledCheckBox("전체 선택 (All)")
         self.select_all_cb.clicked.connect(self.toggle_all_items)
@@ -188,7 +232,9 @@ class GeminiProcessingUi(BaseUI):
         mid_bar_layout.addStretch()
         layout.addLayout(mid_bar_layout)
 
-        # --- 작업 테이블 ---
+        # ===========================
+        # [작업 테이블 영역]
+        # ===========================
         self.table = StyledTableWidget(0, 7)
         self.table.setHorizontalHeaderLabels(["행 선택", "수업 교시", "강의록", "음성스크립트", "📝 스크립트 교정", "📑 요약본 생성", "🗂️ Anki 카드 생성"])
         self.table.verticalHeader().setVisible(False)
@@ -206,7 +252,9 @@ class GeminiProcessingUi(BaseUI):
         
         layout.addWidget(self.table, stretch=1)
 
-        # --- 하단 버튼 ---
+        # ===========================
+        # [하단 버튼 영역]
+        # ===========================
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch() 
         

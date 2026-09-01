@@ -10,6 +10,10 @@
 import unicodedata
 
 
+# ===========================
+# [파일명 텍스트 정규화]
+# ===========================
+
 def normalize_text(text: str) -> str:
     """문자열의 양끝 공백을 제거하고 유니코드 NFC(자소 결합) 형태로 정규화합니다.
 
@@ -33,6 +37,9 @@ def normalize_text(text: str) -> str:
         str: 문자열 양쪽의 공백(Whitespace)이 모두 제거되고, NFC 기반으로 완전히 자소가 결합된 정규화 문자열입니다.
             입력된 `text`가 `None`이거나 빈 문자열(Falsy 한 값)일 경우, 안전하게 `""`(빈 문자열)을 반환합니다.
     """
+    # 입력된 문자열이 없거나 빈 문자열인 경우 안전하게 빈 문자열 반환
     if not text:
         return ""
+    
+    # 양끝 공백을 제거하고 NFC 형태로 유니코드 정규화 수행
     return unicodedata.normalize('NFC', str(text).strip())

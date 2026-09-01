@@ -1,4 +1,16 @@
-# ui/combine_notes_ui.py
+"""줄필기와 야붙필기 변환 및 검수 UI 모듈.
+
+이 모듈은 줄필기와 야붙필기 PDF 파일을 비교, 매칭하고, 사용자 인터페이스를 통해 
+그 결과를 검수하고 병합하는 기능을 제공합니다. 전체 화면에서 상세한 편집이 가능한
+FullScreenEditDialog와 메인 검수 화면인 CombineNotesUi를 포함하고 있습니다.
+
+Classes:
+    FullScreenEditDialog: 전체 화면 검수 및 수정을 위한 다이얼로그 클래스.
+    CombineNotesUi: 변환 및 검수 작업을 관리하는 메인 탭 UI 클래스.
+
+Functions:
+    build_pdf_frame: PDF 페이지 이미지를 바이트 단위로 추출해 썸네일로 변환하는 함수.
+"""
 import sys
 
 from PyQt6.QtWidgets import QListWidgetItem
@@ -26,9 +38,19 @@ from base.base_ui_components import (create_pdf_thumbnail_frame, StyledButton, C
 # 헬퍼 함수: UI 프레임 조립기
 # ==========================================
 def build_pdf_frame(page_info, is_empty, is_large=False):
-    """
-    utils의 공구를 활용해 PDF 페이지를 바이트로 추출하고, 
-    UI 레벨에서 픽스맵으로 변환하여 썸네일 프레임을 씌워 반환합니다.
+    """PDF 페이지 정보를 기반으로 UI 썸네일 프레임을 생성합니다.
+    
+    utils 모듈을 활용하여 PDF 페이지를 바이트 데이터로 추출하고, UI 레벨에서
+    픽스맵으로 변환하여 썸네일 프레임을 씌워 반환합니다. 전체적인 UI 구성에서
+    각 페이지의 미리보기를 렌더링하기 위해 호출됩니다.
+
+    Args:
+        page_info (dict): PDF 페이지 정보를 담은 딕셔너리 (path, page).
+        is_empty (bool): 빈 페이지 여부.
+        is_large (bool, optional): 큰 크기의 썸네일을 생성할지 여부. 기본값은 False.
+
+    Returns:
+        QWidget: 생성된 PDF 썸네일 프레임 위젯.
     """
     width, height = (250, 176) if is_large else (212, 150)
     
@@ -52,7 +74,25 @@ def build_pdf_frame(page_info, is_empty, is_large=False):
 # (이하 팝업(FullScreenEditDialog) 및 Tab2CombineNotes 클래스 코드는 기존과 완벽히 동일합니다.)
 # ==========================================
 class FullScreenEditDialog(QDialog):
+    """전체 화면에서 PDF 병합 결과를 검수하고 수정하기 위한 다이얼로그 클래스.
+    
+    사용자가 줄필기와 야붙필기의 포함 여부를 체크하고 페이지의 순서를 변경할 수 있도록 합니다.
+    QDialog를 상속받으며, CombineNotesUi에서 상세 검수가 필요할 때 호출됩니다.
+    
+    Attributes:
+        edit_data (list): 수정 및 검수를 위한 PDF 데이터 목록.
+        main_layout (QVBoxLayout): 다이얼로그의 메인 레이아웃.
+        scroll_area (PreviewScrollArea): 미리보기 영역을 스크롤할 수 있는 위젯.
+        preview_container (QWidget): 미리보기 아이템을 담는 컨테이너 위젯.
+        preview_layout (QHBoxLayout): 미리보기 아이템들의 레이아웃.
+    """
     def __init__(self, base_data, parent=None):
+        """FullScreenEditDialog 인스턴스를 초기화합니다.
+        
+        Args:
+            base_data (list): PDF 매칭 결과를 담은 초기 데이터 목록.
+            parent (QWidget, optional): 부모 위젯. 기본값은 None.
+        """
         super().__init__(parent)
         self.setWindowTitle("전체 화면 검수 및 수정")
         self.showMaximized() 
@@ -238,6 +278,9 @@ class CombineNotesUi(BaseUI):
         self.matched_groups = {} 
         self._pending_action = None
 
+        # ===========================
+        # [메인 레이아웃 및 여백 설정]
+        # ===========================
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(28, 28, 28, 28)
         self.main_layout.setSpacing(20)
@@ -250,6 +293,9 @@ class CombineNotesUi(BaseUI):
         self.refresh_file_list(self.folder_input.text())
 
     def init_top_panel(self):
+        # ===========================
+        # [상단 헤더 및 폴더 선택 패널]
+        # ===========================
         header_label = QLabel("🔄 줄필기 → 야붙필기 변환 및 검수")
         header_label.setStyleSheet("""
             font-size: 24px; font-weight: 800; color: #111111; 

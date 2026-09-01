@@ -45,12 +45,16 @@ class TranscriptMergeSplitUi(BaseUI):
         layout.setContentsMargins(28, 28, 28, 28)
         layout.setSpacing(20)
         
-        # 1. 상단 타이틀
+        # ===========================
+        # [상단 타이틀 구성]
+        # ===========================
         header_label = QLabel("✂️ 텍스트 스크립트 분할/병합")
         header_label.setStyleSheet("font-size: 24px; font-weight: 800; color: #111111; padding: 5px 0px 10px 0px;")
         layout.addWidget(header_label)
 
-        # 2. 제어 박스
+        # ===========================
+        # [상단 제어 박스 (컨트롤 프레임)]
+        # ===========================
         control_frame = CardWidget()
         control_layout = QHBoxLayout(control_frame)
         control_layout.setContentsMargins(20, 16, 20, 16)
@@ -110,7 +114,9 @@ class TranscriptMergeSplitUi(BaseUI):
         
         layout.addWidget(control_frame)
 
-        # 3. 파일 리스트업 영역
+        # ===========================
+        # [파일 리스트업 영역]
+        # ===========================
         self.file_list = StyledListWidget()
         self.file_list.setSelectionMode(QListWidget.SelectionMode.ExtendedSelection)
         self.file_list.setAlternatingRowColors(True)
@@ -118,7 +124,9 @@ class TranscriptMergeSplitUi(BaseUI):
         self.file_list.itemSelectionChanged.connect(self.on_file_selection_changed)
         layout.addWidget(self.file_list)
 
-        # 4. 검색바
+        # ===========================
+        # [텍스트 검색 영역]
+        # ===========================
         self.search_bar_widget = QWidget()
         search_layout = QHBoxLayout(self.search_bar_widget)
         search_layout.setContentsMargins(0, 0, 0, 0)
@@ -138,7 +146,9 @@ class TranscriptMergeSplitUi(BaseUI):
         shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
         shortcut.activated.connect(self.search_input.setFocus)
 
-        # 5. 미리보기 영역
+        # ===========================
+        # [미리보기 영역]
+        # ===========================
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -153,7 +163,9 @@ class TranscriptMergeSplitUi(BaseUI):
         self.scroll_area.setWidget(self.preview_container)
         layout.addWidget(self.scroll_area, stretch=1)
 
-        # 6. 하단 상태별 동적 UI 패널 (QStackedWidget)
+        # ===========================
+        # [하단 상태별 동적 UI 패널]
+        # ===========================
         self.bottom_stack = QStackedWidget()
         layout.addWidget(self.bottom_stack)
 

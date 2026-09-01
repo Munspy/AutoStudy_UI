@@ -61,12 +61,15 @@ class AnkiGenerationService(BaseService):
         이를 방지하고자 입력된 이름(문자열)을 SHA-256 해시로 변환한 후 정수형으로 캐스팅하여, 
         동일한 이름에는 항상 동일한 고유 ID(멱등성)가 부여되도록 설계된 방어 로직입니다.
 
-        Args:
-            name (str): 해시화하여 고유 ID를 생성할 대상 문자열 (예: 덱 이름, 모델 이름).
+        Args:            name (str): 해시화하여 고유 ID를 생성할 대상 문자열 (예: 덱 이름, 모델 이름).
 
         Returns:
             int: 10^9 이하의 고정된 정수형 해시 ID.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         return int(hashlib.sha256(name.encode('utf-8')).hexdigest(), 16) % (10**9)
 
     def _get_basic_model(self) -> genanki.Model:
@@ -77,12 +80,15 @@ class AnkiGenerationService(BaseService):
         객관식(MCQ) 카드를 시각적으로 깔끔하게 보여주기 위한 기본 템플릿을 정의하고 반환합니다. 
         하드코딩된 ID(1607392319)를 사용하여 덱 업데이트 시 카드 구조가 깨지지 않도록 강제합니다.
 
-        Args:
-            없음
+        Args:            없음
 
         Returns:
             genanki.Model: 'Front'와 'Back' 필드를 가지며 커스텀 CSS가 적용된 기본형 안키 모델 객체.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         return genanki.Model(
             1607392319,
             '기본(Basic) - 생성형',
@@ -103,12 +109,15 @@ class AnkiGenerationService(BaseService):
         명시하여 해당 카드가 빈칸 학습용임을 시스템에 알리고, 그에 맞는 전용 템플릿과 CSS를 입힌 
         모델 객체를 제공합니다. 마찬가지로 자동화 파이프라인의 멱등성을 위해 고정된 ID(1607392320)를 사용합니다.
 
-        Args:
-            없음
+        Args:            없음
 
         Returns:
             genanki.Model: 'Text'와 'Back Extra' 필드를 가지며 빈칸 뚫기에 최적화된 안키 모델 객체.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         return genanki.Model(
             1607392320,
             '빈칸 뚫기(Cloze) - 생성형',
@@ -135,8 +144,7 @@ class AnkiGenerationService(BaseService):
         다양한 언어가 포함될 수 있는 학습 자료 특성을 고려해 `utf-8-sig` 인코딩을 강제하여 
         엑셀(Excel) 등 외부 프로그램에서 열 때도 한글 깨짐이 없도록 견고하게 설계되었습니다.
 
-        Args:
-            target_dir (str): CSV 파일들이 저장될 최종 목적지 디렉토리 경로.
+        Args:            target_dir (str): CSV 파일들이 저장될 최종 목적지 디렉토리 경로.
             base_name (str): 파일명의 접두사로 사용될 원본 문서의 기본 이름.
             parsed_data (Dict[str, List[str]]): 카드 타입(Basic, MCQ, Cloze)을 키(Key)로 하고, 
                 파싱된 텍스트 라인들의 리스트를 값(Value)으로 갖는 딕셔너리.
@@ -144,6 +152,10 @@ class AnkiGenerationService(BaseService):
         Returns:
             None: 반환값 없이 파일 시스템에 직접 기록하며, 예외 발생 시 에러를 로깅합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         try:
             target_path = Path(target_dir)
             target_path.mkdir(parents=True, exist_ok=True)
@@ -167,13 +179,16 @@ class AnkiGenerationService(BaseService):
         경로 확인 및 상위 디렉토리 생성(mkdir)을 보장하며, 파일 쓰기 권한 부족 등 
         OS 레벨의 예외 상황에서도 애플리케이션이 크래시되지 않도록 `try-except`로 캡슐화되어 있습니다.
 
-        Args:
-            decks (List[genanki.Deck]): 파일로 패키징할 Anki 덱 객체들의 리스트. 리스트가 비어있으면 패키징을 건너뜁니다.
+        Args:            decks (List[genanki.Deck]): 파일로 패키징할 Anki 덱 객체들의 리스트. 리스트가 비어있으면 패키징을 건너뜁니다.
             output_path (str): 생성될 .apkg 파일의 전체 절대 또는 상대 경로.
 
         Returns:
             Optional[str]: 패키징이 성공적으로 완료되면 저장된 파일의 경로(문자열)를 반환하고, 실패하거나 패키징할 덱이 없으면 None을 반환합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         if not decks:
             return None
         
@@ -203,13 +218,16 @@ class AnkiGenerationService(BaseService):
         구분자인 파이프(`|`)가 포함되어 분할이 꼬이는 치명적인 에러를 막기 위해, 
         접두사를 떼어낼 때 `split('|', 1)`을 사용하여 단 1회만 분할하도록 강건성(Robustness)을 높였습니다.
 
-        Args:
-            raw_csv_text (str): LLM이 생성하여 반환한 원시 CSV 포맷의 문자열 데이터.
+        Args:            raw_csv_text (str): LLM이 생성하여 반환한 원시 CSV 포맷의 문자열 데이터.
 
         Returns:
             Dict[str, List[str]]: "Basic", "MCQ", "Cloze"를 키로 가지고 각각에 해당하는 
                 텍스트 라인들의 리스트를 분류하여 담은 딕셔너리.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         basic_lines, mcq_lines, cloze_lines = [], [], []
         
         for line in raw_csv_text.split('\n'):
@@ -248,8 +266,7 @@ class AnkiGenerationService(BaseService):
         카드 본문에 `|` 기호가 들어가는 엣지 케이스까지 고려하여 최대 2번만 `split`하는 등, 
         비동기 작업 중 발생할 수 있는 데이터 오염(Data Corruption)을 최소화하는 데 집중한 파이프라인 결속부입니다.
 
-        Args:
-            base_name (str): 생성될 Anki 덱의 기본 이름 및 파일명 접두사.
+        Args:            base_name (str): 생성될 Anki 덱의 기본 이름 및 파일명 접두사.
             raw_csv_text (str): 파싱 및 변환의 원천 소스가 되는 LLM 생성 텍스트 문자열.
             target_dir (str): 결과물(.csv 및 .apkg)이 저장될 로컬 디렉토리 경로.
 
@@ -257,6 +274,10 @@ class AnkiGenerationService(BaseService):
             Optional[str]: 최종 .apkg 파일이 성공적으로 생성되었을 경우 해당 파일의 경로를 반환하며, 
                            입력 데이터가 없거나 패키징 중 치명적 오류가 발생한 경우 None을 반환합니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         if not raw_csv_text:
             self._log("⚠️ [Anki 팀] 입력된 CSV 데이터가 없습니다.")
             return None

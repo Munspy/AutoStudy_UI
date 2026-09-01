@@ -37,6 +37,10 @@ class PdfRenderService(BaseService):
 
     def __init__(self):
         """PdfRenderService 인스턴스를 초기화하고 전역 설정 및 정규식을 로드합니다."""
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         super().__init__()
         self.default_font_path = getattr(
             Config, 
@@ -66,21 +70,27 @@ class PdfRenderService(BaseService):
         안전하게 치환(Fallback)하고, HTML 예약어 충돌을 막기 위해 `html.escape` 처리를 
         선행하는 핵심 방어 로직입니다.
 
-        Args:
-            text (str): 치환되지 않은 원본 마크다운 텍스트 문자열.
+        Args:            text (str): 치환되지 않은 원본 마크다운 텍스트 문자열.
 
         Returns:
             str: 렌더링 엔진에 주입해도 안전하도록 모든 수식과 기호가 유니코드 및 이스케이프 처리된 문자열.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         if not text:
             return ""
 
         def convert_math_block(match: re.Match) -> str:
+            # ===========================
+            # [메인 비즈니스 로직]
+            # ===========================
+            # 입력값을 바탕으로 핵심 로직을 수행합니다.
             math_expr = match.group(1)
             math_expr = re.sub(r'\\(\s+)', r'\1', math_expr)
             
-            try:
-                converted = LatexNodes2Text(math_mode=True).latex_to_text(math_expr)
+            try:                converted = LatexNodes2Text(math_mode=True).latex_to_text(math_expr)
             except Exception:
                 converted = (
                     math_expr.replace(r'\times', '×')
@@ -116,12 +126,15 @@ class PdfRenderService(BaseService):
         문서를 즉시 컴파일(In-memory rendering)합니다. 이는 다수의 페이지를 렌더링해야 하는 
         자동화 파이프라인에서 디스크 접근 병목(Bottleneck)을 제거하여 속도를 비약적으로 높이는 방식입니다.
 
-        Args:
-            html_content (str): CSS 스타일링과 정제된 텍스트가 모두 포함된 완성된 HTML 문서 문자열.
+        Args:            html_content (str): CSS 스타일링과 정제된 텍스트가 모두 포함된 완성된 HTML 문서 문자열.
 
         Returns:
             pymupdf.Document: 조작 및 파일 저장이 가능한 메모리 상의 PDF 객체.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         pdf_io = io.BytesIO()
         pisa.CreatePDF(io.StringIO(html_content), dest=pdf_io)
         return pymupdf.open("pdf", pdf_io.getvalue())
@@ -133,13 +146,16 @@ class PdfRenderService(BaseService):
         시각적 가독성(Readability)을 위한 스타일 시트입니다. 동적으로 `margin` 값을 주입받아 
         일반 A4 요약본 렌더링과, 상단에 슬라이드가 들어가는 합성 PDF 렌더링 모두에 유연하게 대응합니다.
 
-        Args:
-            margin (str, optional): CSS `@page` 영역에 적용될 페이지 여백 문자열 
+        Args:            margin (str, optional): CSS `@page` 영역에 적용될 페이지 여백 문자열 
                 (예: "40pt" 또는 "430pt 40pt 40pt 40pt"). Defaults to "40pt".
 
         Returns:
             str: 렌더링될 문서의 Head 태그에 삽입될 `<style>` 내용.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         return f"""
             @font-face {{ font-family: 'KoreanFont'; src: url('{self.default_font_path}'); }}
             body {{ 
@@ -177,13 +193,16 @@ class PdfRenderService(BaseService):
         메모리 버퍼 렌더링(`_html_to_pdf_doc`)을 순차적으로 파이프라이닝(Pipelining)합니다. 
         파일 시스템에 접근하지 않고 객체만 반환하므로 동시성 환경에서도 안전합니다.
 
-        Args:
-            md_text (str): 변환할 대상 마크다운 포맷의 텍스트.
+        Args:            md_text (str): 변환할 대상 마크다운 포맷의 텍스트.
             custom_css (str, optional): 기본 템플릿 대신 적용할 커스텀 CSS 문자열. Defaults to None.
 
         Returns:
             pymupdf.Document: 모든 데이터가 렌더링된 메모리 기반 PDF 객체 (사용 후 close 필수).
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         css_str = custom_css if custom_css else self._get_css_template()
         sanitized_text = self._sanitize_markdown(md_text)
         html_body = markdown.markdown(sanitized_text, extensions=['tables', 'sane_lists', 'fenced_code'])
@@ -206,8 +225,7 @@ class PdfRenderService(BaseService):
         결과물을 결합합니다. 대량의 메모리가 소비될 수 있으므로 모든 PDF 핸들에 대해 파이썬 컨텍스트 매니저(`with`)를 
         강제하여 예외가 터지더라도 OOM(Out of Memory)과 메모리 누수(Leak)를 완벽히 차단합니다.
 
-        Args:
-            orig_pdf_path (PathLike): 원본 강의록 슬라이드 PDF 파일의 위치.
+        Args:            orig_pdf_path (PathLike): 원본 강의록 슬라이드 PDF 파일의 위치.
             slides_data_dict (dict): 키(Key)가 페이지 번호(1-based)이고 값(Value)이 해당 슬라이드의 마크다운 텍스트인 데이터 딕셔너리.
             output_path (PathLike): 최종 완성된 슬라이드-스크립트 복합 PDF가 저장될 경로.
 
@@ -217,6 +235,10 @@ class PdfRenderService(BaseService):
         Raises:
             Exception: 파일이 없거나 디스크 공간 부족, 렌더링 엔진 에러 등 예외 발생 시 로그 출력과 함께 상위로 전파됩니다.
         """
+        # ===========================
+        # [메인 비즈니스 로직]
+        # ===========================
+        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         a4_width, a4_height = 595.0, 842.0
         top_half_rect = pymupdf.Rect(0, 0, a4_width, a4_height / 2)
         custom_css = self._get_css_template(margin="430pt 40pt 40pt 40pt")

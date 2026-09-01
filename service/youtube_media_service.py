@@ -28,6 +28,9 @@ class YoutubeMediaService(BaseService):
     - 클라우드 전송: `utils.auth_util.get_drive_service`를 통해 인증된 API 리소스와 통신합니다.
     """
     
+    # ===========================
+    # [오디오 다운로드 및 업로드]
+    # ===========================
     def download_and_upload_audio(self, url: str, prefix: str, drive_folder_id: str, drive_service: Any) -> None:
         """단일 유튜브 영상을 WAV 포맷으로 추출한 뒤 구글 드라이브에 안전하게 업로드합니다.
 
@@ -62,11 +65,14 @@ class YoutubeMediaService(BaseService):
             Exception: 구글 드라이브 네트워크 업로드 중 토큰 만료, 클라우드 용량 초과, 
                 네트워크 단절 등의 이유로 `MediaFileUpload` 객체의 `.execute()`가 실패할 때 발생합니다.
         """
+        # 최신 구글 드라이브 서비스 객체를 가져와 토큰 만료 방어
         drive_service = get_drive_service()
         
+        # 임시 디렉토리를 생성하여 변환 후 찌꺼기 파일 자동 삭제 보장
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_wav_path = os.path.join(temp_dir, f'{prefix}.wav')
             
+            # yt-dlp 옵션 설정: 최고 품질의 오디오를 다운로드하여 16kHz 모노 WAV로 후처리
             ydl_opts = {
                 'format': 'ba[ext=m4a]/bestaudio/best', 
                 'outtmpl': os.path.join(temp_dir, f'{prefix}.%(ext)s'),
@@ -75,12 +81,17 @@ class YoutubeMediaService(BaseService):
                 'quiet': True, 'no_warnings': True
             }
             
+            # 오디오 다운로드 및 트랜스코딩 수행
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
 
+            # 파일이 정상적으로 생성되었는지 검증
             if not os.path.exists(temp_wav_path):
                 raise FileNotFoundError(f"변환 실패 (파일 미생성): {prefix}")
 
+            # 구글 드라이브 업로드를 위한 메타데이터 및 미디어 본문 설정
             file_metadata = {'name': f'{prefix}.wav', 'parents': [drive_folder_id]}
             media = MediaFileUpload(temp_wav_path, mimetype='audio/wav', resumable=True)
+            
+            # 업로드 실행
             drive_service.files().create(body=file_metadata, media_body=media).execute()

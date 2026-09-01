@@ -21,6 +21,9 @@ from utils.config import Config
 
 PathLike = Union[str, Path]
 
+# ===========================
+# [구글 드라이브 파일 업로드 / 다운로드]
+# ===========================
 
 def upload_to_drive(
     local_file_path: PathLike, 
@@ -55,13 +58,16 @@ def upload_to_drive(
     target_folder_id = Config.extract_drive_id(target_folder_id)
     
     file_path = Path(local_file_path)
+    # 업로드할 파일의 메타데이터 구성
     file_metadata = {
         'name': file_path.name,
         'parents': [target_folder_id] if target_folder_id else []
     }
     
+    # 이어올리기(resumable)를 지원하는 MediaFileUpload 객체 생성
     media = MediaFileUpload(str(file_path), mimetype=mime_type, resumable=True)
     try:
+        # 파일 생성 API 호출
         uploaded_file = drive_service.files().create(
             body=file_metadata, 
             media_body=media, 
@@ -101,16 +107,23 @@ def download_from_drive(
         Exception: 파일 아이디가 유효하지 않거나 API 호출 권한/할당량 오류가 있을 경우 예외가 발생할 수 있습니다.
     """
     file_id = Config.extract_drive_id(file_id)
+    # 바이너리 다운로드 요청 객체 생성
     request = drive_service.files().get_media(fileId=file_id)
     
+    # 로컬 파일을 쓰기 모드로 오픈
     with io.FileIO(save_path, 'wb') as fh:
+        # 청크 단위 다운로더 초기화
         downloader = MediaIoBaseDownload(fh, request)
         done = False
+        # 완료될 때까지 청크 스트리밍 다운로드 진행
         while not done:
             _, done = downloader.next_chunk()
             
     return save_path
 
+# ===========================
+# [메모리 및 임시 다운로드 최적화]
+# ===========================
 
 @contextmanager
 def temp_download_from_drive(
@@ -142,6 +155,7 @@ def temp_download_from_drive(
     """
     file_id = Config.extract_drive_id(file_id)
 
+    # 확장자가 지정되지 않은 경우 API를 통해 원본 파일명 조회
     if not extension:
         try:
             file_info = drive_service.files().get(fileId=file_id, fields='name').execute()
@@ -149,9 +163,12 @@ def temp_download_from_drive(
         except Exception:
             extension = ".pdf"
 
+    # 임시 디렉토리 생성 (컨텍스트 종료 시 자동 삭제됨)
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir) / f"downloaded_temp_file{extension}"
+        # 임시 경로로 다운로드 수행
         download_from_drive(file_id, str(temp_path), drive_service=drive_service)
+        # 로직 실행을 위해 yield
         yield temp_path
 
 
@@ -184,22 +201,31 @@ def in_memory_download_from_drive(
         Exception: 파일 스트리밍 실패 시, 혹은 내보낼 수 없는 파일에 대해 잘못된 `mime_type`을 요청할 경우 예외가 발생할 수 있습니다.
     """
     file_id = Config.extract_drive_id(file_id)
+    
+    # 구글 문서 포맷은 변환 내보내기, 일반 파일은 단순 미디어 다운로드 요청
     if mime_type:
         request = drive_service.files().export_media(fileId=file_id, mimeType=mime_type)
     else:
         request = drive_service.files().get_media(fileId=file_id)
         
+    # 메모리 버퍼 생성
     fh = io.BytesIO()
     downloader = MediaIoBaseDownload(fh, request)
     try:
         done = False
+        # 청크 스트리밍 다운로드
         while not done:
             _, done = downloader.next_chunk()
+        # 버퍼 읽기 위치를 처음으로 초기화
         fh.seek(0)
         yield fh
     finally:
+        # 사용이 끝난 메모리 버퍼 안전 해제
         fh.close()
 
+# ===========================
+# [드라이브 파일/폴더 탐색]
+# ===========================
 
 def get_all_drive_files(
     root_folder_id: str, 
@@ -233,13 +259,18 @@ def get_all_drive_files(
     all_folder_ids = [root_folder_id]
     queue = [root_folder_id]
 
+    # 1단계: 하위 폴더 트리 탐색 (BFS)
     while queue:
+        # 한 번에 20개씩 묶어서 API 할당량 초과 방지
         current_batch = queue[:20]
         queue = queue[20:]
+        
+        # 쿼리스트링 조합
         parents_query = " or ".join([f"'{fid}' in parents" for fid in current_batch])
         folder_q = f"({parents_query}) and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
 
         page_token = None
+        # 페이지네이션을 통한 전체 폴더 조회
         while True:
             res = drive_service.files().list(
                 q=folder_q, 
@@ -257,17 +288,21 @@ def get_all_drive_files(
                 break
 
     all_files = []
+    # SQL 인젝션 및 쿼리 파싱 에러 방지를 위한 필터링 값 정제
     safe_filter = name_filter.replace("'", "\\'") if name_filter else None
 
+    # 2단계: 수집된 모든 폴더를 대상으로 실제 파일 검색
     for i in range(0, len(all_folder_ids), 20):
         chunk = all_folder_ids[i:i + 20]
         parents_query = " or ".join([f"'{fid}' in parents" for fid in chunk])
         file_q = f"({parents_query}) and mimeType != 'application/vnd.google-apps.folder' and trashed = false"
         
+        # 검색 필터가 존재하면 조건 추가
         if safe_filter:
             file_q += f" and name contains '{safe_filter}'"
 
         page_token = None
+        # 페이지네이션을 통한 전체 파일 수집
         while True:
             res = drive_service.files().list(
                 q=file_q, 
@@ -302,17 +337,19 @@ def find_drive_file_id(
     Args:
         folder_id (str): 파일을 검색할 대상 부모 폴더의 고유 ID 또는 URL입니다.
         file_name (str): 검색하려는 파일의 정확한 이름입니다.
-        drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체입니다.
+        drive_service (Any): 구글 API 클라이언트 인증이 완료된 드라이브 서비스 리소스 객체 객체입니다.
 
     Returns:
         str | None: 조건에 일치하는 파일이 존재할 경우 최상위(인덱스 0) 파일의 고유 ID 문자열을 반환하고, 존재하지 않거나 검색 중 에러가 발생하면 None을 반환합니다.
     """
     folder_id = Config.extract_drive_id(folder_id)
     
+    # 이스케이프 처리하여 쿼리 안전성 확보
     safe_file_name = file_name.replace("'", "\\'")
     query = f"'{folder_id}' in parents and name = '{safe_file_name}' and trashed = false"
     
     try:
+        # 단일 매칭 파일 검색 수행
         results = drive_service.files().list(
             q=query, 
             spaces='drive', 
@@ -327,6 +364,10 @@ def find_drive_file_id(
         print(f"⚠️ 파일 검색 오류 ({file_name}): {e}")
         return None
 
+
+# ===========================
+# [드라이브 파일 복사 및 이동 (서버 사이드)]
+# ===========================
 
 def copy_drive_file(
     file_id: str, 
@@ -359,11 +400,14 @@ def copy_drive_file(
     file_id = Config.extract_drive_id(file_id)
     target_folder_id = Config.extract_drive_id(target_folder_id)
 
+    # 복사본이 위치할 폴더 지정
     body = {'parents': [target_folder_id]}
+    # 새 파일명이 제공되었으면 적용
     if new_name:
         body['name'] = new_name
 
     try:
+        # 서버 사이드 파일 복제 요청
         copied_file = drive_service.files().copy(
             fileId=file_id, 
             body=body, 
@@ -404,12 +448,14 @@ def move_drive_file(
     target_folder_id = Config.extract_drive_id(target_folder_id)
 
     try:
+        # 파일의 현재 부모(Parents) 상태 조회
         file_info = drive_service.files().get(
             fileId=file_id, 
             fields='parents'
         ).execute()
         previous_parents = ",".join(file_info.get('parents', []))
 
+        # 메타데이터 업데이트: 이전 부모 삭제 및 새로운 부모 추가
         moved_file = drive_service.files().update(
             fileId=file_id,
             addParents=target_folder_id,

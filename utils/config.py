@@ -21,6 +21,10 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(dotenv_path=BASE_DIR / ".env")
 
+# ===========================
+# [글로벌 환경 설정]
+# ===========================
+
 class Config:
     """애플리케이션 전역 설정 값 관리 및 검증 클래스.
 
@@ -54,15 +58,26 @@ class Config:
             str: 정규식을 통해 파싱된 15~33자리 수준의 Google Drive 고유 ID. 
                  입력값이 비어있거나 None일 경우 빈 문자열("")을 반환합니다.
         """
+        # 입력값이 없는 경우 빈 문자열 반환
         if not id_or_url:
             return ""
+            
+        # 공백 제거 및 문자열 변환
         id_or_url = str(id_or_url).strip()
+        
+        # 1. /folders/ 형식 매칭 시도
         match = re.search(r'/folders/([a-zA-Z0-9_-]+)', id_or_url)
         if match: return match.group(1)
+        
+        # 2. /file/d/ 형식 매칭 시도
         match = re.search(r'/file/d/([a-zA-Z0-9_-]+)', id_or_url)
         if match: return match.group(1)
+        
+        # 3. 쿼리 파라미터 ?id= 형식 매칭 시도
         match = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', id_or_url)
         if match: return match.group(1)
+        
+        # 매칭되지 않은 경우 원본 그대로 반환 (이미 ID 형식일 가능성)
         return id_or_url
 
     GOOGLE_API_SCOPES: List[str] = [
@@ -93,6 +108,10 @@ class Config:
         "gemini-3.7-flash"
     ]
 
+# ===========================
+# [설정값 검증]
+# ===========================
+
     @classmethod
     def validate(cls) -> None:
         """애플리케이션 구동에 필수적인 전역 설정값들의 유효성을 사전 검증합니다.
@@ -115,9 +134,14 @@ class Config:
             ValueError: 'TARGET_DRIVE_DIR' 환경 변수가 설정되지 않았거나 유효한 Drive ID를 추출하지 못한 경우.
             ValueError: 'GEMINI_KEY_' 접두사로 시작하는 API 키가 환경 변수에서 단 하나도 로드되지 않은 경우.
         """
+        # 필수 환경 변수 TARGET_DRIVE_DIR 검증
         if not cls.TARGET_DRIVE_DIR:
             raise ValueError("❌ .env 설정 오류: 'TARGET_DRIVE_DIR'가 설정되지 않았습니다.")
+            
+        # 필수 환경 변수 GEMINI_KEYS 검증
         if not cls.GEMINI_KEYS:
             raise ValueError("❌ .env 설정 오류: 최소 하나 이상의 'GEMINI_KEY'가 필요합니다.")
+            
+        # 선택적 환경 변수 NOTION_TOKEN 검증 (경고만 출력)
         if not cls.NOTION_TOKEN:
             print("⚠️ 경고: 'NOTION_TOKEN'이 설정되지 않았습니다. Notion 동기화 기능이 제한될 수 있습니다.")

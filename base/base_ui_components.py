@@ -1,9 +1,24 @@
+"""기본 UI 컴포넌트(Base UI Components) 모듈입니다.
+
+이 모듈은 프로젝트 전체에서 공통으로 사용되는 UI 위젯들을 정의합니다.
+통일된 테마 색상(COLORS)과 스타일을 적용한 버튼, 카드, 뱃지, 리스트, 입력창 등을 제공하여
+일관된 디자인 뷰를 구성하고 코드 중복을 최소화합니다.
+
+주요 컴포넌트:
+    - LoadingButton, StyledButton: 커스텀 스타일이 적용된 버튼
+    - CardWidget: 컨텐츠 그룹화를 위한 카드 형태의 QFrame
+    - StatusBadge: 상태 표시용 라벨
+    - StyledListWidget, StyledTableWidget: 스타일이 적용된 리스트 및 테이블
+
+의존성:
+    PyQt6.QtWidgets, PyQt6.QtCore, PyQt6.QtGui 등 다양한 PyQt 모듈을 통해 UI 렌더링.
+"""
+
 from PyQt6.QtWidgets import (
-    QFrame, QWidget, QPushButton, QLabel, QLineEdit, QVBoxLayout, QHBoxLayout, 
-    QFrame
+    QFrame, QWidget, QPushButton, QLabel, QLineEdit, QVBoxLayout, QHBoxLayout
 )
 from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QColor, QPixmap
 
 # ==========================================
 # UI 스타일 테마 상수 (중앙 관리)
@@ -235,27 +250,41 @@ class LabeledInput(QWidget):
         layout.addWidget(self.label)
         layout.addWidget(input_widget)
 
-def create_pdf_thumbnail_frame(pixmap, label_text, width, height, is_empty=False):
-    
+def create_pdf_thumbnail_frame(image_data, label_text, width, height, is_empty=False):
+    # ===========================
+    # [프레임 초기화 및 레이아웃 설정]
+    # ===========================
     frame = QFrame()
     frame.setFixedSize(width, height)
     layout = QVBoxLayout(frame)
     layout.setContentsMargins(0, 0, 0, 0)
     
+    # ===========================
+    # [라벨 설정 및 이미지/텍스트 적용]
+    # ===========================
     label = QLabel()
     label.setAlignment(Qt.AlignmentFlag.AlignCenter)
     
-    if pixmap:
-        label.setPixmap(pixmap.scaled(width, height, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
+    if image_data:
+        pm = QPixmap()
+        pm.loadFromData(image_data)
+        # 이미지가 있으면 라벨에 리사이징하여 적용
+        label.setPixmap(pm.scaled(width, height, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation))
     elif label_text:
+        # 텍스트만 있으면 텍스트 라벨 적용
         label.setText(label_text)
         label.setStyleSheet("color: #787774; font-size: 11px;")
         
     layout.addWidget(label)
     
+    # ===========================
+    # [프레임 스타일 지정]
+    # ===========================
     if is_empty:
+        # 비어있는 상태의 스타일 (점선 테두리)
         frame.setStyleSheet("QFrame { background-color: #F8F9FA; border: 2px dashed #D1D1CE; border-radius: 4px; }")
     else:
+        # 채워진 상태의 스타일 (실선 테두리)
         frame.setStyleSheet("QFrame { background-color: white; border: 1px solid #EAEAEA; border-radius: 4px; }")
         
     return frame
@@ -369,12 +398,17 @@ class PreviewScrollArea(QScrollArea):
                 
     def add_page(self, pixmap, border_color=None, top_text=None, bottom_text=None):
         from PyQt6.QtWidgets import QFrame, QLabel, QVBoxLayout
+        # ===========================
+        # [페이지 프레임 및 레이아웃 설정]
+        # ===========================
         page_frame = QFrame()
         layout = QVBoxLayout(page_frame)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-
+        # ===========================
+        # [테두리 및 스타일 처리]
+        # ===========================
         if border_color == "danger":
             red_line = QFrame()
             red_line.setFrameShape(QFrame.Shape.VLine)
@@ -383,7 +417,9 @@ class PreviewScrollArea(QScrollArea):
             
         page_frame.setStyleSheet("background-color: white; border: 1px solid #d0d0d0; border-radius: 4px;")
 
-        
+        # ===========================
+        # [위젯 배치: 상단 텍스트, 이미지, 하단 텍스트]
+        # ===========================
         if top_text:
             tl = QLabel(top_text)
             tl.setAlignment(Qt.AlignmentFlag.AlignCenter)

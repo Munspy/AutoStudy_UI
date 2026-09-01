@@ -61,7 +61,9 @@ class PdfMergeUi(BaseUI):
         layout.setContentsMargins(28, 28, 28, 28)
         layout.setSpacing(20)
         
-        # 1. 상단 타이틀
+        # ===========================
+        # [상단 타이틀 구성]
+        # ===========================
         header_label = QLabel("🔗 PDF Merge (단순 병합)")
         header_label.setStyleSheet("""
             font-size: 24px; font-weight: 800; color: #111111; 
@@ -69,7 +71,9 @@ class PdfMergeUi(BaseUI):
         """)
         layout.addWidget(header_label)
 
-        # 2. 제어 박스
+        # ===========================
+        # [상단 제어 박스 (컨트롤 프레임)]
+        # ===========================
         control_frame = CardWidget()
         
         control_layout = QHBoxLayout(control_frame)
@@ -131,7 +135,9 @@ class PdfMergeUi(BaseUI):
         
         layout.addWidget(control_frame)
 
-        # 3. 파일 리스트업 및 선택 영역
+        # ===========================
+        # [파일 리스트업 및 선택 영역]
+        # ===========================
         file_selection_layout = QVBoxLayout()
         file_selection_layout.setSpacing(10)
         
@@ -158,7 +164,9 @@ class PdfMergeUi(BaseUI):
         file_selection_layout.addWidget(self.file_list)
         layout.addLayout(file_selection_layout)
 
-        # 4. 썸네일 미리보기 영역
+        # ===========================
+        # [썸네일 미리보기 영역]
+        # ===========================
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setStyleSheet("QScrollArea { border: 1px solid #EAEAEA; border-radius: 8px; background-color: #FFFFFF; }")
@@ -174,7 +182,9 @@ class PdfMergeUi(BaseUI):
         self.scroll_area.verticalScrollBar().valueChanged.connect(self.on_scroll)
         layout.addWidget(self.scroll_area, stretch=1)
 
-        # 5. 하단 저장 영역
+        # ===========================
+        # [하단 저장 영역]
+        # ===========================
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         
