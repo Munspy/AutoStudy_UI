@@ -60,9 +60,6 @@ class BaseController(QObject):
         # UI에 로딩 상태 끄기 신호 발사 (일 끝났으니)
         self.loading_signal.emit(False)
 
-        # 'Controller' 특이적인 '작업 끝내고 할 일' 시행
-        self.handle_result(result)
-
     def _on_worker_error(self, error_msg: str):
         """단일 작업 중 에러가 발생했을 때 호출됩니다."""
 
@@ -72,18 +69,6 @@ class BaseController(QObject):
         # 왜 고장났는지를 위로 보내기; "작업 오류"
         self.error_signal.emit("작업 오류", error_msg)
 
-    # 문득 고민이 들어서 여기다가 미리 적어놓음
-    # 지금까지는 하나의 UI -> 하나의 Controller로 지금까지 개발하였는데
-    # 이 handle_result(self, result): 은 '하나의 기능'을 담당할 때 필요한 것
-    # 따라서, 하나의 UI에 하나의 Controller를 고집하기 보다는
-    # 하나의 위젯, 큰 기능 단위에 하나의 Controller를 매칭시키는 것이 더 알맞다.
-    # 어지간 하면 없앨 생각을 합시다
-    def handle_result(self, result):
-        """
-        작업 성공 결과(result)를 받아 처리하는 곳입니다.
-        이 클래스를 상속받는 자식 컨트롤러(예: DriveSyncController)에서 오버라이딩하여 구현합니다.
-        """
-        pass
 
     # ==========================================
     # [모드 2] 멀티/배치 작업 전용 (매니저의 Queue에 밀어넣기)

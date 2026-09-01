@@ -14,7 +14,7 @@ import io
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, List, Dict, Any, Generator, Union
+from typing import Optional, Dict, Any, Generator, Union
 
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 from utils.config import Config

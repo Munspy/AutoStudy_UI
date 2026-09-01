@@ -1,7 +1,7 @@
 # func/func1_drive_sync.py
 from PyQt6.QtCore import pyqtSignal
 from base.base_controller import BaseController
-from worker.drive_worker import DriveSyncWorker
+from worker.drive.drive_worker import DriveSyncWorker
 
 class DriveSyncController(BaseController):
     """
@@ -18,13 +18,10 @@ class DriveSyncController(BaseController):
         
         self.worker.finished.connect(self.worker.deleteLater)
         self.worker.finished.connect(self.sync_finished.emit)
+        self.worker.finished_signal.connect(self.sync_completed.emit)
         
         self.start_worker(self.worker)
         
-    def handle_result(self, result):
-        """지금은 작업이 하나라서 얘가 혼자 쓰긴 함..."""
-        if result is not None:
-            self.sync_completed.emit(result)
 
     # ===========================
     # 버튼 동작부. 체크된 내용에 대해 작업 실행

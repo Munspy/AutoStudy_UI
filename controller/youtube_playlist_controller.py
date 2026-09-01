@@ -1,5 +1,5 @@
 from base.base_controller import BaseController
-from worker.youtube_worker import PlaylistFetchWorker, YoutubeUploadWorker, PlaylistUpdateCheckerWorker
+from worker.youtube.youtube_worker import PlaylistFetchWorker, YoutubeUploadWorker, PlaylistUpdateCheckerWorker
 from service.youtube_playlist_service import YoutubePlaylistService
 from service.playlist_repository import PlaylistRepository
 from PyQt6.QtCore import pyqtSignal

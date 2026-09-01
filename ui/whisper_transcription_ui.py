@@ -1,13 +1,11 @@
 from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, CardWidget, StyledTableWidget, StyledListWidget, StyledCheckBox, StyledComboBox, StyledDateEdit, StatusBadge
+from base.base_ui_components import LoadingButton, CardWidget, StyledListWidget, StyledCheckBox
 
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from PyQt6.QtWidgets import QListWidgetItem
 
-import os
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QFrame, QCheckBox, QListWidget, QListWidgetItem,
+from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QListWidgetItem, 
                              QProgressBar, QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QThread
+from PyQt6.QtCore import Qt
 from controller.whisper_transcription_controller import WhisperTranscriptionController
 
 
@@ -25,7 +23,7 @@ class WhisperTranscriptionUi(BaseUI):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
             WhisperTranscriptionUi { background-color: #FFFFFF; }
-            QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
+            QWidget {  color: #37352f; }
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
         
@@ -53,7 +51,7 @@ class WhisperTranscriptionUi(BaseUI):
         control_layout.addStretch()
         
         # 우측 상단 드라이브 조회 버튼
-        self.scan_btn = LoadingButton("🔄 드라이브 조회", "secondary")
+        self.scan_btn = LoadingButton("🔄 드라이브 조회", "sync")
         self.scan_btn.clicked.connect(self.scan_drive_for_audio)
         control_layout.addWidget(self.scan_btn)
         
@@ -91,7 +89,7 @@ class WhisperTranscriptionUi(BaseUI):
         bottom_layout.addStretch()
         
         # 우측 하단 보라색 실행 버튼 (Tab1 참고)
-        self.run_whisper_btn = LoadingButton("🎙️ Whisper 전사 실행", "primary")
+        self.run_whisper_btn = LoadingButton("🎙️ Whisper 전사 실행", "whisper")
         self.run_whisper_btn.clicked.connect(self.execute_transcription)
         bottom_layout.addWidget(self.run_whisper_btn)
         

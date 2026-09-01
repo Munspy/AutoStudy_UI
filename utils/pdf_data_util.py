@@ -1,5 +1,4 @@
 from typing import List, Dict, Any, Tuple
-import copy
 
 def prepare_edit_data(base_data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """생성된 매칭 레시피를 기반으로 UI 수동 검수 테이블에 바인딩할 데이터 상태를 초기화합니다.

@@ -1,21 +1,18 @@
-import sys
 
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from PyQt6.QtWidgets import QListWidgetItem
 
 from pathlib import Path
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QLineEdit, QFileDialog, QScrollArea, QFrame, 
-                             QCheckBox, QListWidget, QListWidgetItem,
-                             QDateEdit, QAbstractSpinBox, QMessageBox)
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+                             QLineEdit, QFileDialog, QScrollArea, QFrame, QListWidgetItem, 
+                             QAbstractSpinBox, QMessageBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QDate
 from PyQt6.QtGui import QImage, QPixmap
 import os
 import pymupdf
 
 from controller.pdf_merge_controller import PdfMergeController
-from utils.drive_api import download_from_drive
-from utils.auth_util import get_drive_service
-from base.base_ui_components import create_pdf_thumbnail_frame, LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit, PreviewScrollArea
+from base.base_ui import BaseUI
+from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit
 
 class PreviewState:
     def __init__(self, doc, path, is_drive):
@@ -27,16 +24,15 @@ class PreviewState:
 
 
 
-class PdfMergeUi(QWidget):
+class PdfMergeUi(BaseUI):
     global_progress_signal = pyqtSignal(int, str)
     global_loading_signal = pyqtSignal(bool)
 
     def __init__(self, task_manager=None):
-        super().__init__()
-        self.task_manager = task_manager
+        super().__init__(task_manager=task_manager)
         self.controller = PdfMergeController(task_manager=self.task_manager)
         
-        self.controller.log_signal.connect(lambda msg: print(msg))
+        self.controller.log_signal.connect(self.log_signal.emit)
         self.controller.progress_signal.connect(self.global_progress_signal.emit)
         self.controller.error_signal.connect(self.show_error)
         self.controller.loading_signal.connect(self.global_loading_signal.emit)
@@ -57,7 +53,7 @@ class PdfMergeUi(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
             PdfMergeUi { background-color: #FFFFFF; }
-            QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
+            QWidget {  color: #37352f; }
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
         
@@ -87,7 +83,7 @@ class PdfMergeUi(QWidget):
         self.local_widget = QWidget()
         local_layout = QHBoxLayout(self.local_widget)
         local_layout.setContentsMargins(0, 0, 0, 0)
-        local_layout.addWidget(QLabel("📂 대상 폴더:"))
+        local_layout.addWidget(QLabel("📂"))
         
         self.folder_input = QLineEdit(str(Path.home() / "Downloads"))
         self.folder_input.setStyleSheet("""
@@ -96,7 +92,7 @@ class PdfMergeUi(QWidget):
         self.folder_input.setReadOnly(True)
         local_layout.addWidget(self.folder_input)
         
-        browse_btn = StyledButton("폴더 변경", "secondary")
+        browse_btn = StyledButton("찾기", "secondary")
         browse_btn.clicked.connect(self.browse_folder)
         local_layout.addWidget(browse_btn)
 
@@ -107,7 +103,7 @@ class PdfMergeUi(QWidget):
         drive_layout.setContentsMargins(0, 0, 0, 0)
         drive_layout.setSpacing(10)
         
-        drive_layout.addWidget(QLabel("📅 날짜 범위:"))
+        # drive_layout.addWidget(QLabel("📅 DATE"))
         
         today = QDate.currentDate()
         self.start_date = StyledDateEdit(today)
@@ -145,12 +141,13 @@ class PdfMergeUi(QWidget):
         self.select_all_cb = StyledCheckBox("전체 선택")
         self.select_all_cb.clicked.connect(self.toggle_all_items)
         mid_bar_layout.addWidget(self.select_all_cb)
+
+        mid_bar_layout.addStretch()
         
-        self.select_scripted_btn = StyledButton("스크립트본 선택", "secondary")
+        self.select_scripted_btn = StyledButton("\u26A1\uFE0E 스크립트본 선택", "warning")
         self.select_scripted_btn.clicked.connect(self.select_scripted_items)
         mid_bar_layout.addWidget(self.select_scripted_btn)
         
-        mid_bar_layout.addStretch()
         file_selection_layout.addLayout(mid_bar_layout)
         
         self.file_list = StyledListWidget()
@@ -187,7 +184,7 @@ class PdfMergeUi(QWidget):
             QLineEdit { padding: 10px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; width: 180px; }
         """)
         
-        save_btn = StyledButton("💾 선택 파일 병합 및 저장", "success")
+        save_btn = StyledButton("💾 병합 저장", "save")
         save_btn.clicked.connect(self.start_merge)
         
         bottom_layout.addWidget(self.save_name_input)

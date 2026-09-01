@@ -71,7 +71,7 @@ class AutomationDashboard(QMainWindow):
         self.log_viewer = QTextEdit()
         self.log_viewer.setReadOnly(True)
         self.log_viewer.setMaximumHeight(150)
-        self.log_viewer.setStyleSheet("background-color: #1e1e1e; color: #00ff00; font-family: monospace;")
+        self.log_viewer.setStyleSheet("background-color: #1e1e1e; color: #00ff00; font-family: Menlo;")
         self.log_viewer.append("시스템이 초기화되었습니다. 대기 중...")
         self.bottom_layout.addWidget(self.log_viewer)
         
@@ -136,6 +136,16 @@ class AutomationDashboard(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion") 
+    
+    # OS별 폰트 동적 적용 (맥은 Apple SD, 윈도우는 맑은 고딕)
+    from PyQt6.QtGui import QFont
+    if sys.platform == "darwin":
+        app.setFont(QFont("Apple SD Gothic Neo", 10))
+    elif sys.platform == "win32":
+        app.setFont(QFont("Malgun Gothic", 10))
+    else:
+        app.setFont(QFont("sans-serif", 10))
+
     window = AutomationDashboard()
     window.show()
     sys.exit(app.exec())

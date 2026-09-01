@@ -1,18 +1,16 @@
 # ui/combine_notes_ui.py
 import sys
-import os
 
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from PyQt6.QtWidgets import QListWidgetItem
 
 from pathlib import Path
 from PyQt6.QtWidgets import (QApplication, QVBoxLayout, 
                              QHBoxLayout, QPushButton, QLabel, QLineEdit, QFileDialog, 
-                             QScrollArea, QGraphicsOpacityEffect, QFrame, QListWidget, 
-                             QListWidgetItem, QCheckBox, QDialog, QMessageBox, QWidget)
+                             QGraphicsOpacityEffect, QListWidgetItem, QDialog, QWidget)
 from PyQt6.QtCore import Qt
 
 from base.base_ui import BaseUI
-import controller.combine_notes_controller as backend
+from controller.combine_notes_controller import CombineNotesController
 import utils.pdf_data_util as pdf_data_util
 
 # ==========================================
@@ -20,11 +18,9 @@ import utils.pdf_data_util as pdf_data_util
 # ==========================================
 # (수정) 순수 바이트를 반환하는 함수로 변경
 
-# 이거 나중에 그냥 합쳐줘. 이걸 두번 쪼개야 할 이유가?
 from utils.pdf_core_util import get_page_image_bytes
-# (수정) 바이트를 픽스맵으로 변환해주는 헬퍼 함수 추가
-from base.base_ui_components import (create_pdf_thumbnail_frame, bytes_to_pixmap, LoadingButton, StyledButton, CardWidget,
-                                     StyledListWidget, StyledCheckBox, PreviewScrollArea)
+from base.base_ui_components import (create_pdf_thumbnail_frame, StyledButton, CardWidget, StyledListWidget,
+                                     StyledCheckBox, PreviewScrollArea)
 
 # ==========================================
 # 헬퍼 함수: UI 프레임 조립기
@@ -49,10 +45,8 @@ def build_pdf_frame(page_info, is_empty, is_large=False):
     if not image_bytes:
         return create_pdf_thumbnail_frame(None, f"렌더링 실패\n{Path(path).name}\n{page_num+1}p", width, height, is_empty=True)
         
-    # 2. UI 로직: 바이트 데이터를 QPixmap으로 변환
-    pixmap = bytes_to_pixmap(image_bytes)
-    
-    return create_pdf_thumbnail_frame(pixmap, "", width, height, is_empty=False)
+    # 2. 통합된 헬퍼 함수를 통해 바이트 데이터로부터 바로 썸네일 프레임 생성
+    return create_pdf_thumbnail_frame(image_bytes, "", width, height, is_empty=False)
 
 # ==========================================
 # (이하 팝업(FullScreenEditDialog) 및 Tab2CombineNotes 클래스 코드는 기존과 완벽히 동일합니다.)
@@ -64,8 +58,8 @@ class FullScreenEditDialog(QDialog):
         self.showMaximized() 
         
         self.setStyleSheet("""
-            QDialog { background-color: #FFFFFF; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
-            QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
+            QDialog { background-color: #FFFFFF;  }
+            QWidget {  color: #37352f; }
         """)
         
         self.edit_data = pdf_data_util.prepare_edit_data(base_data)
@@ -217,7 +211,7 @@ class FullScreenEditDialog(QDialog):
 class CombineNotesUi(BaseUI):  
     def __init__(self, task_manager=None):
         super().__init__(task_manager=task_manager)
-        self.controller = backend.CombineNotesController(task_manager=self.task_manager)
+        self.controller = CombineNotesController(task_manager=self.task_manager)
         self.controller.ui = self
         
         # 컨트롤러의 비동기 시그널 연결 (레이스 컨디션 해결)
@@ -231,7 +225,7 @@ class CombineNotesUi(BaseUI):
                 background-color: #FFFFFF;
             }
             QWidget {
-                font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+                
                 color: #37352f;
             }
             QLabel, QCheckBox {
@@ -270,7 +264,7 @@ class CombineNotesUi(BaseUI):
         control_layout.setContentsMargins(20, 16, 20, 16)
         control_layout.setSpacing(15)
 
-        control_layout.addWidget(QLabel("📂 대상 폴더:"))
+        control_layout.addWidget(QLabel("📂"))
         
         # BaseTab의 load_setting 기능 활용
         default_folder = str(Path.home() / "Downloads")
@@ -302,10 +296,10 @@ class CombineNotesUi(BaseUI):
 
         mid_bar_layout.addStretch()
 
-        auto_run_btn = StyledButton("🚀 선택 파일 알아서 진행하기", "success")
+        auto_run_btn = StyledButton("\u26A1\uFE0E 선택 파일 알아서", "rapid")
         auto_run_btn.clicked.connect(self.run_auto_merge)
         
-        manual_run_btn = StyledButton("👀 선택 파일 검수하기", "primary")
+        manual_run_btn = StyledButton("👀 선택 파일 검수", "check")
         manual_run_btn.clicked.connect(self.run_manual_inspection)
         
         mid_bar_layout.addWidget(auto_run_btn)
@@ -337,10 +331,10 @@ class CombineNotesUi(BaseUI):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
         
-        self.edit_btn = StyledButton("상세 검수 및 수정 (전체화면)", "secondary")
+        self.edit_btn = StyledButton("📌 전체 화면 검수", "check")
         self.edit_btn.clicked.connect(self.open_fullscreen_editor)
         
-        self.approve_btn = StyledButton("최종 승인 및 병합 저장", "danger")
+        self.approve_btn = StyledButton("💾 병합 저장", "save")
         self.approve_btn.clicked.connect(self.execute_final_save) 
         
         bottom_layout.addWidget(self.edit_btn)

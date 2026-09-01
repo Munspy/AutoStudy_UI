@@ -1,7 +1,7 @@
 # controller/whisper_transcription_controller.py
 from PyQt6.QtCore import pyqtSignal
 from base.base_controller import BaseController
-from worker.whisper_worker import WhisperScannerWorker, WhisperExecutionWorker
+from worker.transcript.whisper_worker import WhisperScannerWorker, WhisperExecutionWorker
 
 class WhisperTranscriptionController(BaseController):
     """Tab6의 UI와 Worker를 연결하는 메인 컨트롤러"""

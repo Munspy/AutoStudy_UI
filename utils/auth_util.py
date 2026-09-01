@@ -10,7 +10,6 @@ Google API(예: 드라이브 파일 동기화, 유튜브 메타데이터 접근 
 안전하게 인증 객체를 공유할 수 있도록 스레드 락(Thread Lock)과 싱글톤(Singleton) 패턴을 제공합니다.
 """
 
-import os
 import threading
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request

@@ -1,5 +1,3 @@
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
-import os
 import re
 
 def process_drive_sync():
@@ -113,7 +111,7 @@ def process_pdf_split():
     content = re.sub(r'^import pymupdf\n', '', content, flags=re.MULTILINE)
 
     if "from base.base_ui_components import" not in content:
-        content = content.replace("import controller.pdf_split_controller as backend", "from base.base_ui_components import LoadingButton, StyledButton, CardWidget\nimport controller.pdf_split_controller as backend")
+        content = content.replace("from controller.pdf_split_controller import PdfSplitController", "from base.base_ui_components import LoadingButton, StyledButton, CardWidget\nfrom controller.pdf_split_controller import PdfSplitController")
 
     content = re.sub(r'control_frame = QFrame\(\)\n\s+control_frame\.setObjectName\("ControlBox"\)\n\s+control_frame\.setStyleSheet\([^)]+\)', 'control_frame = CardWidget()', content, flags=re.MULTILINE)
     

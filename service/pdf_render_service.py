@@ -11,7 +11,6 @@ LLM(Gemini)이 생성한 요약본(단권화 노트)이나 스크립트 데이�
 창출하는 비즈니스 도메인 로직이 포함되어 있습니다.
 """
 
-import os
 import io
 import re
 import html
@@ -144,7 +143,7 @@ class PdfRenderService(BaseService):
         return f"""
             @font-face {{ font-family: 'KoreanFont'; src: url('{self.default_font_path}'); }}
             body {{ 
-                font-family: 'KoreanFont', sans-serif; font-size: 10pt; line-height: 1.6; 
+                font-family: 'KoreanFont'; font-size: 10pt; line-height: 1.6; 
                 color: #1d1d1f; word-wrap: cjk; word-break: keep-all; 
             }}
             pre {{ 

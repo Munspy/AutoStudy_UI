@@ -1,32 +1,34 @@
-import sys
 import os
 
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from PyQt6.QtWidgets import QListWidget
 
 from pathlib import Path
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QLineEdit, QFileDialog, QScrollArea, QFrame, 
-                             QDateEdit, QAbstractSpinBox, QStackedWidget,
-                             QSizePolicy, QTextEdit, QMessageBox, QCheckBox, QApplication,
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+                             QLineEdit, QFileDialog, QScrollArea, QAbstractSpinBox, QStackedWidget, 
+                             QSizePolicy, QTextEdit, QMessageBox,
                              QListWidget)
-from PyQt6.QtCore import Qt, pyqtSignal, QDate
+from PyQt6.QtCore import Qt, QDate
 
 from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledTableWidget, StyledListWidget, StyledCheckBox, StyledComboBox, StyledDateEdit, StatusBadge
+from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit
 
-import controller.transcript_merge_split_controller as backend
+from controller.transcript_merge_split_controller import TranscriptController, generate_split_filenames, generate_merged_filename
 
 class TranscriptMergeSplitUi(BaseUI):
 
     def __init__(self, task_manager=None):
         super().__init__(task_manager=task_manager)
-        self.controller = backend.TranscriptController(task_manager=self.task_manager)
+        self.controller = TranscriptController(task_manager=self.task_manager)
         self.controller.view = self
         
         # 기본 시그널 연결
         self.controller.log_signal.connect(self.log_signal.emit)
         self.controller.error_signal.connect(self.show_error)
         self.controller.loading_signal.connect(self.set_loading_state)
+        self.controller.search_completed.connect(self._on_search_finished)
+        self.controller.files_read_completed.connect(self._on_files_read)
+        self.controller.split_save_completed.connect(self._on_split_save_finished)
+        self.controller.merge_save_completed.connect(self._on_merge_save_finished)
         
         self.current_text_edits = []
         self.init_ui()
@@ -35,7 +37,7 @@ class TranscriptMergeSplitUi(BaseUI):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
             TranscriptMergeSplitUi { background-color: #FFFFFF; }
-            QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
+            QWidget {  color: #37352f; }
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
         
@@ -52,6 +54,7 @@ class TranscriptMergeSplitUi(BaseUI):
         control_frame = CardWidget()
         control_layout = QHBoxLayout(control_frame)
         control_layout.setContentsMargins(20, 16, 20, 16)
+        control_layout.setSpacing(10)
         
         self.drive_check = StyledCheckBox("☁️")
         self.drive_check.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -62,14 +65,14 @@ class TranscriptMergeSplitUi(BaseUI):
         self.local_widget = QWidget()
         local_layout = QHBoxLayout(self.local_widget)
         local_layout.setContentsMargins(0, 0, 0, 0)
-        local_layout.addWidget(QLabel("📂 대상 폴더:"))
+        local_layout.addWidget(QLabel("📂"))
         
         self.folder_input = QLineEdit(str(Path.home() / "Downloads"))
         self.folder_input.setStyleSheet("padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF;")
         self.folder_input.setReadOnly(True)
         local_layout.addWidget(self.folder_input)
         
-        browse_btn = StyledButton("폴더 찾기", "secondary")
+        browse_btn = StyledButton("찾기", "secondary")
         browse_btn.clicked.connect(self.browse_folder)
         local_layout.addWidget(browse_btn)
         control_layout.addWidget(self.local_widget)
@@ -131,7 +134,7 @@ class TranscriptMergeSplitUi(BaseUI):
         search_layout.addWidget(find_btn)
         layout.addWidget(self.search_bar_widget)
 
-        from PyQt6.QtGui import QKeySequence, QTextCursor, QShortcut
+        from PyQt6.QtGui import QKeySequence, QShortcut
         shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
         shortcut.activated.connect(self.search_input.setFocus)
 
@@ -290,14 +293,14 @@ class TranscriptMergeSplitUi(BaseUI):
             filename = filenames[0]
             content = contents[0]
             self.add_text_edit(filename, content, mode="split")
-            split_names = backend.generate_split_filenames(filename)
+            split_names = generate_split_filenames(filename)
             self.split_name_1.setText(split_names[0])
             self.split_name_2.setText(split_names[1])
             self.bottom_stack.setCurrentIndex(1)
         else:
             for fname, content in zip(filenames, contents):
                 self.add_text_edit(fname, content, mode="merge", min_width=350)
-            self.merge_name_input.setText(backend.generate_merged_filename(filenames))
+            self.merge_name_input.setText(generate_merged_filename(filenames))
             self.bottom_stack.setCurrentIndex(2)
 
     def add_text_edit(self, title, content, mode="split", min_width=None):

@@ -1,16 +1,14 @@
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from PyQt6.QtWidgets import QTableWidget, QCheckBox, QHeaderView
 import sys
-import time
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QFrame, QCheckBox, QTableWidget, 
-                             QTableWidgetItem, QHeaderView, QDateEdit)
-from PyQt6.QtCore import Qt, pyqtSignal, QTimer, QDate, QThread
+from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+                             QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView)
+from PyQt6.QtCore import Qt, QTimer, QDate
 from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
 
 from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, CardWidget, StyledTableWidget, StyledListWidget, StyledCheckBox, StyledComboBox, StyledDateEdit, StatusBadge
+from base.base_ui_components import LoadingButton, CardWidget, StyledTableWidget, StyledCheckBox, StyledDateEdit
 
-import controller.gemini_processing_controller as backend
+from controller.gemini_processing_controller import GeminiProcessingController
 from service.api_key_tracker import api_mgr
 
 # 키 상태 정의 상수
@@ -73,7 +71,9 @@ class KeyBadge(QWidget):
             painter.drawPie(large_rect, start_angle, span_angle)
             painter.restore()
 
-        font = QFont("Malgun Gothic", 10, QFont.Weight.Bold)
+        font = QFont()
+        font.setBold(True)
+        font.setPointSize(10)
         painter.setFont(font)
         painter.setPen(text_color)
 
@@ -89,7 +89,7 @@ class GeminiProcessingUi(BaseUI):
 
     def __init__(self, task_manager=None):
         super().__init__(task_manager=task_manager)
-        self.controller = backend.GeminiProcessingController(task_manager=self.task_manager)
+        self.controller = GeminiProcessingController(task_manager=self.task_manager)
         self.controller.ui = self
         self.controller.scan_completed.connect(self.handle_scan_result)
         self.controller.cell_update_signal.connect(self.update_task_cell)
@@ -111,7 +111,7 @@ class GeminiProcessingUi(BaseUI):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
             GeminiProcessingUi { background-color: #FFFFFF; }
-            QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
+            QWidget {  color: #37352f; }
             QLabel { background-color: transparent; }
             QCheckBox { background-color: transparent; border: none; }
         """)

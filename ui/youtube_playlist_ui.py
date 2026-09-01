@@ -1,18 +1,16 @@
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from PyQt6.QtWidgets import QTableWidget, QHeaderView
 from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledTableWidget, StyledListWidget, StyledCheckBox, StyledComboBox, StyledDateEdit, StatusBadge
-import sys
+from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledTableWidget, StyledCheckBox, StyledComboBox, StatusBadge
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QTableWidget, QTableWidgetItem, QLabel, 
-                             QHeaderView, QCheckBox, QComboBox, QInputDialog, 
-                             QFrame, QMessageBox, QDialog)
+                             QHeaderView, QInputDialog, QMessageBox, QDialog)
 from PyQt6.QtCore import Qt, pyqtSignal, QUrl
 from PyQt6.QtGui import QDesktopServices
 
 # ---------------------------------------------------------
 # 백엔드 함수 모듈 임포트 (경로 호환성 처리)
 # ---------------------------------------------------------
-import controller.youtube_playlist_controller as backend
+from controller.youtube_playlist_controller import YoutubePlaylistController, load_csv_data, rename_playlist, delete_playlist, parse_playlist_id, get_playlist_title, add_playlist_to_csv
 
 
 class PlaylistManagerDialog(QDialog):
@@ -22,8 +20,8 @@ class PlaylistManagerDialog(QDialog):
         self.resize(340, 150)
         
         self.setStyleSheet("""
-            QDialog { background-color: #FFFFFF; font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; }
-            QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
+            QDialog { background-color: #FFFFFF;  }
+            QWidget {  color: #37352f; }
         """)
         
         self.layout = QVBoxLayout(self)
@@ -52,7 +50,7 @@ class PlaylistManagerDialog(QDialog):
         
     def load_data(self):
         self.combo.clear()
-        playlists = backend.load_csv_data()
+        playlists = load_csv_data()
         for p in playlists:
             self.combo.addItem(p['name'], p['playlist_id'])
             
@@ -62,7 +60,7 @@ class PlaylistManagerDialog(QDialog):
             return
         new_name, ok = QInputDialog.getText(self, "이름 변경", "새 이름을 입력하세요:", text=self.combo.currentText())
         if ok and new_name.strip():
-            backend.rename_playlist(pid, new_name.strip())
+            rename_playlist(pid, new_name.strip())
             self.load_data()
             QMessageBox.information(self, "성공", "이름이 변경되었습니다.")
             
@@ -75,7 +73,7 @@ class PlaylistManagerDialog(QDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
-            backend.delete_playlist(pid)
+            delete_playlist(pid)
             self.load_data()
             QMessageBox.information(self, "성공", "삭제되었습니다.")
 
@@ -85,7 +83,7 @@ class YoutubePlaylistUi(BaseUI):
 
     def __init__(self, task_manager=None):
         super().__init__(task_manager=task_manager)
-        self.controller = backend.YoutubePlaylistController(task_manager=self.task_manager)
+        self.controller = YoutubePlaylistController(task_manager=self.task_manager)
         self.controller.ui = self
         self.controller.fetch_completed.connect(self.populate_table)
         self.controller.checker_completed.connect(self.on_checker_finished)
@@ -103,7 +101,7 @@ class YoutubePlaylistUi(BaseUI):
                 background-color: #FFFFFF;
             }
             QWidget {
-                font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+                
                 color: #37352f;
             }
             QLabel, QCheckBox {
@@ -137,15 +135,15 @@ class YoutubePlaylistUi(BaseUI):
         self.playlist_combo = StyledComboBox()
         control_layout.addWidget(self.playlist_combo)
         
-        refresh_video_btn = StyledButton("데이터 새로고침", "secondary")
+        refresh_video_btn = StyledButton("데이터 새로고침", "sync")
         refresh_video_btn.clicked.connect(self.load_playlist_data)
         control_layout.addWidget(refresh_video_btn)
         
         control_layout.addStretch()
 
-        manage_pl_btn = StyledButton("⚙️ 관리", "secondary")
-        add_pl_btn = StyledButton("➕ 추가", "secondary")
-        refresh_list_btn = StyledButton("🔄 목록 갱신", "secondary")
+        manage_pl_btn = StyledButton("⚙️ 관리", "check")
+        add_pl_btn = StyledButton("➕ 추가", "check")
+        refresh_list_btn = StyledButton("🔄 목록 갱신", "sync")
         control_layout.addWidget(manage_pl_btn)
         control_layout.addWidget(add_pl_btn)
         control_layout.addWidget(refresh_list_btn)
@@ -167,7 +165,7 @@ class YoutubePlaylistUi(BaseUI):
         
         mid_bar_layout.addStretch()
 
-        sel_unex_btn = StyledButton("🎯 음성 미추출 자동 선택", "secondary")
+        sel_unex_btn = StyledButton("🎯 음성 미추출 자동 선택", "rapid")
         sel_unex_btn.clicked.connect(self.select_unextracted)
         mid_bar_layout.addWidget(sel_unex_btn)
 
@@ -220,7 +218,7 @@ class YoutubePlaylistUi(BaseUI):
         self.playlist_combo.clear()
         self.playlist_combo.addItem("⏳ 유튜브 업데이트 상태 확인 중...")
         
-        playlists = backend.load_csv_data()
+        playlists = load_csv_data()
         
         if not playlists:
             self.playlist_combo.clear()
@@ -250,23 +248,64 @@ class YoutubePlaylistUi(BaseUI):
             self.load_playlist_data()
 
     def add_playlist_dialog(self):
-        text, ok = QInputDialog.getText(self, '재생목록 추가', 'YouTube 재생목록 URL을 입력하세요:')
-        if ok and text:
-            playlist_id = backend.parse_playlist_id(text)
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit
+        from base.base_ui_components import StyledButton
+        
+        # 1st Dialog: URL input
+        dialog = QDialog(self)
+        dialog.setWindowTitle('재생목록 추가')
+        dialog.setFixedSize(400, 150)
+        dialog.setStyleSheet("background-color: #FFFFFF; ")
+        layout = QVBoxLayout(dialog)
+        layout.addWidget(QLabel("YouTube 재생목록 URL을 입력하세요:"))
+        url_input = QLineEdit()
+        url_input.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 4px;")
+        layout.addWidget(url_input)
+        
+        btn_layout = QHBoxLayout()
+        ok_btn = StyledButton("확인", "primary")
+        cancel_btn = StyledButton("취소", "secondary")
+        ok_btn.clicked.connect(dialog.accept)
+        cancel_btn.clicked.connect(dialog.reject)
+        btn_layout.addWidget(ok_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted and url_input.text():
+            text = url_input.text()
+            playlist_id = parse_playlist_id(text)
             if not playlist_id:
                 QMessageBox.warning(self, "오류", "유효한 YouTube 재생목록 URL이 아닙니다.")
                 return
             
             self.emit_log("재생목록 기본 이름을 유튜브에서 조회 중입니다...")
-            default_name = backend.get_playlist_title(text)
+            default_name = get_playlist_title(text)
             
-            name, ok2 = QInputDialog.getText(self, '재생목록 이름 지정', '목록을 구별할 이름을 입력하세요:', text=default_name)
-            if not ok2 or not name.strip():
-                return
-
-            backend.add_playlist_to_csv(name.strip(), text, playlist_id)
-            self.emit_log(f"새로운 재생목록 '{name.strip()}' 추가 완료.")
-            self.refresh_combo_box()
+            # 2nd Dialog: Name input
+            name_dialog = QDialog(self)
+            name_dialog.setWindowTitle('재생목록 이름 지정')
+            name_dialog.setFixedSize(400, 150)
+            name_dialog.setStyleSheet("background-color: #FFFFFF; ")
+            n_layout = QVBoxLayout(name_dialog)
+            n_layout.addWidget(QLabel("목록을 구별할 이름을 입력하세요:"))
+            name_input = QLineEdit(default_name)
+            name_input.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 4px;")
+            n_layout.addWidget(name_input)
+            
+            n_btn_layout = QHBoxLayout()
+            n_ok_btn = StyledButton("확인", "primary")
+            n_cancel_btn = StyledButton("취소", "secondary")
+            n_ok_btn.clicked.connect(name_dialog.accept)
+            n_cancel_btn.clicked.connect(name_dialog.reject)
+            n_btn_layout.addWidget(n_ok_btn)
+            n_btn_layout.addWidget(n_cancel_btn)
+            n_layout.addLayout(n_btn_layout)
+            
+            if name_dialog.exec() == QDialog.DialogCode.Accepted and name_input.text().strip():
+                name = name_input.text().strip()
+                add_playlist_to_csv(name, text, playlist_id)
+                self.emit_log(f"새로운 재생목록 '{name}' 추가 완료.")
+                self.refresh_combo_box()
 
     def load_playlist_data(self):
         playlist_id = self.playlist_combo.currentData()
@@ -355,7 +394,7 @@ class YoutubePlaylistUi(BaseUI):
             len_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter | Qt.AlignmentFlag.AlignVCenter)
             self.table.setItem(row, 3, len_item)
             
-            item_status = QTableWidgetItem(vid["extracted"])
+            item_status = QTableWidgetItem("")
             item_status.setForeground(Qt.GlobalColor.transparent)
             self.table.setItem(row, 4, item_status)
             self.table.setCellWidget(row, 4, self.create_badge(vid["extracted"]))

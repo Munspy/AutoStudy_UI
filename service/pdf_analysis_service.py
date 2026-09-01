@@ -11,9 +11,8 @@
 
 import os
 import re
-import unicodedata
 from pathlib import Path
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Optional
 from contextlib import ExitStack
 
 import pymupdf

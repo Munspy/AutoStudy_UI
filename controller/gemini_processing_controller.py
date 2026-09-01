@@ -1,6 +1,6 @@
 from PyQt6.QtCore import pyqtSignal
 from base.base_controller import BaseController
-from worker.llm_worker import LLMTaskWorker, LLMScanWorker
+from worker.llm.llm_worker import LLMTaskWorker, LLMScanWorker
 
 class GeminiProcessingController(BaseController):
     scan_completed = pyqtSignal(list, bool)

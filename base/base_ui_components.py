@@ -1,26 +1,51 @@
 from PyQt6.QtWidgets import (
-    QFrame, QWidget, QPushButton, QLabel, QLineEdit, QVBoxLayout, 
-    QHBoxLayout, QFrame, QSizePolicy
+    QFrame, QWidget, QPushButton, QLabel, QLineEdit, QVBoxLayout, QHBoxLayout, 
+    QFrame
 )
-from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QColor
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor
 
 # ==========================================
 # UI 스타일 테마 상수 (중앙 관리)
 # ==========================================
 COLORS = {
-    "primary": "#118ab2",       # 연한 파랑 (기본)
-    "secondary": "#073b4c",     # 진한 파랑 (특수/선택)
-    "danger": "#ef476f",        # 빨간색 (중요/취소)
-    "success": "#06d6a0",       # 초록색 (진행)
-    "warning": "#ffd166",       # 노란색 (기타)
-    "background_card": "#F4F5F7", # 카드 위젯 내부 연회색
-    "border": "#E2E8F0",          # 범용 회색 테두리
-    "text_main": "#0F172A",       # 진한 텍스트
-    "text_sub": "#64748B",        # 서브 텍스트
-    "drop_bg": "#F8FAFC",         # 드래그 구역 배경
-    "drop_border": "#CBD5E1"      # 드래그 구역 테두리
+    "primary": "#2383E2",           # 커스텀 지정 가능
+    "secondary": "#073b4c",         # 진한 파랑 (특수/선택) 
+    "danger": "#FF3D7F",            # 빨간색 (중요/취소)     # 중요
+    "success": "#5E8C6A",           # 초록색 (진행)         # 저장
+    "warning": "#FBB829",           # 노란색 (기타)         # 빠르게
+    "background_card": "#F4F5F7",   # 카드 위젯 내부 연회색
+    "border": "#E2E8F0",            # 범용 회색 테두리
+    "text_main": "#0F172A",         # 진한 텍스트
+    "text_sub": "#64748B",          # 서브 텍스트
+    "drop_bg": "#F8FAFC",           # 드래그 구역 배경
+    "drop_border": "#CBD5E1",        # 드래그 구역 테두리
+
+    "important": "#D70044",
+    "whisper": "#BE80FF",
+    "sync": "#2383E2",            # 커스텀 지정 가능
+    "fast": "#FF3D7F",            # 빨간색 (중요/취소)     # 중요
+    "rapid": "#F7BC05",           # 노란색 (기타)         # 빠르게
+    "save": "#5E8C6A",
+    "trivia": "#83AF9B",
+    "check": "#8196B2"
 }
+
+
+
+# COLORS = {
+#     "primary": {"base": "#2383E2", "hover": "#1A6FB0", "disabled": "#A5C9F3"}, # 커스텀 지정 가능
+#     "secondary": "#073b4c",     # 진한 파랑 (특수/선택)
+#     "danger": "#ef476f",        # 빨간색 (중요/취소)
+#     "success": "#06d6a0",       # 초록색 (진행)
+#     "warning": "#ffd166",       # 노란색 (기타)
+#     "background_card": "#F4F5F7", # 카드 위젯 내부 연회색
+#     "border": "#E2E8F0",          # 범용 회색 테두리
+#     "text_main": "#0F172A",       # 진한 텍스트
+#     "text_sub": "#64748B",        # 서브 텍스트
+#     "drop_bg": "#F8FAFC",         # 드래그 구역 배경
+#     "drop_border": "#CBD5E1"      # 드래그 구역 테두리
+# }
 
 
 # ==========================================
@@ -28,6 +53,31 @@ COLORS = {
 # ==========================================
 
 from PyQt6.QtCore import QTimer
+
+def _get_base_color(color_val):
+    if isinstance(color_val, dict):
+        return color_val.get("base", "#000000")
+    elif isinstance(color_val, tuple):
+        return color_val[0]
+    return color_val
+
+def _calculate_ui_colors(base_hex):
+    from PyQt6.QtGui import QColor
+    c = QColor(base_hex)
+    h, s, v, a = c.getHsv()
+    
+    # Hover: 명도는 20% 낮추고(어둡게), 채도는 5% 올려서 묵직하고 선명하게 (사용자 예시: 1A6FB0)
+    hover_v = max(0, int(v * 0.8))
+    hover_s = min(255, int(s * 1.05))
+    hover_color = QColor.fromHsv(h, hover_s, hover_v)
+    
+    # Disabled: 흰색을 섞어 명도를 높이고(60% 밝게), 채도를 65% 빼서 파스텔톤으로 (사용자 예시: A5C9F3)
+    disabled_s = int(s * 0.35)
+    disabled_v = min(255, int(v + (255 - v) * 0.6))
+    disabled_color = QColor.fromHsv(h, disabled_s, disabled_v)
+    
+    return hover_color.name(), disabled_color.name()
+
 class LoadingButton(QPushButton):
     def __init__(self, text: str, btn_type: str = "primary", parent=None):
         super().__init__(text, parent)
@@ -44,10 +94,9 @@ class LoadingButton(QPushButton):
 
     def apply_style(self):
         from PyQt6.QtGui import QColor
-        bg = COLORS.get(self.btn_type, COLORS["primary"])
-        c = QColor(bg)
-        hover = c.darker(115).name()
-        disabled = c.lighter(130).name()
+        color_val = COLORS.get(self.btn_type, COLORS["primary"])
+        bg = _get_base_color(color_val)
+        hover, disabled = _calculate_ui_colors(bg)
         
         self.setStyleSheet(f"""
             QPushButton {{
@@ -86,10 +135,9 @@ class StyledButton(QPushButton):
         self.apply_style()
 
     def apply_style(self):
-        bg = COLORS.get(self.btn_type, COLORS["primary"])
-        c = QColor(bg)
-        hover = c.darker(115).name()
-        disabled = c.lighter(130).name()
+        color_val = COLORS.get(self.btn_type, COLORS["primary"])
+        bg = _get_base_color(color_val)
+        hover, disabled = _calculate_ui_colors(bg)
         
         self.setStyleSheet(f"""
             QPushButton {{
@@ -130,7 +178,7 @@ class StatusBadge(QLabel):
 
     def set_state(self, text: str, state: str):
         self.setText(text)
-        bg = COLORS.get(state, COLORS["primary"])
+        bg = _get_base_color(COLORS.get(state, COLORS["primary"]))
         c = QColor(bg)
         text_color = c.darker(110).name()
         bg_color = c.lighter(170).name()
@@ -186,26 +234,6 @@ class LabeledInput(QWidget):
         
         layout.addWidget(self.label)
         layout.addWidget(input_widget)
-
-
-from PyQt6.QtGui import QPixmap
-
-# 여기는 다음에 꼭 고치고 싶은데,
-# 어차피 바이트를 받아와서 pixmap으로 바꿔봣자 바로 쓰는 것도 아니고,
-# 결국은 아래처럼 썸네일 프레임으로 만들어야 하기 때문에 그냥 한번에 두 작업을 진행시키는 것이 맞다고 생각함
-# pdf를 byte로 만들어 주는 거는 utils 였나 아무튼 아래서 해주는데
-# 그 byte -> thumbnail을 굳이 두 파트로 쪼갤 필요가 있나 그냥 한번에 하면 됐지
-# 정리하자면 byte -> Qframe -> Thumbnail을 두 함수가 아니라 한 함수로 하자고ㅇㅇ
-def bytes_to_pixmap(image_data: bytes | None) -> QPixmap | None:
-    """
-    순수 바이트(Bytes) 데이터를 PyQt QPixmap 객체로 변환하는 공통 헬퍼 함수입니다.
-    """
-    if not image_data:
-        return None
-        
-    pixmap = QPixmap()
-    pixmap.loadFromData(image_data)
-    return pixmap
 
 def create_pdf_thumbnail_frame(pixmap, label_text, width, height, is_empty=False):
     
@@ -281,7 +309,7 @@ class StyledCheckBox(QCheckBox):
         self.apply_style()
 
     def apply_style(self):
-        color = COLORS.get(self.theme, COLORS['primary'])
+        color = _get_base_color(COLORS.get(self.theme, COLORS['primary']))
         self.setStyleSheet(f"""
             QCheckBox {{ font-weight: bold; font-size: 14px; color: {COLORS['text_main']}; margin-left: 5px; }}
             QCheckBox::indicator {{ width: 18px; height: 18px; border-radius: 4px; border: 1px solid {COLORS['border']}; background-color: #FFFFFF; }}
@@ -309,7 +337,7 @@ class StyledDateEdit(QDateEdit):
         self.setStyleSheet(f"""
             QDateEdit {{
                 padding: 6px; border: 1px solid {COLORS['border']}; border-radius: 6px; 
-                background-color: #FFFFFF; min-width: 80px; font-weight: normal; color: {COLORS['text_main']};
+                background-color: #FFFFFF; min-width: 60px; font-weight: normal; color: {COLORS['text_main']};
             }}
             QDateEdit:disabled {{ background-color: #EFEFEF; color: #A0A0A0; }}
             QDateEdit::drop-down {{ border: none; width: 20px; }}
@@ -327,8 +355,8 @@ class PreviewScrollArea(QScrollArea):
         """)
         self.container = QWidget()
         self.container.setStyleSheet("background-color: #FAFAFA;")
-        self.container_layout = QVBoxLayout(self.container)
-        self.container_layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
+        self.container_layout = QHBoxLayout(self.container)
+        self.container_layout.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         self.container_layout.setContentsMargins(10, 10, 10, 10)
         self.container_layout.setSpacing(15)
         self.setWidget(self.container)
@@ -346,8 +374,15 @@ class PreviewScrollArea(QScrollArea):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         
-        border_hex = COLORS.get(border_color, "#d0d0d0") if border_color else "#d0d0d0"
-        page_frame.setStyleSheet(f"background-color: white; border: 1px solid {border_hex}; border-radius: 4px;")
+
+        if border_color == "danger":
+            red_line = QFrame()
+            red_line.setFrameShape(QFrame.Shape.VLine)
+            red_line.setStyleSheet("color: #E03E3E; border: 2px solid #E03E3E; border-radius: 2px;")
+            self.container_layout.addWidget(red_line)
+            
+        page_frame.setStyleSheet("background-color: white; border: 1px solid #d0d0d0; border-radius: 4px;")
+
         
         if top_text:
             tl = QLabel(top_text)

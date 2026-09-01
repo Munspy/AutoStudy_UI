@@ -1,14 +1,14 @@
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from PyQt6.QtWidgets import QTableWidget, QHeaderView
 import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QTableWidgetItem, QLabel, QHeaderView,
-                             QAbstractSpinBox, QFileDialog, QFrame)
+                             QAbstractSpinBox, QFileDialog)
 from PyQt6.QtCore import Qt, QDate
 
 from base.base_ui import BaseUI
 from base.base_ui_components import (LoadingButton, StyledButton, CardWidget, 
-                                     StyledTableWidget, StyledListWidget, StyledCheckBox, 
-                                     StyledComboBox, StyledDateEdit, PreviewScrollArea, StatusBadge)
+                                     StyledTableWidget, StyledCheckBox, StyledComboBox, 
+                                     StyledDateEdit, StatusBadge)
 from controller.drive_sync_controller import DriveSyncController  # 👈 이제 Thread가 아닌 Func만 바라봄
 
 class DriveSyncUi(BaseUI):
@@ -38,7 +38,7 @@ class DriveSyncUi(BaseUI):
                 background-color: #FFFFFF;
             }
             QWidget {
-                font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+                
                 color: #37352f;
             }
             QLabel, QCheckBox {
@@ -136,7 +136,7 @@ class DriveSyncUi(BaseUI):
         control_layout.addStretch()
 
         # 가변 여백 후 오른쪽으로 정렬된 버튼
-        self.btn_set_folder = QPushButton("📂 로컬 폴더")
+        self.btn_set_folder = QPushButton("📂 LOCAL")
 
         # 버튼에 커서가 올라가면 모양이 바뀜
         self.btn_set_folder.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -181,7 +181,7 @@ class DriveSyncUi(BaseUI):
         mid_bar_layout.addStretch()
 
         # 2. 데이터 동기화 및 조회
-        self.search_btn = LoadingButton("데이터 동기화 및 조회", "primary")
+        self.search_btn = LoadingButton(" 데이터 동기화 및 조회", "primary")
         self.search_btn.setCursor(Qt.CursorShape.PointingHandCursor)    # 갖다대면 커서 모양이 바뀜
         # 기본 양식 + 커서 갖다댔을 때 색상 + 눌렸을 때 대기중인 색상 설정
         self.search_btn.setStyleSheet("""
@@ -192,6 +192,7 @@ class DriveSyncUi(BaseUI):
             QPushButton:hover { background-color: #1A6FB0; }
             QPushButton:disabled { background-color: #A5C9F3; }
         """)
+       
         # 누르면 execute_search_log 실행 (이제 Func를 부름)
         self.search_btn.clicked.connect(self.execute_search_log)
 
@@ -247,19 +248,19 @@ class DriveSyncUi(BaseUI):
 
         # 큰 버튼들 모양 지정
         
-        btn_run_local = StyledButton("누락 로컬 작업 모두 실행", "success")
+        btn_run_local = StyledButton("누락 로컬 작업 실행", "save")
         
         
         btn_run_local.clicked.connect(self.controller.execute_local_tasks)
         actions_layout.addWidget(btn_run_local)
 
-        btn_run_whisper = StyledButton("🎙️ Whisper AI 전사 실행", "primary")
+        btn_run_whisper = StyledButton("🎙️ Whisper AI 전사", "whisper")
         
         
         btn_run_whisper.clicked.connect(self.controller.execute_whisper_transcription)
         actions_layout.addWidget(btn_run_whisper)
 
-        btn_dl_script = StyledButton("📄 스크립트 합본 다운로드", "primary")
+        btn_dl_script = StyledButton("💾 스크립트 합본 다운로드", "important")
         
         
         btn_dl_script.clicked.connect(self.controller.download_script_merged)
@@ -268,8 +269,8 @@ class DriveSyncUi(BaseUI):
         actions_layout.addStretch() 
 
         # 작은 버튼들 모양 지정
-        btn_dl_summary = StyledButton("📝 요약본 다운로드", "secondary")
-        btn_dl_anki = StyledButton("🗂️ Anki 다운로드", "secondary")
+        btn_dl_summary = StyledButton("📝 요약본 다운로드", "trivia")
+        btn_dl_anki = StyledButton("🗂️ Anki 다운로드", "trivia")
         actions_layout.addWidget(btn_dl_summary)
         actions_layout.addWidget(btn_dl_anki)
         
@@ -421,19 +422,19 @@ class DriveSyncUi(BaseUI):
             self.table.setItem(row_idx, 2, QTableWidgetItem(data.get("교수", "")))
             self.table.setItem(row_idx, 3, QTableWidgetItem(data.get("강의명", "")))
             
-            item_status1 = QTableWidgetItem(data.get("필기 상태", "없음"))
+            item_status1 = QTableWidgetItem("")
             item_status1.setForeground(Qt.GlobalColor.transparent)
             self.table.setItem(row_idx, 4, item_status1)
             self.table.setCellWidget(row_idx, 4, self.create_badge(data.get("필기 상태", "없음")))
             
-            item_status2 = QTableWidgetItem(data.get("음성 스크립트 상태", "없음"))
+            item_status2 = QTableWidgetItem("")
             item_status2.setForeground(Qt.GlobalColor.transparent)
             self.table.setItem(row_idx, 5, item_status2)
             self.table.setCellWidget(row_idx, 5, self.create_badge(data.get("음성 스크립트 상태", "없음")))
             
             for col_offset, key in enumerate(checkbox_columns):
                 is_checked = bool(data.get(key, False))
-                item_chk = QTableWidgetItem("1" if is_checked else "0")
+                item_chk = QTableWidgetItem("")
                 item_chk.setForeground(Qt.GlobalColor.transparent)
                 self.table.setItem(row_idx, 6 + col_offset, item_chk)
                 

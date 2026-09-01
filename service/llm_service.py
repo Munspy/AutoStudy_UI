@@ -9,7 +9,6 @@ Controller나 Worker 계층으로부터 받은 텍스트 데이터(원본 PDF �
 '교정본 생성', '요약본 도출', 'Anki CSV 추출'과 같은 비즈니스 도메인(의학 교육)에 특화된 
 시스템 프롬프트 관리와 비동기 태스크 상태 추적(START/DONE/ERROR 로깅)에만 집중하는 단일 책임을 가집니다.
 """
-import time
 import uuid
 import threading
 from typing import Dict, Optional, Callable

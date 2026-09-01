@@ -6,7 +6,7 @@ from base.base_controller import BaseController
 # 추후에 AI 에이전트의 도움을 받아서 해결하자
 
 # 각 실행 코드 시작부에 self.cleanup_worker() 들이 반복되는데 다른 코드에서도 이거 다 없애야 함
-from worker.pdf_worker import PdfInspectionThread, PdfCombineSaveThread, PdfMatchListWorker
+from worker.pdf import PdfInspectionWorker, PdfCombineSaveWorker, PdfMatchListWorker
 
 class CombineNotesController(BaseController):
     match_list_completed = pyqtSignal(dict)
@@ -23,12 +23,12 @@ class CombineNotesController(BaseController):
 
     def start_inspection(self, folder_path, selected_keys, matched_groups):
         """UI 입력을 바탕으로 무거운 PDF 파싱 및 매칭 검수 워커를 실행합니다."""
-        worker = PdfInspectionThread(folder_path, selected_keys, matched_groups)
+        worker = PdfInspectionWorker(folder_path, selected_keys, matched_groups)
         worker.finished_signal.connect(self.inspection_completed.emit)
         self.start_worker(worker)
 
     def start_merge(self, base_data, folder_path):
         """검수 완료된 레시피를 기반으로 디스크에 실제 PDF를 병합 저장하는 워커를 실행합니다."""
-        worker = PdfCombineSaveThread(base_data, folder_path)
+        worker = PdfCombineSaveWorker(base_data, folder_path)
         worker.finished_signal.connect(self.merge_completed.emit)
         self.start_worker(worker)

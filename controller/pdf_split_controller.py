@@ -4,7 +4,7 @@ import shutil
 import tempfile
 from PyQt6.QtCore import pyqtSignal
 from base.base_controller import BaseController
-from worker.pdf_worker import PdfFileListWorker, PdfPreviewPrepareWorker, PdfSplitWorker
+from worker.pdf import PdfFileListWorker, PdfPreviewPrepareWorker, PdfSplitWorker
 
 
 
@@ -33,7 +33,7 @@ class PdfSplitController(BaseController):
         self.start_worker(worker)
 
     def start_render_pages(self, local_path, total_pages):
-        from worker.pdf_worker import PdfSplitPreviewRenderWorker
+        from worker.pdf import PdfSplitPreviewRenderWorker
         worker = PdfSplitPreviewRenderWorker(local_path, total_pages)
         worker.page_rendered.connect(self.page_rendered.emit)
         self.start_worker(worker)

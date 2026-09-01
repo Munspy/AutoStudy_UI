@@ -1,29 +1,26 @@
-import sys
 
-from PyQt6.QtWidgets import QTableWidget, QListWidget, QListWidgetItem, QCheckBox, QDateEdit, QComboBox, QHeaderView
+from PyQt6.QtWidgets import QListWidgetItem
 
 from pathlib import Path
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QLabel, QLineEdit, QFileDialog, QScrollArea, QFrame, 
-                             QCheckBox, QComboBox, QListWidget, QListWidgetItem,
-                             QDateEdit, QAbstractSpinBox, QMessageBox)
+from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
+                             QLineEdit, QFileDialog, QListWidgetItem, QAbstractSpinBox, QMessageBox)
 from PyQt6.QtCore import Qt, QDate
 from PyQt6.QtGui import QImage, QPixmap
 
+from base.base_ui import BaseUI
 from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit, PreviewScrollArea
-import controller.pdf_split_controller as backend
+from controller.pdf_split_controller import PdfSplitController
 
-class PdfSplitUi(QWidget):
+class PdfSplitUi(BaseUI):
     def __init__(self, task_manager=None):
-        super().__init__()
-        self.task_manager = task_manager
-        self.controller = backend.PdfSplitController(task_manager=self.task_manager)
+        super().__init__(task_manager=task_manager)
+        self.controller = PdfSplitController(task_manager=self.task_manager)
         
         self.controller.file_list_ready.connect(self.on_file_list_ready)
         self.controller.preview_ready.connect(self.on_preview_ready)
         self.controller.page_rendered.connect(self.on_page_rendered)
         self.controller.split_completed.connect(self.on_split_completed)
-        self.controller.error_signal.connect(lambda t, msg: self.show_error(msg))
+        self.controller.error_signal.connect(self.show_error)
         
         self.file_paths = {}
         self.local_path = None
@@ -36,7 +33,7 @@ class PdfSplitUi(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
             PdfSplitUi { background-color: #FFFFFF; }
-            QWidget { font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; color: #37352f; }
+            QWidget {  color: #37352f; }
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
         
@@ -64,7 +61,7 @@ class PdfSplitUi(QWidget):
         self.local_widget = QWidget()
         local_layout = QHBoxLayout(self.local_widget)
         local_layout.setContentsMargins(0, 0, 0, 0)
-        local_layout.addWidget(QLabel("📂 대상 폴더:"))
+        local_layout.addWidget(QLabel("📂"))
         
         self.folder_input = QLineEdit(str(Path.home() / "Downloads"))
         self.folder_input.setStyleSheet("""
@@ -73,7 +70,7 @@ class PdfSplitUi(QWidget):
         self.folder_input.setReadOnly(True)
         local_layout.addWidget(self.folder_input)
         
-        browse_btn = StyledButton("폴더 변경", "secondary")
+        browse_btn = StyledButton("찾기", "secondary")
         browse_btn.clicked.connect(self.browse_folder)
         local_layout.addWidget(browse_btn)
 
@@ -113,9 +110,6 @@ class PdfSplitUi(QWidget):
         layout.addWidget(control_frame)
 
         file_selection_layout = QVBoxLayout()
-        file_selection_layout.setSpacing(10)
-        
-        file_selection_layout.addWidget(QLabel("📝 분할할 대상 파일 선택:"))
         
         self.file_list = StyledListWidget()
         self.file_list.setAlternatingRowColors(True)
@@ -124,27 +118,18 @@ class PdfSplitUi(QWidget):
         file_selection_layout.addWidget(self.file_list)
         layout.addLayout(file_selection_layout)
 
-        split_input_layout = QHBoxLayout()
-        split_input_layout.addWidget(QLabel("✂️ 분할할 기준 페이지 번호:"))
-        self.split_input = QLineEdit()
-        self.split_input.setPlaceholderText("예: 3")
-        self.split_input.setStyleSheet("""
-            QLineEdit { padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF; width: 100px; font-weight: normal; }
-        """)
-        self.split_input.textChanged.connect(self.update_split_lines)
-        split_input_layout.addWidget(self.split_input)
-        
-        self.preview_label = QLabel("")
-        self.preview_label.setStyleSheet("color: #888888; font-weight: bold;")
-        split_input_layout.addWidget(self.preview_label)
-        
-        split_input_layout.addStretch()
-        layout.addLayout(split_input_layout)
-
         self.scroll_area = PreviewScrollArea()
         layout.addWidget(self.scroll_area, stretch=1)
-
         bottom_layout = QHBoxLayout()
+
+        bottom_layout.addWidget(QLabel("✂️"))
+        self.split_input = QLineEdit()
+        self.split_input.setPlaceholderText("번호")
+        self.split_input.setStyleSheet("""
+            QLineEdit { padding: 10px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; width: 60px; }
+        """)
+        self.split_input.textChanged.connect(self.update_split_lines)
+        bottom_layout.addWidget(self.split_input)
         bottom_layout.addStretch()
         
         bottom_layout.addWidget(QLabel("저장 파일명 1:"))
@@ -161,11 +146,12 @@ class PdfSplitUi(QWidget):
         """)
         bottom_layout.addWidget(self.save_name_2)
         
-        save_btn = StyledButton("💾 선택 파일 분할 및 저장", "danger")
+        save_btn = StyledButton("💾 분할 저장", "save")
         save_btn.clicked.connect(self.start_split)
-        
         bottom_layout.addWidget(save_btn)
+
         layout.addLayout(bottom_layout)
+
 
     def toggle_search_mode(self, state):
         if state == 2:
@@ -203,7 +189,6 @@ class PdfSplitUi(QWidget):
         path_or_id = self.file_paths.get(filename)
         is_drive = self.drive_check.isChecked()
         if not path_or_id: return
-        self.preview_label.setText("미리보기 준비 중...")
         self.controller.start_prepare_preview(path_or_id, is_drive)
         
         # 파일명 추천 로직
@@ -228,7 +213,6 @@ class PdfSplitUi(QWidget):
     def on_preview_ready(self, result):
         self.local_path = result['local_path']
         self.total_pages = result['total_pages']
-        self.preview_label.setText(f"총 {self.total_pages} 페이지")
         
         # UI 프리징 방지를 위해 백그라운드 워커에서 렌더링 시작
         self.controller.start_render_pages(self.local_path, self.total_pages)
@@ -251,7 +235,7 @@ class PdfSplitUi(QWidget):
 
     def update_split_lines(self, text):
         try:
-            split_point = int(text.strip())
+            split_point = int(text.strip()) + 1
         except ValueError:
             split_point = -1
 
@@ -270,7 +254,6 @@ class PdfSplitUi(QWidget):
         self.local_path = None
         self.total_pages = 0
         self.page_images = []
-        self.preview_label.setText("")
         self.scroll_area.clear()
 
     def start_split(self):

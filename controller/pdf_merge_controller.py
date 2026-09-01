@@ -1,5 +1,5 @@
 from base.base_controller import BaseController
-from worker.pdf_worker import PdfFileListWorker, PdfMergeWorker
+from worker.pdf import PdfFileListWorker, PdfMergeWorker
 from PyQt6.QtCore import pyqtSignal
 
 class PdfMergeController(BaseController):
@@ -17,7 +17,7 @@ class PdfMergeController(BaseController):
         self.start_worker(worker)
 
     def start_prepare_previews(self, items_to_prepare, file_paths, drive_cache, temp_dir, is_drive):
-        from worker.pdf_worker import PdfBatchPreviewPrepareWorker
+        from worker.pdf import PdfBatchPreviewPrepareWorker
         worker = PdfBatchPreviewPrepareWorker(items_to_prepare, file_paths, drive_cache, temp_dir, is_drive)
         worker.prepared_signal.connect(self.preview_prepared.emit)
         worker.finished_signal.connect(self.preview_finished.emit)

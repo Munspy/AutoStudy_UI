@@ -35,7 +35,7 @@ class StudyFileEventHandler(FileSystemEventHandler):
             self.signal_emitter.emit("PDF", file_path)
 
 
-class WatchdogThread(BaseWorker):
+class WatchdogWorker(BaseWorker):
     """
     백그라운드에서 특정 폴더를 무한히 감시하는 스레드입니다.
     """
