@@ -215,10 +215,23 @@ class YoutubePlaylistUi(BaseUI):
         # ===========================
         # [초기화 완료 후 목록 로드]
         # ===========================
-        self.refresh_combo_box()
+        # 앱 시작 시 유튜브 API 자동 호출 없이, 로컬 CSV 데이터만 읽어서 목록 채움
+        self._init_combo_box_from_csv()
 
     def emit_log(self, message):
         self.log_signal.emit(message)
+
+    def _init_combo_box_from_csv(self):
+        """앱 시작 시 유튜브 API 호출 없이 로컬 CSV에서만 재생목록 목록을 채웁니다."""
+        self.playlist_combo.blockSignals(True)
+        self.playlist_combo.clear()
+        playlists = load_csv_data()
+        if not playlists:
+            self.playlist_combo.addItem("등록된 재생목록 없음")
+        else:
+            for pl in playlists:
+                self.playlist_combo.addItem(pl['name'], pl['playlist_id'])
+        self.playlist_combo.blockSignals(False)
         
     def open_manage_dialog(self):
         dlg = PlaylistManagerDialog(self)
@@ -255,9 +268,8 @@ class YoutubePlaylistUi(BaseUI):
         self.playlist_combo.blockSignals(False)
         
         if sorted_playlists:
-            self.emit_log("가장 최근에 업데이트된 재생목록을 불러옵니다.")
+            self.emit_log("업데이트 날짜 확인 완료. '데이터 새로고침' 버튼을 눌러 영상 목록을 불러오세요.")
             self.playlist_combo.setCurrentIndex(0)
-            self.load_playlist_data()
 
     def add_playlist_dialog(self):
         from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit
