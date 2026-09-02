@@ -87,8 +87,6 @@ class PdfSplitUi(BaseUI):
         drive_layout.setContentsMargins(0, 0, 0, 0)
         drive_layout.setSpacing(10)
         
-        drive_layout.addWidget(QLabel("📅 날짜 범위:"))
-        
         today = QDate.currentDate()
         self.start_date = StyledDateEdit(today)
         self.start_date.setDisplayFormat("MM-dd")

@@ -24,8 +24,6 @@ CREDENTIALS_PATH = BASE_DIR / 'credentials.json'
 
 # 싱글톤(Singleton) 패턴을 위한 전역 캐시 변수
 _creds_instance = None
-_drive_service = None
-_youtube_service = None
 
 # 멀티스레드 환경 Race Condition 방지 Lock (Reentrant Lock으로 변경하여 데드락 방지)
 _auth_lock = threading.RLock()
@@ -124,58 +122,31 @@ def get_drive_service():
     """Google Drive API (v3) 서비스 객체를 반환합니다.
 
     이 함수는 Service 계층(예: DriveSyncService) 및 Worker 계층에서 Google Drive 상호작용(파일 업로드, 다운로드, 동기화)을 
-    수행할 수 있도록 빌드된 서비스 클라이언트를 싱글톤 형태로 제공합니다. 
+    수행할 수 있도록 빌드된 서비스 클라이언트를 제공합니다. 
 
-    자동화된 백그라운드 파이프라인 특성상 대용량 PDF 분석이나 Whisper AI 변환과 같은 장기 실행 작업(Long-running tasks) 이후에 
-    Drive API가 호출될 가능성이 높습니다. 따라서 호출 시점마다 `get_credentials()`를 통해 크레덴셜 유효성을 강제로 재확인하고, 
-    토큰 만료로 인한 API 호출 실패(예외 발생)를 원천 차단합니다. 여러 스레드가 동시에 서비스 객체를 요청하더라도 
-    내부 락(Lock)을 통해 안전하게 하나의 유효한 객체만 반환하도록 보장합니다.
-
-    Args:
-        없음
+    build()는 실제 네트워크 연결이 아닌 객체 생성만 수행하므로 매번 새로 빌드해도 비용이 거의 없습니다.
+    싱글톤으로 캐싱할 경우 HTTP 커넥션 풀이 idle 상태로 서버에서 끊어진 뒤 재사용되어
+    SSL record layer failure 오류가 발생할 수 있으므로, 매 호출 시 새 객체를 반환합니다.
 
     Returns:
         googleapiclient.discovery.Resource: 
             Google Drive API(v3)와 안전하게 통신할 수 있는 빌드된 서비스 객체.
     """
-    global _drive_service
-    
     with _auth_lock:
-        # 매번 요청 시점에 토큰이 유효한지 크레덴셜 검사 수행 (장기 실행 작업 대응)
         creds = get_credentials()
-        
-        # 서비스 객체가 없거나 크레덴셜이 무효화된 경우 새로 빌드
-        if not _drive_service or not creds.valid:
-            _drive_service = build('drive', 'v3', credentials=creds)
-            
-        return _drive_service
+        return build('drive', 'v3', credentials=creds)
 
 def get_youtube_service():
     """Google YouTube Data API (v3) 서비스 객체를 반환합니다.
 
-    이 함수는 Service 계층에서 YouTube Data API(예: 플레이리스트 정보 수집, 자막(Transcript) 처리 등)와 
-    연동하기 위한 클라이언트 서비스 객체를 빌드하여 반환합니다. 
-
-    YouTube API 연동 역시 대규모 배치 데이터 처리나 큐(Queue) 기반 비동기 Worker 환경에서 수행되므로, 
-    토큰 만료 방지 및 스레드 안전성 확보가 필수적입니다. 이 함수는 싱글톤 패턴과 스레드 락을 활용해 
-    안정적인 YouTube 리소스 객체 상태를 유지하며, 만료된 크레덴셜을 감지하면 즉시 갱신된 크레덴셜로 
-    서비스 객체를 재생성합니다.
-
-    Args:
-        없음
+    build()는 실제 네트워크 연결이 아닌 객체 생성만 수행하므로 매번 새로 빌드해도 비용이 거의 없습니다.
+    싱글톤으로 캐싱할 경우 HTTP 커넥션 풀이 idle 상태로 서버에서 끊어진 뒤 재사용되어
+    SSL record layer failure 오류가 발생할 수 있으므로, 매 호출 시 새 객체를 반환합니다.
 
     Returns:
         googleapiclient.discovery.Resource: 
             Google YouTube Data API(v3)와 안전하게 상호작용할 수 있는 빌드된 서비스 객체.
     """
-    global _youtube_service
-    
     with _auth_lock:
-        # 매번 요청 시점에 토큰이 유효한지 크레덴셜 검사 수행
         creds = get_credentials()
-        
-        # 서비스 객체가 없거나 크레덴셜이 무효화된 경우 새로 빌드
-        if not _youtube_service or not creds.valid:
-            _youtube_service = build('youtube', 'v3', credentials=creds)
-            
-        return _youtube_service
+        return build('youtube', 'v3', credentials=creds)
