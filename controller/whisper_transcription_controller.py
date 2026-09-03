@@ -50,13 +50,14 @@ class WhisperTranscriptionController(BaseController):
             return
 
         # 원격 자원용 워커들을 리스트로 관리
+
+        worker = WhisperExecutionWorker()
         worker_list = []
         for file in selected_files:
             # Mac mini 같은 외부 자원으로 무거운 통신을 할 때 큐 관리가 필수적입니다.
             # 개별 파일에 대해 실행할 Whisper 워커 객체 생성
-            worker = WhisperExecutionWorker([file], mac_mini_ip="192.168.0.15") 
-            # 완료 결과를 알리기 위한 시그널 연결
-            worker.finished_signal.connect(self.execution_completed.emit)
+            # 완료 결과를 알리기 위한 시그널 연결 (인자 무시 래핑)
+            worker.finished_signal.connect(lambda _: self.execution_completed.emit())
             worker_list.append(worker)
 
         # 🚀 중앙 매니저의 "whisper" 전용 차선으로 대기열 토스!

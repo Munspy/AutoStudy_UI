@@ -21,3 +21,6 @@ visualize_all.py
 .env
 .gitignore.env
 .DS_Store
+legacy.xml
+
+api_key_state.json

@@ -87,7 +87,9 @@ class LlmService(BaseService):
         model_name: str, 
         system_instruction: str, 
         user_prompt: str, 
-        task_id: Optional[str] = None
+        task_id: Optional[str] = None,
+        on_start_callback=None,
+        thinking_level: Optional[str] = None
     ) -> Optional[str]:
         """LLM 호출 시 반복되는 락킹, 로깅 및 예외 처리를 전담하는 내부 템플릿(Wrapper) 메서드입니다.        개별 비즈니스 로직(교정본, 요약본 등)이 직접 API를 호출하고 예외 처리를 중복 작성하는 것을 방지합니다. 
         이 메서드는 API 호출 전 `api_mgr`로부터 사용 가능한 API 키를 안전하게 대여(Checkout) 받고, 
@@ -100,6 +102,8 @@ class LlmService(BaseService):
             system_instruction (str): LLM의 페르소나 및 출력 형식을 정의하는 시스템 프롬프트.
             user_prompt (str): 모델에 전달할 실제 데이터가 담긴 사용자 프롬프트.
             task_id (Optional[str], optional): 작업 추적용 고유 ID. 입력하지 않으면 자동으로 UUID 8자리를 생성합니다.
+            on_start_callback: 작업 시작 시 호출될 콜백.
+            thinking_level (Optional[str], optional): Thinking Level 설정값 ("HIGH", "MEDIUM", "LOW" 등).
 
         Returns:
             Optional[str]: LLM이 생성한 응답 텍스트. 통신 에러나 예기치 못한 시스템 오류 발생 시 None 반환.
@@ -107,40 +111,46 @@ class LlmService(BaseService):
         if task_id is None: 
             task_id = str(uuid.uuid4())[:8]
             
-        task_name = f"{task_title} ({model_name})"
+        model_display = ', '.join(model_name) if isinstance(model_name, list) else model_name
+        task_name = f"{task_title} ({model_display})"
         self._update_process_status(task_id, task_name, "START")
         
-        # 1. 사용 가능한 키 확보 (대기 발생 가능)
-        key_id, api_key = api_mgr.get_available_key(model_name)
-        error_code = None
-        
-        try:
-            self._log(f"🔄 [AI 팀 - {task_id}] '{model_name}' API로 {task_title}을(를) 시작합니다...")
-            
-            # 2. 통신 모듈에는 키 문자열만 넘겨줌
-            result_text = call_gemini_api(api_key, model_name, system_instruction, user_prompt, temperature=0.1)
-            
-            self._log(f"✨ [AI 팀 - {task_id}] {task_title} 성공적으로 완료!")
-            self._update_process_status(task_id, task_name, "DONE")
-            return result_text
-            
-        except GeminiAPIError as e:
-            # 3-1. 통신 에러 발생 시 커스텀 예외에서 코드 추출
-            error_code = e.code
-            self._log(f"❌ [AI 팀 - {task_id}] {task_title} 오류 [HTTP {error_code}]: {str(e)}")
-            self._update_process_status(task_id, task_name, "ERROR")
-            return None
-            
-        except Exception as e:
-            # 3-2. 그 외 예상치 못한 에러
-            error_code = "unknown"
-            self._log(f"❌ [AI 팀 - {task_id}] {task_title} 시스템 오류: {str(e)}")
-            self._update_process_status(task_id, task_name, "ERROR")
-            return None
-            
-        finally:
-            # 4. 성공/실패 여부와 관계없이 키를 반납 (쿨타임 타이머 시작)
-            api_mgr.end_task(key_id, model_name, error_code)
+        while True:
+            try:
+                key_id, api_key, chosen_model = api_mgr.get_available_key(model_name)
+            except TimeoutError:
+                self._log(f"❌ [AI 팀 - {task_id}] {task_title}: 더 이상 사용 가능한 API Key가 없습니다.")
+                self._update_process_status(task_id, task_name, "ERROR")
+                return None
+
+            task_name = f"{task_title} ({chosen_model})"
+            error_code = None
+            try:
+                self._log(f"🔄 [AI 팀 - {task_id}] '{chosen_model}' API ({key_id})로 {task_title}을(를) 시작합니다...")
+                if on_start_callback:
+                    on_start_callback(key_id, chosen_model)
+                
+                result_text = call_gemini_api(
+                    api_key, 
+                    chosen_model, 
+                    system_instruction, 
+                    user_prompt, 
+                    temperature=0.1, 
+                    thinking_level=thinking_level
+                )
+                
+                self._log(f"✨ [AI 팀 - {task_id}] {task_title} ({key_id}) 성공적으로 완료!")
+                self._update_process_status(task_id, task_name, "DONE")
+                return result_text
+                
+            except GeminiAPIError as e:
+                error_code = e.code
+                self._log(f"⚠️ [AI 팀 - {task_id}] '{key_id}' ({chosen_model}) 오류 [HTTP {error_code}]. 다른 Key/모델로 재시도합니다...")
+            except Exception as e:
+                error_code = "unknown"
+                self._log(f"⚠️ [AI 팀 - {task_id}] '{key_id}' ({chosen_model}) 예외: {str(e)}. 다른 Key/모델로 재시도합니다...")
+            finally:
+                api_mgr.end_task(key_id, chosen_model, error_code)
 
     # ==========================================
     # 1. 교정본 생성 (준비물: 음성 스크립트 + 강의록)
@@ -154,7 +164,8 @@ class LlmService(BaseService):
         audio_text: str, 
         pdf_text: str, 
         model_name: str, 
-        task_id: Optional[str] = None
+        task_id: Optional[str] = None,
+        on_start_callback=None
     ) -> Optional[str]:
         """음성 스크립트와 강의록을 비교하여 강사의 발화를 보존하며 오타를 교정하는 비즈니스 메서드입니다.        Whisper AI가 음성을 텍스트로 변환할 때 흔히 발생하는 전문 의학 용어의 오인식(Hallucination)을 
         해결하기 위해 설계되었습니다. 원본 PDF(강의록) 텍스트를 Ground Truth(참조 데이터)로 제공하여 
@@ -224,7 +235,15 @@ class LlmService(BaseService):
 ...
 (반드시 PDF에 존재하는 페이지 수만큼 숫자를 증가시키며 매핑하세요. 텍스트가 없는 슬라이드는 '[Slide 00X]\\n(내용 없음)' 으로 표기하세요.)"""
 
-        return self._execute_llm_task("Gemini 교정 작업", model_name, system_instruction, user_prompt, task_id)
+        return self._execute_llm_task(
+            "Gemini 교정 작업", 
+            model_name, 
+            system_instruction, 
+            user_prompt, 
+            task_id, 
+            on_start_callback, 
+            thinking_level="HIGH"
+        )
     # ==========================================
     # 2. 요약본 생성 (준비물: 교정본 + 강의록)
     # ==========================================
@@ -237,7 +256,8 @@ class LlmService(BaseService):
         corrected_text: str, 
         pdf_text: str, 
         model_name: str, 
-        task_id: Optional[str] = None
+        task_id: Optional[str] = None,
+        on_start_callback=None
     ) -> Optional[str]:
         """강의록과 교정본을 바탕으로 핵심 단권화(Summary) 노트를 생성하는 비즈니스 메서드입니다.        교정이 완료된 스크립트와 강의록 텍스트를 입력받아, 의학 교육 전문가 수준의 
         구조화된 핵심 요약본을 도출합니다. 단순 요약이 아닌, 시험 출제 시그널 식별, 감별 진단 표 구성, 
@@ -318,7 +338,7 @@ Definitive Treatment (최종 치료)
 
 위 데이터를 바탕으로 System Instruction에 명시된 결과물을 출력해 줘."""
 
-        return self._execute_llm_task("Gemini 요약 작업", model_name, system_instruction, user_prompt, task_id)
+        return self._execute_llm_task("Gemini 요약 작업", model_name, system_instruction, user_prompt, task_id, on_start_callback)
 
     # ==========================================
     # 3. Anki 데이터 생성 (준비물: 교정본 + 강의록)
@@ -332,7 +352,8 @@ Definitive Treatment (최종 치료)
         corrected_text: str, 
         pdf_text: str, 
         model_name: str, 
-        task_id: Optional[str] = None
+        task_id: Optional[str] = None,
+        on_start_callback=None
     ) -> Optional[str]:
         """강의록과 교정본을 바탕으로 Anki 카드 생성을 위한 파이프(|) 구분 CSV 원시 텍스트를 생성합니다.        AnkiGenerationService(Anki 팀)가 `.apkg` 파일을 패키징하기 전, 필요한 핵심 데이터를 LLM을 통해 
         추출해내는 전처리 단계입니다. 프롬프트 내에 Basic, Cloze(빈칸뚫기), MCQ(객관식) 카드를 생성하는 
@@ -456,7 +477,7 @@ Definitive Treatment (최종 치료)
 [강의 스크립트]
 {corrected_text}"""
 
-        result_text = self._execute_llm_task("Anki CSV 데이터 생성", model_name, system_instruction, user_prompt, task_id)        
+        result_text = self._execute_llm_task("Anki CSV 데이터 생성", model_name, system_instruction, user_prompt, task_id, on_start_callback)        
         if result_text:
             return result_text.replace("```csv", "").replace("```", "").strip()
         return None

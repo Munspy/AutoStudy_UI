@@ -150,6 +150,10 @@ class PdfMergeUi(BaseUI):
 
         mid_bar_layout.addStretch()
         
+        # '로컬로 받기' 체크박스 추가
+        self.local_save_check = StyledCheckBox("로컬로 받기")
+        mid_bar_layout.addWidget(self.local_save_check)
+        
         self.select_scripted_btn = StyledButton("\u26A1\uFE0E 스크립트본 선택", "warning")
         self.select_scripted_btn.clicked.connect(self.select_scripted_items)
         mid_bar_layout.addWidget(self.select_scripted_btn)
@@ -200,6 +204,9 @@ class PdfMergeUi(BaseUI):
         bottom_layout.addWidget(self.save_name_input)
         bottom_layout.addWidget(save_btn)
         layout.addLayout(bottom_layout)
+
+        # 드라이브 업로드를 기본값으로 설정 (stateChanged → toggle_search_mode 자동 호출)
+        self.drive_check.setChecked(True)
 
     def fetch_files(self):
         is_drive = self.drive_check.isChecked()
@@ -396,18 +403,17 @@ class PdfMergeUi(BaseUI):
             return
             
         is_drive = self.drive_check.isChecked()
-        files = [self.file_paths[t] for t in selected]
+        paths_to_merge = [self.file_paths[t] for t in selected]
         
         task_data = {
-            'files': files,
-            'out_name': self.save_name_input.text() or "merged.pdf",
-            'is_drive': is_drive,
-            'target_dir': self.folder_input.text() if not is_drive else None
+            'paths_to_merge': paths_to_merge,
+            'save_name': self.save_name_input.text() or "merged.pdf",
+            'is_drive': True,  # 출력은 항상 드라이브 업로드 수행
+            'save_local': self.local_save_check.isChecked(),
+            'target_dir': self.folder_input.text()
         }
+        
         self.controller.start_merge(task_data)
 
     def on_merge_completed(self, msg):
-        QMessageBox.information(self, "완료", msg)
-
-    def show_error(self, title, msg):
-        QMessageBox.critical(self, title, msg)
+        self.show_info("완료", msg)

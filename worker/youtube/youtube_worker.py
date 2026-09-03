@@ -67,7 +67,11 @@ class YoutubeUploadWorker(BaseWorker):
             # ===========================
             try:
                 # 오디오를 다운로드하여 구글 드라이브에 업로드합니다.
-                self.media_service.download_and_upload_audio(item['video_url'], prefix, drive_folder_id)
+                self.media_service.download_and_upload_audio(
+                    url=item['url'],
+                    prefix=prefix,
+                    drive_folder_id=drive_folder_id
+                )
                 self.log_signal.emit(f"✅ 업로드 완료: {prefix}.wav")
             except Exception as e:
                 # 예외 발생 시 로그 시그널 방출

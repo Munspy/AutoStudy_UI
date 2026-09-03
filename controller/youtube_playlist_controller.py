@@ -59,8 +59,8 @@ class YoutubePlaylistController(BaseController):
     def start_upload_videos(self, target_videos: list):
         # 업로드 대상 영상들을 받아 유튜브 업로드 워커 생성
         self.worker = YoutubeUploadWorker(target_videos)
-        # 업로드 완료 및 진행 상황 시그널 연결
-        self.worker.finished_signal.connect(self.upload_completed.emit)
+        # 업로드 완료 및 진행 상황 시그널 연결 (인자 무시 래핑)
+        self.worker.finished_signal.connect(lambda _: self.upload_completed.emit())
         self.worker.progress_signal.connect(self.progress_signal.emit)
         # 백그라운드 워커 시작
         self.start_worker(self.worker)

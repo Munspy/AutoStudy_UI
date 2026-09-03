@@ -12,7 +12,7 @@ from base.base_service import BaseService
 import os
 import tempfile
 import yt_dlp
-from typing import Any
+from typing import Any, Optional
 from googleapiclient.http import MediaFileUpload
 from utils.auth_util import get_drive_service
 
@@ -31,7 +31,7 @@ class YoutubeMediaService(BaseService):
     # ===========================
     # [오디오 다운로드 및 업로드]
     # ===========================
-    def download_and_upload_audio(self, url: str, prefix: str, drive_folder_id: str, drive_service: Any) -> None:
+    def download_and_upload_audio(self, url: str, prefix: str, drive_folder_id: str, drive_service: Optional[Any] = None) -> None:
         """단일 유튜브 영상을 WAV 포맷으로 추출한 뒤 구글 드라이브에 안전하게 업로드합니다.
 
         자동화된 학습 자료 파이프라인에서 Whisper AI가 음성을 텍스트로 원활하게 변환하기 
@@ -52,9 +52,8 @@ class YoutubeMediaService(BaseService):
             prefix (str): 로컬 임시 파일 생성 및 구글 드라이브 저장 시 사용할 파일명 (확장자 제외). 
                 일반적으로 파이프라인 상태 관리를 위한 '날짜_교시' 형태의 식별자가 주입됩니다.
             drive_folder_id (str): 추출된 WAV 파일이 업로드될 구글 드라이브 대상 폴더의 고유 ID.
-            drive_service (Any): 인증이 완료된 구글 드라이브 API 서비스 객체. 
-                (내부 구현상 `get_drive_service()` 호출을 통해 최신 객체로 한 번 더 덮어씌워 
-                장기 실행 시 토큰 만료 문제를 방어합니다.)
+            drive_service (Optional[Any], optional): 인증이 완료된 구글 드라이브 API 서비스 객체. 
+                지정되지 않은 경우 `get_drive_service()`를 통해 최신 객체를 가져옵니다.
 
         Returns:
             None: 반환값 없이 외부 스토리지(구글 드라이브)에 업로드를 수행하고 종료됩니다.
@@ -65,8 +64,8 @@ class YoutubeMediaService(BaseService):
             Exception: 구글 드라이브 네트워크 업로드 중 토큰 만료, 클라우드 용량 초과, 
                 네트워크 단절 등의 이유로 `MediaFileUpload` 객체의 `.execute()`가 실패할 때 발생합니다.
         """
-        # 최신 구글 드라이브 서비스 객체를 가져와 토큰 만료 방어
-        drive_service = get_drive_service()
+        if drive_service is None:
+            drive_service = get_drive_service()
         
         # 임시 디렉토리를 생성하여 변환 후 찌꺼기 파일 자동 삭제 보장
         with tempfile.TemporaryDirectory() as temp_dir:

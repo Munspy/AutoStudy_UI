@@ -86,19 +86,7 @@ class APIManager(BaseService):
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        if self.state_file.exists():
-            try:
-                with open(self.state_file, "r", encoding="utf-8") as f:
-                    return json.load(f)
-            except Exception as e:
-                backup_path = self.state_file.with_suffix('.json.bak')
-                try:
-                    shutil.copy2(self.state_file, backup_path)
-                    print(f"⚠️ 'api_key_state.json' 파일 손상 감지. 기존 파일을 백업했습니다: {backup_path.name} (에러: {e})")
-                except Exception as backup_e:
-                    print(f"⚠️ 상태 파일 백업 중 오류 발생: {backup_e}")
-                
-        initial_state: Dict[str, Any] = {}
+        initial_state = {}
         for k in self.keys:
             for m in self.models:
                 combo = f"{k}::{m}"
@@ -108,6 +96,27 @@ class APIManager(BaseService):
                     "error_code": None,
                     "error_time": 0.0
                 }
+                
+        if self.state_file.exists():
+            try:
+                with open(self.state_file, "r", encoding="utf-8") as f:
+                    loaded_state = json.load(f)
+                    # 누락된 키 병합 및 강제 종료로 인한 좀비 상태 초기화
+                    for combo, init_val in initial_state.items():
+                        if combo not in loaded_state:
+                            loaded_state[combo] = init_val
+                        else:
+                            # 앱 재시작 시 기존 '사용 중' 플래그는 모두 무효화
+                            loaded_state[combo]["is_in_use"] = False
+                    return loaded_state
+            except Exception as e:
+                backup_path = self.state_file.with_suffix('.json.bak')
+                try:
+                    shutil.copy2(self.state_file, backup_path)
+                    print(f"⚠️ 'api_key_state.json' 파일 손상 감지. 기존 파일을 백업했습니다: {backup_path.name} (에러: {e})")
+                except Exception as backup_e:
+                    print(f"⚠️ 상태 파일 백업 중 오류 발생: {backup_e}")
+                
         return initial_state
 
     def _save_state(self) -> None:
@@ -239,7 +248,7 @@ class APIManager(BaseService):
                 
             return STATE_READY, 0.0
 
-    def get_available_key(self, model_name: str, timeout: int = 3600) -> Tuple[str, str]:
+    def get_available_key(self, model_name, timeout: int = 3600):
         """현재 즉시 사용할 수 있는(Ready 상태인) 최적의 API 키를 찾아 스레드 안전하게 할당(Checkout)합니다.
 
         Service 계층이 LLM API 요청을 보내기 직전에 호출하는 핵심 메서드입니다. 
@@ -265,7 +274,9 @@ class APIManager(BaseService):
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        print(f"\n🔍 [{model_name}] 사용 가능한 API Key 탐색 중...")
+        models = [model_name] if isinstance(model_name, str) else model_name
+        model_display = ', '.join(models)
+        print(f"\n🔍 [{model_display}] 사용 가능한 API Key 탐색 중...")
         start_time = time.time()
         
         with self.lock: 
@@ -274,32 +285,29 @@ class APIManager(BaseService):
                 if current_time - start_time > timeout:
                     raise TimeoutError(f"API Key 확보 시간 초과 ({timeout}초)")
                 
-                # 가장 짧게 남은 쿨타임을 추적하기 위한 변수
                 shortest_wait = timeout 
 
-                for key_id, api_key in self.key_map.items():
-                    if not api_key: continue
-                    
-                    data = self.state.get(f"{key_id}::{model_name}")
-                    if not data or data["is_in_use"]: continue
-                    
-                    # 일일 한도 에러 처리 (상수 사용)
-                    if data.get("error_code") == ERROR_QUOTA_EXCEEDED:
-                        if self._get_pt_date(data["error_time"]) == self._get_pt_date(current_time):
+                for m_name in models:
+                    for key_id, api_key in self.key_map.items():
+                        if not api_key: continue
+                        
+                        data = self.state.get(f"{key_id}::{m_name}")
+                        if not data or data["is_in_use"]: continue
+                        
+                        if data.get("error_code") == ERROR_QUOTA_EXCEEDED:
+                            if self._get_pt_date(data["error_time"]) == self._get_pt_date(current_time):
+                                continue
+                                
+                        time_since_finished = current_time - data["last_finished_at"]
+                        if time_since_finished < self.cooldown_seconds:
+                            remaining = self.cooldown_seconds - time_since_finished
+                            shortest_wait = min(shortest_wait, remaining)
                             continue
                             
-                    time_since_finished = current_time - data["last_finished_at"]
-                    if time_since_finished < self.cooldown_seconds:
-                        # 쿨타임이 남은 경우, 남은 시간을 계산하여 가장 짧은 대기 시간 업데이트
-                        remaining = self.cooldown_seconds - time_since_finished
-                        shortest_wait = min(shortest_wait, remaining)
-                        continue
-                        
-                    # 사용 가능한 키 발견 시 즉시 할당
-                    data["is_in_use"] = True
-                    self._save_state()
-                    print(f"✅ [{model_name}] '{key_id}' 할당 완료 및 작업 시작!")
-                    return key_id, api_key
+                        data["is_in_use"] = True
+                        self._save_state()
+                        print(f"✅ [{m_name}] '{key_id}' 할당 완료 및 작업 시작!")
+                        return key_id, api_key, m_name
                     
                 # 모든 키가 사용 중이거나 쿨타임인 경우
                 # 락을 해제한 채로 가장 짧은 쿨타임만큼만 정확히 수면(Wait)

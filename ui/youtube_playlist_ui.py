@@ -90,6 +90,7 @@ class YoutubePlaylistUi(BaseUI):
         self.controller.upload_completed.connect(self.on_upload_finished)
         self.controller.error_signal.connect(self.on_upload_error)
         self.controller.progress_signal.connect(self.global_progress_signal.emit)
+        self.controller.log_signal.connect(self.emit_log)
 
         self.videos_data = [] 
         self.init_ui()
@@ -450,7 +451,7 @@ class YoutubePlaylistUi(BaseUI):
                     continue
                     
                 url = f"https://www.youtube.com/watch?v={vid_info['vid']}&list={playlist_id}"
-                target_videos.append({"video_url": url, "prefix": vid_info["prefix"]})
+                target_videos.append({"url": url, "prefix": vid_info["prefix"]})
                 
         if not target_videos:
             self.emit_log("업로드 가능한 영상이 선택되지 않았습니다.")
@@ -462,7 +463,9 @@ class YoutubePlaylistUi(BaseUI):
         
         self.controller.start_upload_videos(target_videos)
 
-    def on_upload_error(self, err_msg):
+    def on_upload_error(self, title_or_msg, err_msg=None):
+        if err_msg is None:
+            err_msg = str(title_or_msg)
         self.emit_log(f"업로드 오류: {err_msg}")
         self.upload_btn.stop_loading()
 

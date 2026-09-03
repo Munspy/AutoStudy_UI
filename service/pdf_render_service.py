@@ -21,10 +21,12 @@ import pymupdf
 import markdown
 from xhtml2pdf import pisa
 from pylatexenc.latex2text import LatexNodes2Text
+import threading
 
 from utils.config import Config
 from base.base_service import BaseService
 
+_pdf_rendering_lock = threading.Lock()
 PathLike = Union[str, Path]
 
 class PdfRenderService(BaseService):
@@ -35,7 +37,8 @@ class PdfRenderService(BaseService):
     LlmService나 PipelineStatusService에서 가공된 텍스트 데이터를 주입받아 동작합니다.
     """
 
-    def __init__(self):
+    def __init__(self, logger_callback=None):
+        self.logger_callback = logger_callback
         """PdfRenderService 인스턴스를 초기화하고 전역 설정 및 정규식을 로드합니다."""
         # ===========================
         # [메인 비즈니스 로직]
@@ -70,7 +73,8 @@ class PdfRenderService(BaseService):
         안전하게 치환(Fallback)하고, HTML 예약어 충돌을 막기 위해 `html.escape` 처리를 
         선행하는 핵심 방어 로직입니다.
 
-        Args:            text (str): 치환되지 않은 원본 마크다운 텍스트 문자열.
+        Args:
+            text (str): 치환되지 않은 원본 마크다운 텍스트 문자열.
 
         Returns:
             str: 렌더링 엔진에 주입해도 안전하도록 모든 수식과 기호가 유니코드 및 이스케이프 처리된 문자열.
@@ -118,6 +122,10 @@ class PdfRenderService(BaseService):
         # [최적화 1] 마크다운 리스트 포맷 정규화로 글머리 기호 렌더링 오류 방지
         text = self._list_spacing_pattern.sub(r'\1\n\n\2', text)
         return text
+
+    def sanitize_markdown(self, text: str) -> str:
+        """외부 서비스에서 공통으로 마크다운 수식 및 특수문자 정제를 수행할 수 있는 공개 인터페이스입니다."""
+        return self._sanitize_markdown(text)
 
     def _html_to_pdf_doc(self, html_content: str) -> pymupdf.Document:
         """CSS가 주입된 완성형 HTML 문자열을 메모리 상의 `pymupdf.Document` 객체로 직접 변환합니다.
@@ -214,7 +222,15 @@ class PdfRenderService(BaseService):
         """
         return self._html_to_pdf_doc(html_content)
 
+
+    # PDF 렌더링이 한번에 하나만 일어나도록 제한하는 코드
+    # 여러개가 한번에 발생하면 뻗을 수 있음
+    # 병렬로 돌아가는 AI 작업들을 "PDF 렌더링 순간"에만 줄을 세워 안전하게 처리하려는 방어 코드
     def create_slide_script_pdf(self, orig_pdf_path: PathLike, slides_data_dict: dict, output_path: PathLike) -> str:
+        with _pdf_rendering_lock:
+            return self._create_slide_script_pdf_impl(orig_pdf_path, slides_data_dict, output_path)
+
+    def _create_slide_script_pdf_impl(self, orig_pdf_path: PathLike, slides_data_dict: dict, output_path: PathLike) -> str:
         """원본 PDF 슬라이드를 상단에, LLM 교정 스크립트를 하단에 배치한 복합(Composite) 학습 PDF를 생성합니다.
 
         의학 학습 자료 자동화의 핵심 결과물 중 하나로, 학생들이 강의 화면(시각 자료)과 교수님의 구두 설명(스크립트 텍스트)을 

@@ -409,13 +409,22 @@ class PreviewScrollArea(QScrollArea):
         # ===========================
         # [테두리 및 스타일 처리]
         # ===========================
+
+        # 일반 분할 ({page_number}) (빨간 선)
         if border_color == "danger":
             red_line = QFrame()
             red_line.setFrameShape(QFrame.Shape.VLine)
             red_line.setStyleSheet("color: #E03E3E; border: 2px solid #E03E3E; border-radius: 2px;")
             self.container_layout.addWidget(red_line)
-            
-        page_frame.setStyleSheet("background-color: white; border: 1px solid #d0d0d0; border-radius: 4px;")
+            page_frame.setStyleSheet("background-color: white; border: 1px solid #d0d0d0; border-radius: 4px;")
+
+        # 중복 분할 (!{page_number}) (한 페이지에 빨간 테두리)
+        elif border_color == "overlap":
+            page_frame.setStyleSheet("background-color: white; border: 3px solid #E03E3E; border-radius: 4px;")
+
+        # 그냥 평범한 상태
+        else:
+            page_frame.setStyleSheet("background-color: white; border: 1px solid #d0d0d0; border-radius: 4px;")
 
         # ===========================
         # [위젯 배치: 상단 텍스트, 이미지, 하단 텍스트]

@@ -105,7 +105,9 @@ class KeyBadge(QWidget):
             display_text = f"{self.remaining_cd:.1f}s"
         else:
             # 뱃지 공간 제약으로 인해 화면 표시용으로 텍스트 축약
-            display_text = self.name.replace("gemini-", "").replace("-flash", "")
+            display_text = self.name.replace("gemini-", "").replace("-flash", "").replace("-preview", "")
+            if display_text == "3" or self.name == "gemini-3-flash-preview":
+                display_text = "3.0" 
 
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, display_text)
 
@@ -135,9 +137,10 @@ class GeminiProcessingUi(BaseUI):
         self.controller.cell_update_signal.connect(self.update_task_cell)
         self.controller.error_signal.connect(self.handle_scan_error)
         self.controller.loading_signal.connect(self.handle_loading_state)
+        self.controller.log_signal.connect(self.emit_log)
 
         self.api_keys = ["KEY_1", "KEY_2", "KEY_3"]
-        self.models = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"] 
+        self.models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"] 
         
         self.badge_widgets = {}
         self.init_ui()
@@ -307,16 +310,19 @@ class GeminiProcessingUi(BaseUI):
             row_chk.findChild(QCheckBox).stateChanged.connect(lambda state, r=row: self.toggle_row(r, state))
             self.table.setCellWidget(row, 0, row_chk)
             
-            item_교시 = QTableWidgetItem(data["교시"])
-            item_교시.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.table.setItem(row, 1, item_교시)
+            lesson_item = QTableWidgetItem(data["교시"])
+            lesson_item.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            self.table.setItem(row, 1, lesson_item)
             
             self.table.setCellWidget(row, 2, self.create_check_label(data["강의록"], color="#8C8C8C"))
             self.table.setCellWidget(row, 3, self.create_check_label(data["음성스크립트"], color="#8C8C8C"))
             
-            self.table.setCellWidget(row, 4, self.create_task_checkbox(data["교정"], data["음성스크립트"], row, 4, is_force_rerun))
-            self.table.setCellWidget(row, 5, self.create_task_checkbox(data["요약"], True, row, 5, is_force_rerun))
-            self.table.setCellWidget(row, 6, self.create_task_checkbox(data["Anki"], True, row, 6, is_force_rerun))
+            # 강의록과 음성스크립트가 둘 다 있어야만 활성화
+            has_both = bool(data["강의록"] and data["음성스크립트"])
+            
+            self.table.setCellWidget(row, 4, self.create_task_checkbox(data["교정"], has_both, row, 4, is_force_rerun))
+            self.table.setCellWidget(row, 5, self.create_task_checkbox(data["요약"], has_both, row, 5, is_force_rerun))
+            self.table.setCellWidget(row, 6, self.create_task_checkbox(data["Anki"], has_both, row, 6, is_force_rerun))
             
             self.update_row_dependencies(row)
                 
@@ -346,9 +352,9 @@ class GeminiProcessingUi(BaseUI):
         else:
             self.emit_log(f"미완료 드라이브 데이터 전체 스캔 완료! (총 {len(real_data)}건 조회됨)")
 
-    def handle_scan_error(self, err_msg):
+    def handle_scan_error(self, title: str, err_msg: str):
         self.scan_btn.stop_loading()
-        self.emit_log(f"데이터 스캔 중 오류 발생: {err_msg}")
+        self.emit_log(f"데이터 스캔 중 오류 발생 ({title}): {err_msg}")
 
     def create_check_label(self, is_exist, color="#1890FF"):
         """체크박스 대신 표시할 라벨 생성"""
@@ -383,7 +389,7 @@ class GeminiProcessingUi(BaseUI):
         
         if is_originally_done and is_force_rerun:
             cb = StyledCheckBox("", theme="danger")
-            cb.setEnabled(True)
+            cb.setEnabled(has_dependency)
             cb.setChecked(False) 
         else:
             cb = StyledCheckBox("")
@@ -399,30 +405,43 @@ class GeminiProcessingUi(BaseUI):
         return container
 
     def update_row_dependencies(self, row):
-        w_교정 = self.table.cellWidget(row, 4)
-        w_요약 = self.table.cellWidget(row, 5)
+        # 1. 원본 파일 존재 여부(has_both) 확인
+        w_slide = self.table.cellWidget(row, 2)
+        w_script = self.table.cellWidget(row, 3)
+        has_both = False
+        if w_slide and w_script:
+            lbl_slide = w_slide.findChild(QLabel)
+            lbl_script = w_script.findChild(QLabel)
+            if lbl_slide and lbl_script and "✔️" in lbl_slide.text() and "✔️" in lbl_script.text():
+                has_both = True
+
+        # 2. 교정 완료/체크 여부 확인
+        w_correction = self.table.cellWidget(row, 4)
+        w_summary = self.table.cellWidget(row, 5)
         w_anki = self.table.cellWidget(row, 6)
         
-        is_교정_ready = False
-        if w_교정:
-            cb_교정 = w_교정.findChild(QCheckBox)
-            if cb_교정:
-                if cb_교정.property("is_originally_done"):
-                    is_교정_ready = True
+        is_correction_ready = False
+        if w_correction:
+            cb_correction = w_correction.findChild(QCheckBox)
+            if cb_correction:
+                if cb_correction.property("is_originally_done"):
+                    is_correction_ready = True
                 else:
-                    is_교정_ready = cb_교정.isChecked()
+                    is_correction_ready = cb_correction.isChecked()
             else:
-                lbl = w_교정.findChild(QLabel)
+                lbl = w_correction.findChild(QLabel)
                 if lbl and "✔️" in lbl.text():
-                    is_교정_ready = True
+                    is_correction_ready = True
 
-        for w in [w_요약, w_anki]:
+        # 3. 요약, Anki 체크박스 상태 갱신 (has_both 필수)
+        for w in [w_summary, w_anki]:
             if not w: continue
             cb = w.findChild(QCheckBox)
             if not cb: continue 
             
-            cb.setEnabled(is_교정_ready)
-            if not is_교정_ready: 
+            can_enable = has_both and is_correction_ready
+            cb.setEnabled(can_enable)
+            if not can_enable: 
                 cb.setChecked(False)
 
     def toggle_row(self, row, state):
@@ -445,12 +464,16 @@ class GeminiProcessingUi(BaseUI):
     def execute_auto_run(self):
         self.emit_log("선택된 작업을 시작합니다. (상태는 api_manager에 의해 제어됩니다)")
         
-        available_keys = []
-        for k in self.api_keys:
-            for m in self.models:
-                available_keys.append((k, m))
-                
-        key_idx = 0
+        # 작업별 허용 모델 정의
+        allowed_models = {
+            "교정": ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"],
+            "요약": ["gemini-3-flash-preview"],
+            "Anki": ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
+        }
+        
+        # 모델 인덱스 초기화 (키는 백그라운드 api_manager가 런타임에 동적으로 할당함)
+        task_model_idx = { "교정": 0, "요약": 0, "Anki": 0 }
+        
         task_queue = [] # 백그라운드에 넘길 작업 목록
         
         for row in range(self.table.rowCount()):
@@ -463,29 +486,31 @@ class GeminiProcessingUi(BaseUI):
                 if widget:
                     cb = widget.findChild(QCheckBox)
                     if cb and cb.isEnabled() and cb.isChecked():
-                        if key_idx < len(available_keys):
-                            k_name, m_name = available_keys[key_idx]
-                            key_idx = (key_idx + 1) % len(available_keys) # 키 순환
+                        models_pool = allowed_models[task_name]
+                        if not models_pool:
+                            continue
                             
-                            # UI를 사용 중(노란 뱃지) 상태로 변경
-                            container = QWidget()
-                            layout = QHBoxLayout(container)
-                            layout.setContentsMargins(0, 0, 0, 0)
-                            layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-                            
-                            display_name = f"{k_name.replace('_', '')}_{m_name.replace('gemini-', '').replace('-flash', '')}"
-                            lbl = QLabel(display_name)
-                            lbl.setStyleSheet("color: #873800; font-weight: bold; font-size: 11px; background-color: #FFE58F; padding: 4px 6px; border-radius: 4px;")
-                            layout.addWidget(lbl)
-                            
-                            self.table.setCellWidget(row, col, container)
-                            
-                            # 워커가 처리할 작업 정보 저장
-                            task_queue.append({
+                        # 허용된 모든 모델 목록을 그대로 전달
+                        # UI를 대기 중(노란 뱃지) 상태로 변경
+                        container = QWidget()
+                        layout = QHBoxLayout(container)
+                        layout.setContentsMargins(0, 0, 0, 0)
+                        layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                        
+                        # 키는 보여주지 않고 '자동 할당' 임을 알림
+                        display_name = f"대기중 (자동 배정)"
+                        lbl = QLabel(display_name)
+                        lbl.setStyleSheet("color: #873800; font-weight: bold; font-size: 11px; background-color: #FFE58F; padding: 4px 6px; border-radius: 4px;")
+                        layout.addWidget(lbl)
+                        
+                        self.table.setCellWidget(row, col, container)
+                        
+                        # 워커가 처리할 작업 정보 저장. model 키에 리스트(models_pool) 전체를 넘김
+                        task_queue.append({
                                 'row': row,
                                 'col': col,
                                 'task_type': task_name,
-                                'model': m_name,
+                                'model': models_pool,
                                 'base_name': base_name
                             })
                             
@@ -501,10 +526,27 @@ class GeminiProcessingUi(BaseUI):
             self.auto_run_btn.stop_loading()
 
     def update_task_cell(self, row, col, status):
-        """작업이 끝난 후 테이블 셀을 파란색 체크(완료)로 업데이트"""
+        """작업 진행 상태에 따라 테이블 셀을 업데이트"""
         if status == "DONE":
-            # 이전에 만들어둔 create_check_label 메서드 재사용
             self.table.setCellWidget(row, col, self.create_check_label(True, color="#1890FF"))
+        elif status.startswith("START::"):
+            # START::KEY_1::gemini-3.5-flash
+            parts = status.split("::")
+            if len(parts) >= 3:
+                key_id = parts[1]
+                model_name = parts[2].replace("gemini-", "").replace("-flash", "").replace("-preview", "")
+                
+                container = QWidget()
+                layout = QHBoxLayout(container)
+                layout.setContentsMargins(0, 0, 0, 0)
+                layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+                
+                display_name = f"실행중 ({key_id} / {model_name})"
+                lbl = QLabel(display_name)
+                # 실행중임을 알리는 눈에 띄는 파란색 계열 배경
+                lbl.setStyleSheet("color: white; font-weight: bold; font-size: 11px; background-color: #1890FF; padding: 4px 6px; border-radius: 4px;")
+                layout.addWidget(lbl)
+                self.table.setCellWidget(row, col, container)
         else:
             self.emit_log(f"[{row}행 {col}열] 작업 실패")
 

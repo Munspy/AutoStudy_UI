@@ -102,7 +102,7 @@ class Config:
     # [개선 1] SSOT(단일 진실 공급원): 모델 리스트 및 API 쿨타임을 전역 설정으로 이관
     API_COOLDOWN_SECONDS: float = 15.0
     GEMINI_MODELS: List[str] = [
-        "gemini-2.5-flash", 
+        "gemini-3-flash-preview", 
         "gemini-3.5-flash", 
         "gemini-3.6-flash", 
         "gemini-3.7-flash"

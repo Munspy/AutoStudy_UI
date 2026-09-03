@@ -97,7 +97,7 @@ class PdfMergeController(BaseController):
             None
         """
         # 파일이 2개 이상 선택되지 않았으면 에러 발생
-        if len(task_data['files']) < 2:
+        if len(task_data['paths_to_merge']) < 2:
             self.error_signal.emit("오류", "병합할 PDF 파일을 2개 이상 선택해주세요.")
             return
             

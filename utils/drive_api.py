@@ -29,6 +29,7 @@ def upload_to_drive(
     local_file_path: PathLike, 
     target_folder_id: str, 
     mime_type: Optional[str] = None, 
+    new_file_name: Optional[str] = None,
     *,
     drive_service: Any
 ) -> Dict[str, Any]:
@@ -60,14 +61,13 @@ def upload_to_drive(
     file_path = Path(local_file_path)
     # 업로드할 파일의 메타데이터 구성
     file_metadata = {
-        'name': file_path.name,
+        'name': new_file_name if new_file_name else file_path.name,
         'parents': [target_folder_id] if target_folder_id else []
     }
     
-    # 이어올리기(resumable)를 지원하는 MediaFileUpload 객체 생성
-    media = MediaFileUpload(str(file_path), mimetype=mime_type, resumable=True)
+    # 1차 시도: 이어올리기(resumable=True)
     try:
-        # 파일 생성 API 호출
+        media = MediaFileUpload(str(file_path), mimetype=mime_type, resumable=True)
         uploaded_file = drive_service.files().create(
             body=file_metadata, 
             media_body=media, 
@@ -75,7 +75,17 @@ def upload_to_drive(
         ).execute()
         return uploaded_file
     except Exception as e:
-        raise Exception(f"업로드 실패 ({file_path.name}): {str(e)}")
+        # 2차 시도: 리다이렉트/Location 헤더 오류 대비 직접 단순 업로드(resumable=False) 폴백
+        try:
+            media_direct = MediaFileUpload(str(file_path), mimetype=mime_type, resumable=False)
+            uploaded_file = drive_service.files().create(
+                body=file_metadata, 
+                media_body=media_direct, 
+                fields='id, name'
+            ).execute()
+            return uploaded_file
+        except Exception as retry_e:
+            raise Exception(f"업로드 실패 ({file_path.name}): {str(retry_e)}")
 
 
 def download_from_drive(
@@ -416,6 +426,31 @@ def copy_drive_file(
         return copied_file
     except Exception as e:
         raise Exception(f"드라이브 파일 복사 실패 (File ID: {file_id}): {str(e)}")
+
+
+def delete_drive_file(file_id: str, *, drive_service: Any) -> bool:
+    """구글 드라이브 파일을 휴지통으로 이동(소프트 삭제)합니다.
+
+    영구 삭제 대신 휴지통으로 이동하여 실수로 인한 데이터 손실을 방지합니다.
+    Google Drive 콘솔의 휴지통에서 30일 이내에 복구 가능합니다.
+
+    Args:
+        file_id (str): 삭제할 파일의 드라이브 고유 ID 또는 URL.
+        drive_service (Any): 인증된 드라이브 서비스 객체.
+
+    Returns:
+        bool: 삭제 성공 시 True, 실패 시 False.
+    """
+    file_id = Config.extract_drive_id(file_id)
+    try:
+        drive_service.files().update(
+            fileId=file_id,
+            body={'trashed': True}
+        ).execute()
+        return True
+    except Exception as e:
+        print(f"⚠️ 드라이브 파일 삭제 실패 (File ID: {file_id}): {e}")
+        return False
 
 
 def move_drive_file(

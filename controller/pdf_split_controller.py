@@ -108,17 +108,21 @@ class PdfSplitController(BaseController):
     # ===========================
     # [PDF 분할 저장]
     # ===========================
-    def start_split_and_save(self, local_path, total_pages, split_page_text, out1, out2, is_drive, target_dir):
+    def start_split_and_save(self, local_path, total_pages, split_page_text,
+        out1_name, out2_name, is_drive, target_dir, original_id=None,
+        original_is_drive=False):
         """지정된 기준 페이지를 바탕으로 PDF 파일을 두 개로 분할하고 저장하는 워커를 실행합니다.
 
         Args:
             local_path (str): 분할할 대상 PDF 파일 경로.
             total_pages (int): 대상 파일의 전체 페이지 수.
             split_page_text (str): 분할 기준이 되는 페이지 번호 텍스트.
-            out1 (str): 첫 번째 분할 결과물의 파일명.
-            out2 (str): 두 번째 분할 결과물의 파일명.
+            out1_name (str): 첫 번째 분할 결과물의 파일명.
+            out2_name (str): 두 번째 분할 결과물의 파일명.
             is_drive (bool): 결과를 구글 드라이브에 저장할지 여부.
             target_dir (str): 결과물을 저장할 폴더 경로.
+            original_id (str): 원본 파일의 경로 또는 드라이브 ID.
+            original_is_drive (bool): 원본 파일이 드라이브 소스인지 여부.
 
         Returns:
             None
@@ -128,11 +132,17 @@ class PdfSplitController(BaseController):
             self.error_signal.emit("오류", "분할할 파일을 선택해주세요.")
             return
 
-        # 분할 기준 페이지 번호 파싱
+        # 분할 기준 페이지 번호 및 중복 포함(!) 옵션 파싱
+        is_overlap = False
+        text = split_page_text.strip()
+        if text.startswith('!'):
+            is_overlap = True
+            text = text[1:]
+            
         try:
-            split_page = int(split_page_text.strip())
+            split_page = int(text)
         except ValueError:
-            self.error_signal.emit("오류", "정확히 1개의 기준 페이지 번호(분할 지점)를 입력해주세요. (예: 3)")
+            self.error_signal.emit("오류", "정확히 1개의 기준 페이지 번호(분할 지점)를 입력해주세요. (예: 3 또는 !3)")
             return
 
         # 기준 페이지가 유효 범위를 벗어나면 에러 처리
@@ -141,14 +151,21 @@ class PdfSplitController(BaseController):
             return
 
         # 출력 파일명에 '.pdf' 확장자 추가
-        if not out1.endswith('.pdf'): out1 += '.pdf'
-        if not out2.endswith('.pdf'): out2 += '.pdf'
-        
-        # 드라이브 모드 여부에 따른 저장 폴더 경로 설정
-        target = target_dir if not is_drive else None
+        if not out1_name.endswith('.pdf'): out1_name += '.pdf'
+        if not out2_name.endswith('.pdf'): out2_name += '.pdf'
 
         # 분할 작업을 수행할 워커 객체 생성
-        worker = PdfSplitWorker(local_path, split_page, out1, out2, is_drive, target)
+        worker = PdfSplitWorker(
+            local_path=local_path,
+            split_page=split_page,
+            out1_name=out1_name,
+            out2_name=out2_name,
+            is_drive=is_drive,
+            target_dir=target_dir,
+            original_id=original_id,
+            original_is_drive=original_is_drive,
+            is_overlap=is_overlap
+        )
         # 분할 및 저장 완료 시 결과를 전달
         worker.finished_signal.connect(self.split_completed.emit)
         # 백그라운드 워커 실행

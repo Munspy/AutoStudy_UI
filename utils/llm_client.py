@@ -47,7 +47,7 @@ class GeminiAPIError(Exception):
 # [LLM API 호출]
 # ===========================
 
-def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user_prompt: str, temperature: float = 0.1) -> str:
+def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user_prompt: str, temperature: float = 0.1, thinking_level: str = None, max_output_tokens: int = 65536) -> str:
     """Google Gemini API를 호출하여 텍스트를 생성하는 코어 유틸리티 함수.
 
     이 함수는 사용자 프롬프트와 시스템 인스트럭션을 조합하여 제미나이 모델에 텍스트 생성을 요청합니다.
@@ -68,6 +68,8 @@ def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user
         temperature (float, optional): 모델 응답의 창의성과 무작위성을 제어하는 하이퍼파라미터. 
             0.0에 가까울수록 결정론적이고 일관된 응답을, 높은 값일수록 다양하고 예상치 못한 응답을 
             생성합니다. 기본값은 0.1로, 학습 자료 자동화 생성 시 요구되는 안정적이고 사실적인 텍스트 생성에 맞춰져 있습니다.
+        thinking_level (str, optional): 'HIGH', 'MEDIUM', 'LOW' 등 Thinking 기능의 수준.
+        max_output_tokens (int, optional): 최대 출력 토큰 수. Thinking 과정이 출력 토큰을 소모하므로 충분히 크게(예: 65536) 설정합니다.
 
     Returns:
         str: 제미나이 모델이 성공적으로 생성하여 반환한 순수 텍스트 결과물(response.text).
@@ -83,15 +85,27 @@ def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user
     client = genai.Client(api_key=api_key)
     
     try:
+        config_dict = {
+            "system_instruction": system_instruction,
+            "temperature": temperature,
+            "max_output_tokens": max_output_tokens
+        }
+        
+        if thinking_level:
+            # google.genai 0.1+ 에서 지원하는 ThinkingConfig 사용
+            config_dict["thinking_config"] = types.ThinkingConfig(thinking_level=thinking_level)
+            
         # 모델명, 프롬프트, 시스템 지시사항 및 온도를 설정하여 콘텐츠 생성 요청
         response = client.models.generate_content(
             model=model_name,
             contents=user_prompt,
-            config=types.GenerateContentConfig(
-                system_instruction=system_instruction,
-                temperature=temperature
-            )
+            config=types.GenerateContentConfig(**config_dict)
         )
+        
+        if response.candidates and response.candidates[0].finish_reason:
+            if "MAX_TOKENS" in str(response.candidates[0].finish_reason).upper():
+                raise GeminiAPIError("응답이 도중에 절단되었습니다 (MAX_TOKENS).", "max_tokens")
+
         # 생성된 텍스트 결과물 반환
         return response.text
         

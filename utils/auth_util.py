@@ -1,3 +1,5 @@
+import httplib2
+import google_auth_httplib2
 """Google API 인증 및 서비스 객체 생성 유틸리티 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 파이프라인 중 **Utils(유틸리티) 계층**에 속합니다.
@@ -134,7 +136,10 @@ def get_drive_service():
     """
     with _auth_lock:
         creds = get_credentials()
-        return build('drive', 'v3', credentials=creds)
+        # 멀티스레드 환경에서 httplib2의 SSL record layer failure 예방을 위해 독립적인 HTTP 객체 사용
+        http = httplib2.Http()
+        authed_http = google_auth_httplib2.AuthorizedHttp(creds, http=http)
+        return build('drive', 'v3', http=authed_http, cache_discovery=False)
 
 def get_youtube_service():
     """Google YouTube Data API (v3) 서비스 객체를 반환합니다.
@@ -149,4 +154,7 @@ def get_youtube_service():
     """
     with _auth_lock:
         creds = get_credentials()
-        return build('youtube', 'v3', credentials=creds)
+        # 멀티스레드 환경에서 httplib2의 SSL record layer failure 예방을 위해 독립적인 HTTP 객체 사용
+        http = httplib2.Http()
+        authed_http = google_auth_httplib2.AuthorizedHttp(creds, http=http)
+        return build('youtube', 'v3', http=authed_http, cache_discovery=False)

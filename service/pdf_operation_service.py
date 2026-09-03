@@ -59,7 +59,9 @@ class PdfOperationService(BaseService):
         out1_name: str, 
         out2_name: str, 
         is_drive: bool, 
-        target_dir: Optional[PathLike] = None
+        target_dir: Optional[PathLike] = None,
+        drive_folder_id: Optional[str] = None,
+        is_overlap: bool = False
     ) -> Tuple[bool, str]:
         """하나의 PDF를 두 개로 분할하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다.        학습 자료 처리 파이프라인에서, 너무 용량이 큰 강의록이나 필기본이 인입되었을 때 
         API 페이로드 제한(Gemini 토큰 리밋 등)을 피하기 위해 파일을 쪼개야 하는 경우가 발생합니다. 
@@ -106,13 +108,15 @@ class PdfOperationService(BaseService):
                 self._log(f"✂️ 물리적 PDF 분할을 시작합니다 (기준: {split_page}페이지 뒤)")
                 
                 # 1. 물리적 PDF 분할 연산
-                split_pdf_two_parts(local_path, split_page, temp_out1, temp_out2)
+                split_pdf_two_parts(local_path, split_page, temp_out1, temp_out2, is_overlap=is_overlap)
                 
                 # 2. 지정된 위치로 파일 전송
                 if is_drive:
-                    self._log("☁️ 구글 드라이브에 분할된 파일을 업로드 중입니다...")
-                    upload_to_drive(str(temp_out1), self.target_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
-                    upload_to_drive(str(temp_out2), self.target_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
+                    upload_folder_id = drive_folder_id if drive_folder_id else self.target_folder_id
+                    
+                    self._log(f"☁️ 구글 드라이브에 분할된 파일을 업로드 중입니다... (대상: {upload_folder_id})")
+                    upload_to_drive(str(temp_out1), upload_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
+                    upload_to_drive(str(temp_out2), upload_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
                     msg = f"✅ 드라이브 업로드 성공! ({out1_name}, {out2_name})"
                     self._log(msg)
                     return True, msg
@@ -131,72 +135,90 @@ class PdfOperationService(BaseService):
             return False, msg
 
     def merge_and_save(
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
         paths_to_merge: List[PathLike], 
         save_name: str, 
         is_drive: bool, 
-        target_dir: Optional[PathLike] = None
+        target_dir: Optional[PathLike] = None,
+        save_local: bool = False
     ) -> Tuple[bool, str]:
-        """여러 PDF 파일을 하나로 병합하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다.        여러 개로 흩어져 있던 필기본이나, LLM 요약 파이프라인의 결과로 나온 개별 스크립트들을 
-        최종 배포용 단일 학습 자료(합본)로 묶어낼 때 호출되는 필수 워크플로우입니다. 
+        """여러 PDF 파일을 하나로 병합하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다."""
         
-        멀티스레드 기반의 비동기 큐(Queue) 환경에서는 여러 병합 작업이 동시에 발생할 수 있습니다. 
-        이때 고정된 임시 파일명(예: `temp.pdf`)을 사용하면 스레드 간 덮어쓰기(Race Condition)가 발생해 
-        데이터 오염이 생길 수 있습니다. 이를 방지하기 위해 완전히 독립되고 고유한 경로를 가지는 
-        `tempfile.TemporaryDirectory()`를 매 호출마다 할당받아, 그 안에서만 병합 연산을 수행하여 원자성(Atomicity)을 확보합니다. 
-        연산이 끝나면 `shutil` 또는 `upload_to_drive`를 통해 결과물만 대상지로 쏙 빼내어 저장합니다.
-
-        Args:
-            paths_to_merge (List[PathLike]): 하나로 병합할 대상 PDF 파일들의 로컬 경로 리스트. (리스트 순서대로 병합됨)
-            save_name (str): 병합되어 생성될 결과물 PDF의 최종 파일명.
-            is_drive (bool): **True**일 경우 구글 드라이브로 업로드, **False**일 경우 로컬 `target_dir`로 복사 저장.
-            target_dir (Optional[PathLike], optional): 로컬 저장을 선택했을 때 결과물이 위치할 목적지 디렉토리. 
-                `is_drive`가 False일 때 필수값입니다. Defaults to None.
-
-        Returns:
-            Tuple[bool, str]: 
-                - 첫 번째 요소 (bool): 병합 및 저장 작업의 성공 여부 플래그 (True: 성공, False: 실패).
-                - 두 번째 요소 (str): UI 테이블이나 알림창에 출력할 성공/에러 메시지.
-        """
-        
-        # [최적화 3] 의도된 검증 실패 조기 반환 (Early Return)
-        if not is_drive:
+        needs_local = save_local or (not is_drive)
+        if needs_local:
             if not target_dir:
                 return False, "❌ 로컬 저장 폴더가 지정되지 않았습니다."
             target_p = Path(target_dir)
             if not target_p.exists() or not target_p.is_dir():
                 return False, f"❌ 로컬 저장 폴더가 유효하지 않습니다: {target_dir}"
 
-        # [최적화 1] 기존의 공용 temp 디렉토리 대신, 완전히 격리된 고유 TemporaryDirectory 사용 (병렬 처리 충돌 방지)
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
-                temp_merged_path = Path(temp_dir) / save_name
+                temp_p = Path(temp_dir)
+                local_paths_to_merge = []
+
+                if is_drive:
+                    self._log(f"📥 구글 드라이브에서 {len(paths_to_merge)}개 PDF 다운로드 중...")
+                    from utils.drive_api import download_from_drive
+                    for idx, item in enumerate(paths_to_merge, 1):
+                        p_str = str(item)
+                        if Path(p_str).exists():
+                            local_paths_to_merge.append(p_str)
+                        else:
+                            temp_dl_path = temp_p / f"dl_{idx}.pdf"
+                            try:
+                                download_from_drive(file_id=p_str, save_path=str(temp_dl_path), drive_service=self.drive_service)
+                                local_paths_to_merge.append(str(temp_dl_path))
+                            except Exception as dl_e:
+                                self._log(f"⚠️ 드라이브 파일 다운로드 실패 ({p_str}): {dl_e}")
+                else:
+                    local_paths_to_merge = [str(p) for p in paths_to_merge]
+
+                if not local_paths_to_merge:
+                    return False, "❌ 병합할 다운로드된 PDF 파일이 없습니다."
+
+                temp_merged_path = temp_p / save_name
                 
-                self._log(f"🔗 {len(paths_to_merge)}개의 PDF 파일 병합을 시작합니다...")
+                self._log(f"🔗 {len(local_paths_to_merge)}개의 PDF 파일 병합을 시작합니다...")
                 
                 # 1. 물리적 PDF 병합 연산
-                merge_pdfs(paths_to_merge, temp_merged_path)
+                merge_pdfs(local_paths_to_merge, temp_merged_path)
                 
-                # 2. 지정된 위치로 파일 전송
-                if is_drive:
-                    self._log("☁️ 구글 드라이브에 병합된 파일을 업로드 중입니다...")
-                    upload_to_drive(str(temp_merged_path), self.target_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
-                    msg = f"✅ 드라이브 업로드 성공! 파일명: {save_name}"
-                    self._log(msg)
-                    return True, msg
-                else:
+                msg_parts = []
+                # 2. 로컬 저장 처리
+                if needs_local:
                     self._log("💾 로컬 디렉토리로 병합된 파일을 복사합니다...")
                     save_path = target_p / save_name
                     shutil.copy(temp_merged_path, save_path)
-                    msg = f"✅ 병합 성공! 저장 위치: {save_path}"
-                    self._log(msg)
-                    return True, msg
+                    msg_parts.append(f"로컬 저장({save_path})")
+                
+                # 3. 드라이브 업로드 처리
+                if is_drive:
+                    self._log("☁️ 구글 드라이브에 병합된 파일을 업로드 중입니다...")
+                    upload_to_drive(str(temp_merged_path), self.target_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
+                    msg_parts.append(f"드라이브 업로드({save_name})")
+                
+                msg = "✅ 성공! " + " / ".join(msg_parts)
+                self._log(msg)
+                return True, msg
                     
         except Exception as e:
             msg = f"❌ 병합/저장 중 시스템 오류 발생: {str(e)}"
+            self._log(msg)
+            return False, msg
+
+    def merge_scripted_pdfs_and_save(
+        self,
+        pdf_entries: List[Tuple[str, PathLike]],
+        output_path: PathLike
+    ) -> Tuple[bool, str]:
+        """목차(TOC) 정보를 포함하여 _scripted.pdf 파일들을 병합하고 지정된 디렉토리에 저장합니다."""
+        try:
+            out_str = merge_pdfs(pdf_entries, output_path)
+            msg = f"✅ 스크립트 합본 PDF 생성 성공: {out_str}"
+            self._log(msg)
+            return True, msg
+        except Exception as e:
+            msg = f"❌ 스크립트 합본 PDF 생성 실패: {str(e)}"
             self._log(msg)
             return False, msg

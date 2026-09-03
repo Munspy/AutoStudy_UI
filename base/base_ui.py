@@ -110,7 +110,7 @@ class BaseUI(QWidget):
         작업이 성공적으로 끝났거나 사용자에게 단순 알림을 제공해야 할 때 호출됩니다.
 
         Args:
-            title (str): 팝업창 상단에 표시될 제목.
+            title (str): 팝업창 제목.
             message (str): 팝업창 본문에 표시될 안내 내용.
 
         Returns:
@@ -125,7 +125,7 @@ class BaseUI(QWidget):
         상황을 안내하기 위해 호출됩니다.
 
         Args:
-            title (str): 팝업창 상단에 표시될 제목.
+            title (str): 팝업창 제목.
             message (str): 팝업창 본문에 표시될 오류 내용.
 
         Returns:

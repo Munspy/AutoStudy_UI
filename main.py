@@ -124,13 +124,24 @@ class AutomationDashboard(QMainWindow):
         # ===========================
         # [4. 글로벌 태스크 매니저 및 탭 초기화]
         # ===========================
-        # 1. 단 하나의 글로벌 태스크 매니저 생성 (최대 동시 작업 3개)
-        self.global_task_manager = BaseTaskManager(max_concurrent_tasks=3)
+        self.global_task_manager = BaseTaskManager(max_concurrent_tasks=5, llm_max_tasks=5) # C-확장 모듈(PyMuPDF/OpenSSL) 및 LLM 최적 병렬 수
+        self.global_task_manager.queue_progress_signal.connect(self.update_global_progress)
+        self.global_task_manager.queue_finished_signal.connect(self.on_queue_finished)
         
         # 내부 탭들 생성 및 초기화
         self.init_tabs()
         # 사이드바 아이템 선택 시 스택 위젯의 활성 페이지가 전환되도록 연결
         self.sidebar.currentRowChanged.connect(self.stacked_widget.setCurrentIndex)
+
+    def update_global_progress(self, completed, total):
+        """대기열의 진행률을 하단 프로그레스 바에 실시간 반영합니다."""
+        if total > 0:
+            percent = int((completed / total) * 100)
+            self.progress_bar.setValue(percent)
+
+    def on_queue_finished(self):
+        """대기열 작업이 완료되었을 때 프로그레스 바를 100%로 설정합니다."""
+        self.progress_bar.setValue(100)
 
     def log_msg(self, message):
         """메인 윈도우 하단 로그 패널에 메시지를 추가합니다.

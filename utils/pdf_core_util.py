@@ -13,7 +13,7 @@ PDF 파일의 물리적 조작(병합, 분할, 재조합) 및 UI 렌더링을 �
 """
 
 from pathlib import Path
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Optional, Sequence
 from contextlib import ExitStack
 import pymupdf
 
@@ -89,53 +89,66 @@ def get_page_image_bytes(
 # 2. PDF 물리적 조작 (병합 및 분할)
 # ==========================================
 
-def merge_pdfs(pdf_paths: List[PathLike], output_path: PathLike) -> str:
+def merge_pdfs(
+    pdf_paths: Sequence[Union[PathLike, Tuple[str, PathLike]]], 
+    output_path: PathLike,
+    toc_titles: Optional[List[str]] = None
+) -> str:
     """여러 PDF 파일 경로를 순서대로 병합하여 새로운 하나의 단일 PDF 파일로 저장합니다.
     
-    학습 자료 자동화 파이프라인에서, 여러 개의 쪼개진 문서나 파트별로 처리 완료된 분석 결과를 
-    다시 하나로 취합할 때 사용되는 핵심 병합 로직입니다. 
-
-    단순히 파일을 이어붙이는 것에 그치지 않고, `pymupdf.open()`을 컨텍스트 매니저(`with`)로 감싸 
-    워커(Worker) 스레드의 장기 실행 중 발생할 수 있는 메모리/파일 핸들 누수를 원천 차단합니다.
-    특히 PDF 병합 시 빈번하게 발생하는 내부 객체 파편화 및 파일 용량 팽창 문제를 해결하기 위해,
-    최종 저장 시 `garbage=4`(미사용 객체 및 중복 데이터 완전 정리)와 `deflate=True`(스트림 압축) 옵션을 강제합니다.
-    중간에 존재하지 않거나 손상된 파일이 포함되어 있더라도 오류를 발생시키지 않고 해당 파일만 스킵하여 
-    전체 자동화 배치의 안정성을 높였습니다.
+    `pdf_paths`는 단순 파일 경로 리스트 `[path1, path2, ...]`이거나, 
+    목차 제목과 파일 경로의 튜플 리스트 `[(title1, path1), (title2, path2), ...]`일 수 있습니다.
+    또는 `toc_titles` 인자를 통해 별도로 목차 제목 리스트를 전달할 수도 있습니다.
+    목차 정보가 제공되면 각 PDF의 첫 페이지에 목차(TOC/북마크)를 등록하여 저장합니다.
 
     Args:
-        pdf_paths (List[PathLike]): 병합할 대상 PDF 파일 경로들의 리스트입니다. 리스트의 순서대로 페이지가 병합됩니다.
-        output_path (PathLike): 병합이 완료된 결과물 PDF를 저장할 최종 경로입니다. 부모 폴더가 없다면 자동 생성됩니다.
+        pdf_paths (Sequence[Union[PathLike, Tuple[str, PathLike]]]): 병합할 대상 PDF 파일 경로들 또는 (목차 제목, 파일 경로) 튜플 리스트.
+        output_path (PathLike): 병합이 완료된 결과물 PDF를 저장할 최종 경로.
+        toc_titles (Optional[List[str]], optional): 각 PDF의 첫 페이지에 등록할 목차 제목 리스트. Defaults to None.
 
     Returns:
-        str: 정상적으로 병합 및 압축되어 저장된 최종 결과물 파일의 절대/상대 경로 문자열입니다.
+        str: 정상적으로 병합 및 압축되어 저장된 최종 결과물 파일의 절대/상대 경로 문자열.
 
     Raises:
-        ValueError: `pdf_paths` 리스트가 비어 있어 병합을 수행할 파일이 전혀 없는 경우 발생합니다.
+        ValueError: `pdf_paths` 리스트가 비어 있는 경우 발생합니다.
     """
     if not pdf_paths:
         raise ValueError("❌ 병합할 PDF 파일 목록이 비어있습니다.")
 
-    # 출력 경로의 부모 디렉토리가 없으면 생성
     out_path = ensure_parent_dir(output_path)
-    
-    # with 구문을 통해 out_pdf 자동 해제 보장
+    toc_list = []
+    current_page = 1
+
     with pymupdf.open() as out_pdf:
-        for path in pdf_paths:
+        for idx, item in enumerate(pdf_paths):
+            if isinstance(item, (tuple, list)) and len(item) == 2:
+                title, path = item[0], item[1]
+            else:
+                title = toc_titles[idx] if (toc_titles and idx < len(toc_titles)) else None
+                path = item
+
             p_str = str(path)
-            
-            # 대상 파일 존재 여부 확인
             if not Path(p_str).exists():
                 print(f"⚠️ 존재하지 않는 파일 스킵: {p_str}")
                 continue
-                
+
             try:
-                # 개별 PDF를 열어 출력 PDF에 병합 삽입
                 with pymupdf.open(p_str) as doc:
+                    page_count = len(doc)
+                    if page_count == 0:
+                        continue
+
+                    if title:
+                        toc_list.append([1, str(title), current_page])
+
                     out_pdf.insert_pdf(doc)
+                    current_page += page_count
             except pymupdf.FileDataError:
                 print(f"⚠️ 유효하지 않은 PDF 스킵: {p_str}")
-                
-        # garbage=4(미사용 객체 완전 정리), deflate=True(압축 저장)를 통한 용량 최적화
+
+        if toc_list:
+            out_pdf.set_toc(toc_list)
+
         out_pdf.save(str(out_path), garbage=4, deflate=True)
         return str(out_path)
 
@@ -144,28 +157,22 @@ def split_pdf_two_parts(
     file_path: PathLike, 
     split_page_num: int, 
     output_path_1: PathLike, 
-    output_path_2: PathLike
+    output_path_2: PathLike,
+    is_overlap: bool = False
 ) -> Tuple[str, str]:
-    """하나의 원본 PDF를 지정한 기준 페이지 번호를 경계로 2개의 파일로 깔끔하게 분할합니다.
-    
-    대용량 문서나 챕터별 구분이 필요한 문서를 두 동강 내기 위한 목적으로 사용됩니다.
-    Gemini LLM의 토큰 제한이나 Whisper STT의 용량 제한을 우회하기 위해 Service 계층이 
-    이 함수를 호출하여 문서를 사전에 청크(chunk) 단위로 나누는 파이프라인에서 핵심적으로 동작합니다.
-
-    `split_page_num`을 경계로 이전 페이지들은 첫 번째 파트로, 해당 페이지를 포함한 이후 페이지들은 
-    두 번째 파트로 분할됩니다. 문서를 나눌 때 불필요한 메타데이터 손실을 막기 위해 `insert_pdf`를 활용하여 
-    페이지 범위를 복제하는 방식을 채택하였으며, 저장 시에는 병합 로직과 동일하게 최적화(`garbage=4`) 
-    및 압축(`deflate=True`) 옵션을 적용하여 디스크 용량 효율성을 확보합니다.
+    """주어진 PDF 파일을 지정된 기준 페이지를 기점으로 두 개의 별도 PDF 파일로 분리합니다.
 
     Args:
-        file_path (PathLike): 분할할 대상 원본 PDF 파일의 경로입니다.
-        split_page_num (int): 분할의 기준이 되는 페이지 번호(0-based index)입니다. 
-            이 번호에 해당하는 페이지는 두 번째 출력 파일의 첫 페이지가 됩니다.
-        output_path_1 (PathLike): 첫 번째 분할 결과물(페이지 0 ~ split_page_num-1)이 저장될 경로입니다.
-        output_path_2 (PathLike): 두 번째 분할 결과물(페이지 split_page_num ~ 끝)이 저장될 경로입니다.
+        file_path (PathLike): 두 개로 나눌 대상 원본 PDF 파일의 로컬 경로입니다.
+        split_page_num (int): 분할의 기준이 되는 페이지 번호 (1-based index)입니다.
+            기본적으로 이 번호에 해당하는 페이지까지가 첫 번째 파트(Part 1)에 속하며, 
+            그 다음 페이지부터가 두 번째 파트(Part 2)에 속하게 됩니다.
+        output_path_1 (PathLike): 분할되어 생성된 첫 번째 파트(앞부분)가 저장될 파일 경로입니다.
+        output_path_2 (PathLike): 분할되어 생성된 두 번째 파트(뒷부분)가 저장될 파일 경로입니다.
+        is_overlap (bool): True일 경우 분할 기준 페이지를 양쪽 모두에 포함합니다.
 
     Returns:
-        Tuple[str, str]: 성공적으로 분할되어 저장된 첫 번째 파일 경로와 두 번째 파일 경로 문자열을 튜플로 반환합니다.
+        Tuple[str, str]: 성공적으로 분리 저장된 첫 번째, 두 번째 파트 파일의 절대 경로를 담은 튜플을 반환합니다.
 
     Raises:
         ValueError: 기준 페이지(`split_page_num`)가 0 이하이거나 원본 문서의 전체 페이지 수보다 크거나 같아서 
@@ -192,9 +199,10 @@ def split_pdf_two_parts(
             doc1.insert_pdf(doc, from_page=0, to_page=split_page_num - 1)
             doc1.save(str(out_path1), garbage=4, deflate=True)
         
-        # Part 2 추출 (split_page_num부터 마지막 페이지까지)
+        # Part 2 추출 (overlap 여부에 따라 from_page 결정)
         with pymupdf.open() as doc2:
-            doc2.insert_pdf(doc, from_page=split_page_num, to_page=total_pages - 1)
+            start_page = split_page_num - 1 if is_overlap else split_page_num
+            doc2.insert_pdf(doc, from_page=start_page, to_page=total_pages - 1)
             doc2.save(str(out_path2), garbage=4, deflate=True)
 
     return str(out_path1), str(out_path2)

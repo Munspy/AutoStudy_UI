@@ -32,11 +32,12 @@ class BaseTaskManager(QObject):
     queue_progress_signal = pyqtSignal(int, int) # (완료된 작업 수, 전체 작업 수)
     queue_finished_signal = pyqtSignal()
     
-    def __init__(self, max_concurrent_tasks: int = 3):
+    def __init__(self, max_concurrent_tasks: int = 3, llm_max_tasks: int = 5):
         """태스크 매니저를 초기화하고 채널별 큐 구조를 생성합니다.
 
         Args:
             max_concurrent_tasks (int, optional): 일반(general) 채널의 최대 동시 실행 스레드 수. Defaults to 3.
+            llm_max_tasks (int, optional): LLM 채널의 최대 동시 실행 스레드 수. Defaults to 5.
         
         Returns:
             None
@@ -53,7 +54,8 @@ class BaseTaskManager(QObject):
         # ===========================
         self.channels = {
             "general": {"max": max_concurrent_tasks, "pending": [], "active": []},
-            "llm": {"max": 1, "pending": [], "active": []}
+            "llm": {"max": llm_max_tasks, "pending": [], "active": []},
+            "whisper": {"max": 1, "pending": [], "active": []}
         }
         
         self._total_tasks = 0
@@ -87,7 +89,7 @@ class BaseTaskManager(QObject):
         # [시그널 연결 및 큐 처리]
         # ===========================
         # 스레드가 끝났을 때 큐 매니저가 이를 알아채도록 시그널 연결 (채널 정보 포함)
-        worker_instance.finished.connect(lambda: self._on_task_finished(worker_instance, channel))
+        worker_instance.finished.connect(lambda w=worker_instance, ch=channel: self._on_task_finished(w, ch))
         
         # 슬롯에 여유가 있다면 바로 실행
         self._process_queue(channel)

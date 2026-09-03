@@ -38,13 +38,14 @@ class PdfMergeWorker(BaseWorker):
         operation_service = PdfOperationService(logger_callback=self.log_signal.emit)
         
         # 작업 데이터를 변수에 할당합니다.
-        target_files = self.task['files']
-        out_name = self.task['out_name']
+        paths_to_merge = self.task['paths_to_merge']
+        save_name = self.task['save_name']
         is_drive = self.task['is_drive']
         target_dir = self.task['target_dir']
+        save_local = self.task.get('save_local', False)
         
         # 출력 파일명에 '.pdf' 확장자가 없으면 추가합니다.
-        if not out_name.endswith('.pdf'): out_name += '.pdf'
+        if not save_name.endswith('.pdf'): save_name += '.pdf'
         
         # ===========================
         # [병합 작업 수행]
@@ -54,10 +55,11 @@ class PdfMergeWorker(BaseWorker):
 
         # 지정된 파일들을 병합하고 저장합니다.
         success, msg = operation_service.merge_and_save(
-            target_files=target_files,
-            out_name=out_name,
+            paths_to_merge=paths_to_merge,
+            save_name=save_name,
             is_drive=is_drive,
-            target_dir=target_dir
+            target_dir=target_dir,
+            save_local=save_local
         )
         
         # ===========================

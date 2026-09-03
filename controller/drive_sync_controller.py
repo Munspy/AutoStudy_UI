@@ -91,9 +91,20 @@ class DriveSyncController(BaseController):
         # Whisper 음성 전사 작업 실행 요청을 로그로 출력
         self.log_signal.emit("작업 실행: Whisper AI 기반 음성 스크립트 전사를 시작합니다.")
 
-    def download_script_merged(self, task_manager):
-        # 스크립트 병합본 다운로드 요청을 로그로 출력
+    def download_script_merged(self, task_manager=None):
+        # 구버전 호환용 기본 로그 메시지
         self.log_signal.emit("다운로드: 스크립트 합본 다운로드를 요청했습니다.")
+
+    def start_download_script_merged(self, checked_lessons: list, output_path: str):
+        """체크된 수업들에 대해 구글 드라이브에서 _scripted.pdf를 다운로드하고, 목차가 포함된 합본 PDF를 생성하는 워커를 실행합니다."""
+        if not checked_lessons:
+            self.error_signal.emit("오류", "선택된(체크된) 수업이 없습니다.")
+            return
+
+        from worker.drive.drive_worker import ScriptedPdfMergeWorker
+        worker = ScriptedPdfMergeWorker(checked_lessons=checked_lessons, output_path=output_path)
+        worker.finished_signal.connect(lambda msg: self.log_signal.emit(f"✅ {msg}"))
+        self.start_worker(worker)
 
     def download_summary(self, task_manager):
         # 요약본 전체 다운로드 요청을 로그로 출력

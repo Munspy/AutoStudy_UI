@@ -21,11 +21,14 @@ class PdfSplitUi(BaseUI):
         self.controller.page_rendered.connect(self.on_page_rendered)
         self.controller.split_completed.connect(self.on_split_completed)
         self.controller.error_signal.connect(self.show_error)
+        self.controller.log_signal.connect(self.emit_log)
         
         self.file_paths = {}
         self.local_path = None
         self.total_pages = 0
         self.page_images = []
+        self._selected_path_or_id = None   # 원본 파일 삭제를 위한 추적
+        self._selected_is_drive = False
         
         self.init_ui()
 
@@ -166,6 +169,9 @@ class PdfSplitUi(BaseUI):
 
         layout.addLayout(bottom_layout)
 
+        # 드라이브 업로드를 기본값으로 설정
+        self.drive_check.setChecked(True)
+
 
     def toggle_search_mode(self, state):
         if state == 2:
@@ -203,6 +209,11 @@ class PdfSplitUi(BaseUI):
         path_or_id = self.file_paths.get(filename)
         is_drive = self.drive_check.isChecked()
         if not path_or_id: return
+        
+        # 원본 파일 정보 추적 (분할 완료 후 삭제에 사용)
+        self._selected_path_or_id = path_or_id
+        self._selected_is_drive = is_drive
+        
         self.controller.start_prepare_preview(path_or_id, is_drive)
         
         # 파일명 추천 로직
@@ -237,30 +248,44 @@ class PdfSplitUi(BaseUI):
         self.page_images.append(pixmap)
         
         try:
-            split_point = int(self.split_input.text().strip())
+            text = self.split_input.text().strip()
+            is_overlap = text.startswith('!')
+            if is_overlap:
+                split_point = int(text[1:])
+            else:
+                split_point = int(text) + 1  # 수직선(분할선) 표시를 위해 타겟을 다음 페이지 앞(즉, 다음 페이지)으로 지정
         except ValueError:
             split_point = -1
+            is_overlap = False
             
+        border_type = "overlap" if is_overlap else "danger"
         self.scroll_area.add_page(
             pixmap=pixmap,
-            border_color="danger" if (page_idx + 1 == split_point) else None,
+            border_color=border_type if (page_idx + 1 == split_point) else None,
             top_text=f"{page_idx+1}페이지"
         )
 
     def update_split_lines(self, text):
         try:
-            split_point = int(text.strip()) + 1
+            val = text.strip()
+            is_overlap = val.startswith('!')
+            if is_overlap:
+                split_point = int(val[1:])
+            else:
+                split_point = int(val) + 1
         except ValueError:
             split_point = -1
+            is_overlap = False
 
         if not hasattr(self, 'page_images'):
             return
 
         self.scroll_area.clear()
         for idx, pixmap in enumerate(self.page_images):
+            border_type = "overlap" if is_overlap else "danger"
             self.scroll_area.add_page(
                 pixmap=pixmap,
-                border_color="danger" if (idx + 1 == split_point) else None,
+                border_color=border_type if (idx + 1 == split_point) else None,
                 top_text=f"{idx+1}페이지"
             )
 
@@ -275,10 +300,12 @@ class PdfSplitUi(BaseUI):
             local_path=self.local_path,
             total_pages=self.total_pages,
             split_page_text=self.split_input.text(),
-            out1=self.save_name_1.text(),
-            out2=self.save_name_2.text(),
-            is_drive=self.drive_check.isChecked(),
-            target_dir=self.folder_input.text()
+            out1_name=self.save_name_1.text(),
+            out2_name=self.save_name_2.text(),
+            is_drive=True,  # 출력은 항상 드라이브 업로드 수행
+            target_dir=self.folder_input.text(),
+            original_id=self._selected_path_or_id,
+            original_is_drive=self._selected_is_drive
         )
 
     def on_split_completed(self, msg):
@@ -286,6 +313,43 @@ class PdfSplitUi(BaseUI):
         self.save_name_1.clear()
         self.save_name_2.clear()
         self.split_input.clear()
-        
-    def show_error(self, msg):
-        QMessageBox.critical(self, "오류", msg)
+        self._ask_delete_source_file()
+
+    def _ask_delete_source_file(self):
+        """분할에 사용된 원본 파일 삭제 여부를 묻고, 확인 시 삭제합니다."""
+        if not self._selected_path_or_id:
+            return
+
+        location = "드라이브" if self._selected_is_drive else "로컬"
+        reply = QMessageBox.question(
+            self, "원본 파일 삭제",
+            f"원본 {location} 파일을 삭제하시겠습니까?\n\n"
+            f"{self._selected_path_or_id}\n\n"
+            + ("(드라이브 휴지통으로 이동합니다)" if self._selected_is_drive else "(이 작업은 되돌릴 수 없습니다)"),
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            if self._selected_is_drive:
+                from utils.drive_api import delete_drive_file
+                from utils.auth_util import get_drive_service
+                try:
+                    ok = delete_drive_file(self._selected_path_or_id, drive_service=get_drive_service())
+                    if ok:
+                        self.emit_log(f"원본 드라이브 파일을 휴지통으로 이동했습니다.")
+                    else:
+                        self.emit_log("드라이브 파일 삭제 실패.")
+                except Exception as e:
+                    self.emit_log(f"드라이브 파일 삭제 오류: {e}")
+            else:
+                import os
+                try:
+                    if os.path.exists(self._selected_path_or_id):
+                        os.remove(self._selected_path_or_id)
+                        self.emit_log(f"원본 로컬 파일 삭제 완료: {self._selected_path_or_id}")
+                    else:
+                        self.emit_log("원본 파일을 찾을 수 없습니다.")
+                except Exception as e:
+                    self.emit_log(f"로컬 파일 삭제 오류: {e}")
+
+        self._selected_path_or_id = None
+        self._selected_is_drive = False

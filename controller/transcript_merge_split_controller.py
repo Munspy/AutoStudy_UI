@@ -32,8 +32,8 @@ class TranscriptController(BaseController):
     # ===========================
     search_completed = pyqtSignal(list)
     files_read_completed = pyqtSignal(int, list, list)
-    split_save_completed = pyqtSignal(list)
-    merge_save_completed = pyqtSignal(str)
+    split_save_completed = pyqtSignal(str)
+    merge_save_completed = pyqtSignal(tuple)
 
     def __init__(self, task_manager=None):
         # BaseController 초기화

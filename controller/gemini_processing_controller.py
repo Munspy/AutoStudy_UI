@@ -56,28 +56,26 @@ class GeminiProcessingController(BaseController):
     # [작업 큐 일괄 실행]
     # ===========================
     def start_tasks(self, task_queue: list):
-        """전달받은 작업 목록(Task Queue)을 바탕으로 LLM 워커들을 일괄 실행합니다.
+        """전달받은 작업 목록을 base_name(수업 교시)별로 그룹화하여, 각 그룹을 병렬(멀티스레드)로 실행합니다."""
+        if not self.task_manager:
+            self.log_signal.emit("⚠️ TaskManager가 설정되지 않아 다중 작업을 실행할 수 없습니다.")
+            return
 
-        여러 파일에 대한 순차적/병렬적 LLM 요청을 효율적으로 처리하기 위해 워커 리스트를 생성하고
-        배치(Batch) 방식으로 큐에 등록합니다.
-
-        Args:
-            task_queue (list): 실행할 LLM 작업들의 정보를 담은 리스트.
-
-        Returns:
-            None
-        """
-        # 1. 받은 데이터를 워커 객체들로 변환만 싹 해줍니다.
-        worker_list = []
+        # base_name 기준으로 작업 분류
+        grouped_tasks = {}
         for task in task_queue:
-            # 개별 작업을 처리할 LLM 워커 생성
-            worker = LLMTaskWorker(task)
-            # LLM만의 특수한 시그널 연결은 여기서 해줌 (셀 업데이트 시그널 연결)
-            worker.cell_update_signal.connect(self.cell_update_signal.emit)
-            # 생성된 워커를 실행 리스트에 추가
-            worker_list.append(worker)
+            b_name = task['base_name']
+            if b_name not in grouped_tasks:
+                grouped_tasks[b_name] = []
+            grouped_tasks[b_name].append(task)
             
-        # 2. 공통 로그/에러 연결과 큐에 던지는 건 이미 만들어둔 갓-메서드에게 위임!
-        # "LLM" 채널을 이용해 큐에 배치 실행 등록
-        self.start_batch_workers(worker_list, channel="LLM")
+        workers = []
+        for b_name, group in grouped_tasks.items():
+            # 각 base_name 별로 하나의 워커 생성 (동일 교시 내에서는 교정 -> 요약, Anki 순차 실행 보장)
+            w = LLMTaskWorker(group)
+            w.cell_update_signal.connect(self.cell_update_signal.emit)
+            workers.append(w)
+            
+        self.start_batch_workers(workers, channel="llm")
+        self.log_signal.emit(f"🚀 총 {len(workers)}개의 교시(병렬 파이프라인)를 백그라운드에서 동시 시작합니다...")
 

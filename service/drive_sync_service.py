@@ -15,6 +15,7 @@ from typing import List, Tuple, Dict, Any, Optional, Callable
 from utils.auth_util import get_drive_service
 from utils.drive_api import get_all_drive_files
 from utils.file_util import list_local_files
+from utils.filename_util import normalize_text
 from utils.config import Config
 from base.base_service import BaseService
 
@@ -128,18 +129,27 @@ class DriveSyncService(BaseService):
             self._log(f"❌ [DriveSync] 시험 기준 폴더 목록 조회 실패: {str(e)}")
             return []
 
-    def fetch_all_files(self, local_path: str, target_folder_id: Optional[str] = None) -> Tuple[List[Dict[str, Any]], List[str], List[str]]:
-        """구글 드라이브와 로컬 시스템의 모든 파일 목록을 재귀적으로 스캔하여 수집합니다."""
+    def fetch_all_files(
+        self, 
+        local_path: str = "", 
+        target_folder_id: Optional[str] = None,
+        name_filter: Optional[str] = None
+    ) -> Tuple[List[Dict[str, Any]], List[str], List[str]]:
+        """구글 드라이브와 로컬 시스템의 모든 파일 목록을 스캔하여 수집합니다."""
         folder_id = target_folder_id or self.target_folder_id
         try:
-            drive_files: List[Dict[str, Any]] = get_all_drive_files(folder_id, drive_service=self.drive_service)
-            drive_filenames: List[str] = [f['name'] for f in drive_files]
+            drive_files: List[Dict[str, Any]] = get_all_drive_files(
+                folder_id, 
+                name_filter=name_filter, 
+                drive_service=self.drive_service
+            )
+            drive_filenames: List[str] = [normalize_text(f.get('name', '')) for f in drive_files]
         except Exception as e:
             self._log(f"❌ [DriveSync] 구글 드라이브 스캔 중 오류 발생: {str(e)}")
             drive_files, drive_filenames = [], []
 
         try:
-            raw_local_files: List[str] = list_local_files(local_path)
+            raw_local_files: List[str] = list_local_files(local_path) if local_path else []
             local_files: List[str] = [
                 f for f in raw_local_files 
                 if not f.startswith('.') and not f.startswith('~$')
@@ -175,41 +185,62 @@ class DriveSyncService(BaseService):
                 
         return sorted(list(lesson_ids))
 
-    def build_lesson_status_data(self, lesson_id: str, drive_files: List[Dict[str, Any]], drive_filenames: List[str], json_cache: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        """단일 교시(Lesson ID)를 기준으로 모든 파일의 존재 여부를 평가하여 통합 상태 데이터를 조립합니다."""
-        try:
-            # PipelineStatusService 활용하여 파일 존재 여부 확인
-            has_final_pdf: bool = self.pipeline_service.check_lesson_file_status(drive_filenames, lesson_id, "final_pdf")
-            has_yaboot: bool = self.pipeline_service.check_lesson_file_status(drive_filenames, lesson_id, "yaboot")
-            has_jul: bool = self.pipeline_service.check_lesson_file_status(drive_filenames, lesson_id, "jul")
-            
-            note_status: str = "완료" if has_final_pdf else ("야붙" if has_yaboot else ("줄" if has_jul else "없음"))
+    # =========================================================================
+    # [1단계: 순수 존재 유무 데이터 수집 (Raw Boolean Flags)]
+    # =========================================================================
+    def get_lesson_file_flags(self, lesson_id: str, filenames: List[str]) -> Dict[str, bool]:
+        """해당 교시(Lesson ID)에 대해 모든 파이프라인 파일의 존재 여부만 True/False로 수집합니다."""
+        return {
+            "final_pdf": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "final_pdf"),
+            "yaboot": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "yaboot"),
+            "jul": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "jul"),
+            "script": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "script"),
+            "audio": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "audio"),
+            "corrected_txt": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "corrected_txt"),
+            "summary_txt": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "summary_txt"),
+            "anki": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "anki"),
+            "scripted_pdf": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "scripted_pdf"),
+        }
 
-            has_script: bool = self.pipeline_service.check_lesson_file_status(drive_filenames, lesson_id, "script")
-            has_audio: bool = self.pipeline_service.check_lesson_file_status(drive_filenames, lesson_id, "audio")
-            
-            script_status: str = "O (완료)" if has_script else ("Whisper AI 전사 필요" if has_audio else "영상 없음")
+    # =========================================================================
+    # [2단계: 존재 유무 데이터 -> DriveSync(1번 탭) 가공 데이터 (줄, 야붙, 완료 등)]
+    # =========================================================================
+    def format_drive_sync_data(self, lesson_id: str, flags: Dict[str, bool]) -> Dict[str, Any]:
+        """존재 유무 플래그를 바탕으로 1번 탭(DriveSync UI) 테이블용 데이터를 가공/조립합니다."""
+        note_status = "완료" if flags.get("final_pdf") else ("야붙" if flags.get("yaboot") else ("줄" if flags.get("jul") else "없음"))
+        script_status = "O (완료)" if flags.get("script") else ("Whisper AI 전사 필요" if flags.get("audio") else "영상 없음")
 
-            # LLM 태스크 및 부가 작업 결과 확인
-            has_corrected, has_summary = self.pipeline_service.get_ai_task_status_from_json(drive_files, lesson_id)
-            has_anki: bool = self.pipeline_service.check_lesson_file_status(drive_filenames, lesson_id, "anki")
-            has_scripted_pdf: bool = self.pipeline_service.check_lesson_file_status(drive_filenames, lesson_id, "scripted_pdf")
+        return {
+            "수업교시": lesson_id,
+            "교수": "-", 
+            "강의명": f"강의_{lesson_id}", 
+            "필기 상태": note_status,
+            "음성 스크립트 상태": script_status,
+            "교정 스크립트": flags.get("corrected_txt", False),
+            "요약본": flags.get("summary_txt", False),
+            "Anki": flags.get("anki", False),
+            "스크립트 합본": flags.get("scripted_pdf", False)
+        }
 
-            return {
-                "수업교시": lesson_id,
-                "교수": "-", 
-                "강의명": f"강의_{lesson_id}", 
-                "필기 상태": note_status,
-                "음성 스크립트 상태": script_status,
-                "교정 스크립트": has_corrected,
-                "요약본": has_summary,
-                "Anki": has_anki,
-                "스크립트 합본": has_scripted_pdf
-            }
-        except Exception as e:
-            self._log(f"⚠️ [DriveSync] 교시({lesson_id}) 상태 데이터 조립 중 오류: {str(e)}")
-            return {
-                "수업교시": lesson_id, "교수": "Error", "강의명": "Error",
-                "필기 상태": "오류", "음성 스크립트 상태": "오류",
-                "교정 스크립트": False, "요약본": False, "Anki": False, "스크립트 합본": False
-            }
+    # =========================================================================
+    # [3단계: 존재 유무 데이터 -> LLM(3번 탭) 가공 데이터 (교정, 요약 등)]
+    # =========================================================================
+    def format_llm_pipeline_data(self, lesson_id: str, flags: Dict[str, bool]) -> Tuple[Dict[str, Any], bool]:
+        """존재 유무 플래그를 바탕으로 3번 탭(LLM UI) 테이블용 데이터와 전체 완료 여부를 반환합니다."""
+        has_final_pdf = flags.get("final_pdf", False)
+        has_script_txt = flags.get("script", False)
+        has_corrected = flags.get("corrected_txt", False)
+        has_summary = flags.get("summary_txt", False)
+        anki_done = flags.get("anki", False)
+
+        is_all_completed = has_final_pdf and has_script_txt and has_corrected and has_summary and anki_done
+
+        data = {
+            "교시": lesson_id,
+            "강의록": has_final_pdf,
+            "음성스크립트": has_script_txt,
+            "교정": "완료" if has_corrected else "미완료",
+            "요약": "완료" if has_summary else "미완료",
+            "Anki": "완료" if anki_done else "미완료"
+        }
+        return data, is_all_completed

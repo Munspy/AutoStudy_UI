@@ -4,28 +4,26 @@
 의학 학습 자료 자동화 파이프라인의 각 단계(PDF 추출 -> Whisper STT -> LLM 교정 -> 요약 -> Anki)가 
 현재 단일 교시(Lesson)에 대해 어디까지 진행되었는지 진단하고 상태를 평가하는 역할을 전담합니다. 
 
-단순 파일 유무 검사를 넘어, `done.json`과 같은 상태(State) 기록 파일을 다운로드하고 파싱하여 
+단순 파일 유무 검사를 넘어, `_요약본.txt` 등 상태(State) 기록 파일들을 통해 
 비즈니스 로직(AI 작업 성공 여부 등)의 완결성을 입증합니다. 이 서비스의 출력 결과는 주로 
 `DriveSyncService`를 거쳐 UI의 대시보드 테이블에 시각화(렌더링)됩니다.
 """
 
-import json
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Callable, Literal
 
 from base.base_service import BaseService
 from service.file_naming_service import FileNamingService
 from utils.filename_util import normalize_text
-from utils.drive_api import (
-    in_memory_download_from_drive,
-    get_all_drive_files
-    )
+from utils.drive_api import get_all_drive_files
+from utils.auth_util import get_drive_service
 from utils.config import Config
 
 # [최적화 1] 매직 스트링 제거를 위한 Literal 타입 정의 (IDE 자동완성 및 타입 체크 지원)
 FileType = Literal[
     "final_pdf", "yaboot", "jul", "script", 
-    "audio", "anki", "scripted_pdf", "done_json"
+    "audio", "anki", "scripted_pdf", "summary_txt",
+    "corrected_txt", "corrected"
 ]
 
 class PipelineStatusService(BaseService):
@@ -56,7 +54,6 @@ class PipelineStatusService(BaseService):
         # [최적화 2] BaseService 초기화 누락 수정으로 일관된 로깅 시스템 활성화
         super().__init__(logger_callback=logger_callback)
         self.drive_service = drive_service
-        self.json_cache: Dict[str, Any] = {}
         # 하위 서비스에도 로깅 콜백 주입
         self.naming_service = FileNamingService(logger_callback=logger_callback)
 
@@ -72,7 +69,7 @@ class PipelineStatusService(BaseService):
     ) -> bool:
         """[파이프라인 진행도 검증] 특정 단계의 파이프라인 결과물 파일이 리스트에 존재하는지 확인합니다.        파일 시스템이나 클라우드를 직접 스캔하지 않고, 미리 긁어온(Fetched) 단순 파일명 배열(`file_list`)을 
         메모리 상에서 빠르게 스캔합니다. 
-        `FileType`에 정의된 8가지 주요 파이프라인 마일스톤에 대해 `FileNamingService`의 
+        `FileType`에 정의된 주요 파이프라인 마일스톤에 대해 `FileNamingService`의 
         정규식 필터링 능력을 빌려 해당 교시(`target_lesson_id`)에 속한 파일이 물리적으로 존재하는지 
         Boolean 값으로 반환합니다. 이 값은 UI의 진행도 바(Progress Bar)나 상태 텍스트 갱신에 직접적으로 사용됩니다.
 
@@ -115,76 +112,16 @@ class PipelineStatusService(BaseService):
         elif file_type == "scripted_pdf": 
             return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "scripted.pdf"))
             
-        # 7. LLM 작업 메타데이터 파일 존재 여부
-        elif file_type == "done_json": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "done.json"))
+        # 7. LLM 요약본 파일 존재 여부
+        elif file_type == "summary_txt": 
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "요약본"))
+            
+        # 8. LLM 교정본 파일 존재 여부
+        elif file_type in ("corrected_txt", "corrected"):
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "최종교정본"))
             
         return False
 
-    def get_ai_task_status_from_json(
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        self, 
-        drive_files: List[Dict[str, Any]], 
-        target_lesson_id: str
-    ) -> tuple[bool, bool]:
-        """드라이브에 저장된 `done.json`을 열어, AI 교정과 요약 작업이 내부에 실제로 기록되었는지 논리적으로 확인합니다.        물리적으로 파일(`done.json`)이 존재하더라도, 중간에 시스템 오류로 인해 안의 내용이 비어있을 수 있습니다. 
-        이 메서드는 파일을 디스크로 다운로드하는 오버헤드 대신 `in_memory_download_from_drive`를 사용해 
-        RAM 상에서 즉시 JSON을 디코딩합니다. 또한 반복 조회를 막기 위해 `self.json_cache`에 디코딩된 
-        딕셔너리를 캐싱합니다. JSON 내부의 `corrected_text`와 `summary` 키를 파싱하여, 
-        LLM 파이프라인의 세부적인 완결성을 2개의 불리언(Boolean) 값으로 명확하게 진단해냅니다.
-
-        Args:
-            drive_files (List[Dict[str, Any]]): 구글 드라이브에서 스캔된 파일들의 메타데이터 딕셔너리 리스트.
-            target_lesson_id (str): 상태를 조회할 대상 수업 교시 식별자.
-
-        Returns:
-            tuple[bool, bool]: 
-                - 첫 번째 불리언: 음성 스크립트 교정(Correction) 완료 여부.
-                - 두 번째 불리언: 단권화 요약(Summary) 완료 여부.
-
-        Raises:
-            ValueError: 인스턴스 초기화 시 구글 드라이브 서비스가 주입되지 않은 상태로 호출될 경우.
-        """
-        if not self.drive_service:
-            raise ValueError("구글 드라이브 서비스가 초기화되지 않았습니다.")
-
-        target_lesson_id = normalize_text(target_lesson_id)
-        file_names = [normalize_text(f.get('name', '')) for f in drive_files]
-        
-        # 대상 교시의 done.json 파일명 검색
-        done_json_filename = self.naming_service.find_file_by_lesson(file_names, target_lesson_id, "done.json")
-        has_corrected, has_summary = False, False
-        done_file_info = None
-        
-        if done_json_filename:
-            done_file_info = next((f for f in drive_files if normalize_text(f.get('name', '')) == done_json_filename), None)
-            
-        if done_file_info:
-            file_id = done_file_info['id']
-            
-            # 캐시에 없다면 드라이브에서 메모리로 직접 다운로드
-            if file_id not in self.json_cache:
-                try:
-                    with in_memory_download_from_drive(file_id, drive_service=self.drive_service) as fh:
-                        content = fh.read().decode('utf-8')
-                        # [최적화 2] JSONDecodeError 방어 및 빈 파일 처리
-                        self.json_cache[file_id] = json.loads(content) if content.strip() else {}
-                except json.JSONDecodeError as e:
-                    self._log(f"⚠️ [JSON 파싱 오류] {done_json_filename} 파일이 손상되었습니다: {str(e)}")
-                    self.json_cache[file_id] = {}
-                except Exception as e: 
-                    self._log(f"⚠️ [다운로드 오류] {done_json_filename} 파일 읽기 실패: {str(e)}")
-                    self.json_cache[file_id] = {}
-                    
-            # 캐시된 JSON 데이터 분석
-            json_data = self.json_cache.get(file_id, {})
-            has_corrected = bool(json_data.get("corrected_text", "").strip())
-            has_summary = bool(json_data.get("summary", "").strip())
-                
-        return has_corrected, has_summary
 
     def fetch_files_by_date_range(
         # ===========================

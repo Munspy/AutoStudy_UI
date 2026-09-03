@@ -254,10 +254,13 @@ class CombineNotesUi(BaseUI):
         self.controller = CombineNotesController(task_manager=self.task_manager)
         self.controller.ui = self
         
-        # 컨트롤러의 비동기 시그널 연결 (레이스 컨디션 해결)
+        # 컨트롤러의 비동기 시그널 연결 (레이스 컨디션 해결 및 상행로 연동)
         self.controller.match_list_completed.connect(self.on_matched_groups_ready)
         self.controller.inspection_completed.connect(self.on_inspection_ready)
         self.controller.merge_completed.connect(self.on_merge_ready)
+        self.controller.log_signal.connect(self.emit_log)
+        self.controller.error_signal.connect(self.show_error)
+        self.controller.loading_signal.connect(self.set_loading_state)
         
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
@@ -496,7 +499,7 @@ class CombineNotesUi(BaseUI):
             self.show_info("알림", "검수 데이터 생성이 완료되었습니다.\n하단의 미리보기를 확인하세요.")
         elif self._pending_action == 'auto_merge':
             folder_path = self.folder_input.text()
-            self.controller.start_merge(self.base_data, folder_path)
+            self.controller.start_merge(self.base_data, folder_path, is_drive=True)
             
         self._pending_action = None
 
@@ -506,11 +509,48 @@ class CombineNotesUi(BaseUI):
             return
             
         folder_path = self.folder_input.text()
-        self.controller.start_merge(self.base_data, folder_path)
+        self.controller.start_merge(self.base_data, folder_path, is_drive=True)
 
     def on_merge_ready(self, saved_files):
-        folder_path = self.folder_input.text()
-        self.show_info("저장 완료", f"총 {len(saved_files)}개의 파일이 병합되어 저장되었습니다.\n\n[저장 위치]\n{folder_path}")
+        self.show_info(
+            "드라이브 업로드 완료",
+            f"총 {len(saved_files)}개의 파일이 병합되어 드라이브에 업로드되었습니다."
+        )
+        self._ask_delete_source_files()
+
+    def _ask_delete_source_files(self):
+        """병합에 사용된 원본 로컬 파일 삭제 여부를 묻고, 확인 시 삭제합니다."""
+        from PyQt6.QtWidgets import QMessageBox
+        import os
+
+        # base_data에서 사용된 원본 파일 경로 수집 (중복 제거)
+        source_paths = set()
+        for item in self.base_data:
+            if item.get('jul') and item['jul'].get('path'):
+                source_paths.add(item['jul']['path'])
+            if item.get('yaboot') and item['yaboot'].get('path'):
+                source_paths.add(item['yaboot']['path'])
+
+        if not source_paths:
+            return
+
+        reply = QMessageBox.question(
+            self, "원본 파일 삭제",
+            f"원본 로컬 파일 {len(source_paths)}개를 삭제하시겠습니까?\n\n"
+            "이 작업은 되돌릴 수 없습니다.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply == QMessageBox.StandardButton.Yes:
+            deleted = 0
+            for path in source_paths:
+                try:
+                    if os.path.exists(path):
+                        os.remove(path)
+                        deleted += 1
+                except Exception as e:
+                    self.emit_log(f"파일 삭제 실패: {path} — {e}")
+            self.emit_log(f"원본 파일 {deleted}개 삭제 완료.")
+            self.refresh_file_list(self.folder_input.text())
 
     def open_fullscreen_editor(self):
         if not self.base_data:

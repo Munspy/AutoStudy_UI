@@ -89,23 +89,16 @@ class CombineNotesController(BaseController):
         # 워커를 시작하여 백그라운드에서 검수 진행
         self.start_worker(worker)
 
-    def start_merge(self, base_data, folder_path):
+    def start_merge(self, base_data, folder_path, is_drive=True):
         """검수 완료된 레시피를 기반으로 디스크에 실제 PDF를 병합 저장하는 워커를 실행합니다.
-
-        검수 과정을 통과한 데이터를 실제 파일 병합으로 이행하기 위해 호출됩니다.
 
         Args:
             base_data (list): 검수를 통해 확정된 병합 대상 레시피 데이터입니다.
-            folder_path (str): 결과물 PDF가 저장될 기준 폴더 경로입니다.
-
-        Returns:
-            None
-
-        Raises:
-            Exception: 파일 쓰기 등 파일 시스템 작업 중 오류가 발생할 수 있습니다.
+            folder_path (str): 결과물 PDF가 저장될 기준 폴더 경로 (is_drive=False 시 사용).
+            is_drive (bool): True이면 구글 드라이브로 업로드. 기본값 True.
         """
         # 검수 통과 데이터를 바탕으로 PDF를 병합하여 저장할 워커 생성
-        worker = PdfCombineSaveWorker(base_data, folder_path)
+        worker = PdfCombineSaveWorker(base_data, folder_path, is_drive=is_drive)
         # 병합 완료 시 merge_completed 시그널 방출 연결
         worker.finished_signal.connect(self.merge_completed.emit)
         # 백그라운드에서 워커 실행

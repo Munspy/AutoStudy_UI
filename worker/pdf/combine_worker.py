@@ -7,7 +7,11 @@ PDF 결합(Combine) 관련 워커 모듈입니다.
 """
 from base.base_worker import BaseWorker
 from service.pdf_analysis_service import PdfAnalysisService
-from service.pdf_operation_service import PdfOperationService
+import tempfile
+from pathlib import Path
+from utils.drive_api import upload_to_drive
+from utils.auth_util import get_drive_service
+from utils.config import Config
 
 class PdfMatchListWorker(BaseWorker):
     """지정된 폴더에서 병합할 PDF 파일 그룹을 탐색하는 워커 클래스.
@@ -91,26 +95,29 @@ class PdfCombineSaveWorker(BaseWorker):
     
     Attributes:
         base_data (list): 검수된 병합 레시피 데이터.
-        folder_path (str): 저장할 대상 폴더 경로.
+        folder_path (str): 저장할 대상 폴더 경로 (is_drive=False 시 사용).
+        is_drive (bool): True이면 구글 드라이브로 업로드, False이면 로컬 저장.
     """
-    def __init__(self, base_data, folder_path):
+    def __init__(self, base_data, folder_path, is_drive=True):
         """PdfCombineSaveWorker 초기화.
         
         Args:
             base_data (list): PDF 병합 지침이 담긴 데이터 리스트.
-            folder_path (str): 결과물을 저장할 폴더 경로.
+            folder_path (str): 결과물을 저장할 폴더 경로 (is_drive=False 시 사용).
+            is_drive (bool): 드라이브 업로드 여부. 기본값 True.
         """
         super().__init__()
         self.base_data = base_data
         self.folder_path = folder_path
+        self.is_drive = is_drive
 
     def do_work(self):
-        """실제 PDF 병합 및 저장 작업을 실행합니다.
+        """실제 PDF 병합 및 저장(또는 드라이브 업로드) 작업을 실행합니다.
         
         Returns:
-            list or None: 생성된 파일 경로 목록. 취소 시 None.
+            list or None: 생성된 파일명 목록. 취소 시 None.
         """
-        self.log_signal.emit("🚀 검수 완료된 레시피를 바탕으로 PDF 병합 및 저장을 시작합니다...")
+        self.log_signal.emit("🚀 검수 완료된 레시피를 바탕으로 PDF 병합을 시작합니다...")
         
         # ===========================
         # [PDF 병합 및 저장 실행]
@@ -120,17 +127,30 @@ class PdfCombineSaveWorker(BaseWorker):
         
         # 조작 서비스를 초기화하고 취소 콜백을 등록합니다.
         service = PdfAnalysisService(logger_callback=self.log_signal.emit)
-        service.is_cancelled = self.is_cancelled 
-        
-        # 설정된 레시피와 폴더 경로를 사용하여 모든 파일을 병합하고 저장합니다.
-        saved_files = service.execute_merge(
-            self.base_data,
-            self.folder_path
-        )
-            
-        # ===========================
-        # [결과 반환]
-        # ===========================
-        # 성공 메시지를 출력하고 저장된 파일 목록을 반환합니다.
-        self.log_signal.emit(f"✅ 성공적으로 {len(saved_files)}개의 파일을 병합 및 저장했습니다.")
+        service.is_cancelled = self.is_cancelled
+
+        if self.is_drive:
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # 1. 임시 폴더에 로컬 저장
+                saved_files = service.execute_merge(self.base_data, temp_dir)
+
+                if self.is_cancelled(): return None
+
+                # 2. 각 파일을 드라이브로 업로드
+                drive_svc = get_drive_service()
+                for name in saved_files:
+                    file_path = Path(temp_dir) / name
+                    upload_to_drive(
+                        str(file_path),
+                        Config.TARGET_DRIVE_DIR,
+                        mime_type='application/pdf',
+                        drive_service=drive_svc
+                    )
+                    self.log_signal.emit(f"☁️ 드라이브 업로드 완료: {name}")
+        else:
+            # 기존 로컬 저장 동작
+            saved_files = service.execute_merge(self.base_data, self.folder_path)
+
+        self.log_signal.emit(f"✅ 성공적으로 {len(saved_files)}개의 파일을 병합 및 처리했습니다.")
         return saved_files

@@ -5,9 +5,15 @@
 수업 교시별 파일 상태를 조회하는 `DriveSyncWorker` 클래스를 포함합니다.
 주로 `controller.drive_sync_controller`에서 호출되어 백그라운드 작업을 담당합니다.
 """
-# Threads/drive_thread.py
 from base.base_worker import BaseWorker
+
+import tempfile
+from pathlib import Path
+
+from utils.drive_api import download_from_drive
 from service.drive_sync_service import DriveSyncService
+from service.pdf_operation_service import PdfOperationService
+from service.file_naming_service import FileNamingService
 
 class DriveSyncWorker(BaseWorker):
     """드라이브 동기화 및 상태 조회를 백그라운드에서 전담하는 스레드.
@@ -92,7 +98,6 @@ class DriveSyncWorker(BaseWorker):
         # ===========================
         # 4. 테이블 렌더링용 데이터 조립
         table_data = []
-        json_cache = {}
         total_lessons = len(sorted_lessons)
         
         for index, lesson_id in enumerate(sorted_lessons):
@@ -106,13 +111,9 @@ class DriveSyncWorker(BaseWorker):
             progress = int(((index + 1) / total_lessons) * 100)
             self.progress_signal.emit(progress, "상태 판별 중...")
 
-            # 비즈니스 로직 위임
-            lesson_data = sync_service.build_lesson_status_data(
-                lesson_id, 
-                drive_files, 
-                drive_filenames, 
-                json_cache
-            )
+            # 1단계: 순수 존재 유무 데이터 수집 -> 2단계: DriveSync UI용 데이터 조립
+            flags = sync_service.get_lesson_file_flags(lesson_id, drive_filenames)
+            lesson_data = sync_service.format_drive_sync_data(lesson_id, flags)
             table_data.append(lesson_data)
 
         # 취소되지 않았다면 완료 메시지를 출력합니다.
@@ -136,3 +137,85 @@ class ExamCategoryFetchWorker(BaseWorker):
             return []
         categories = sync_service.fetch_exam_categories(force_refresh=self.force_refresh)
         return categories
+
+class ScriptedPdfMergeWorker(BaseWorker):
+    """체크된 수업(Lesson)들의 _scripted.pdf 파일을 Google Drive에서 다운로드하고,
+    강의 순서대로 목차(TOC)를 삽입하여 병합 PDF를 생성하는 워커 클래스.
+    """
+    def __init__(self, checked_lessons: list[str], output_path: str):
+        super().__init__()
+        self.checked_lessons = checked_lessons
+        self.output_path = output_path
+
+    def do_work(self):
+        if not self.checked_lessons:
+            self.error_signal.emit("선택된 수업이 없습니다.")
+            return None
+
+        self.log_signal.emit(f"🚀 총 {len(self.checked_lessons)}개 선택된 수업의 스크립트 합본 다운로드 및 병합 작업을 시작합니다...")
+        
+        sync_service = DriveSyncService(logger_callback=self.log_signal.emit)
+        naming_service = FileNamingService(logger_callback=self.log_signal.emit)
+        pdf_service = PdfOperationService(logger_callback=self.log_signal.emit)
+
+        # 1. Google Drive 파일 스캔
+        self.log_signal.emit("☁️ 구글 드라이브 파일 목록을 조회하는 중...")
+        drive_files, drive_filenames, _ = sync_service.fetch_all_files("")
+        
+        if self.is_cancelled():
+            return None
+
+        # 2. 체크된 수업들의 _scripted.pdf 메타데이터 매핑 (강의 순서 오름차순 정렬)
+        sorted_lessons = sorted(self.checked_lessons)
+        
+        lesson_file_map = {}
+        for f in drive_files:
+            fname = f.get('name', '')
+            if 'scripted.pdf' in fname.lower():
+                lid = naming_service.extract_lesson_id(fname)
+                if lid:
+                    lesson_file_map[lid] = f
+
+        # 3. 임시 폴더에 다운로드
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            pdf_entries = []  # (lesson_id, local_pdf_path)
+            
+            total = len(sorted_lessons)
+            for idx, lesson_id in enumerate(sorted_lessons, 1):
+                if self.is_cancelled():
+                    self.log_signal.emit("작업이 사용자에 의해 중단되었습니다.")
+                    return None
+
+                file_info = lesson_file_map.get(lesson_id)
+                if not file_info:
+                    self.log_signal.emit(f"⚠️ [{lesson_id}] _scripted.pdf 파일이 구글 드라이브에 존재하지 않아 건너뜁니다.")
+                    continue
+
+                local_file = temp_path / f"{lesson_id}_scripted.pdf"
+                self.log_signal.emit(f"📥 [{idx}/{total}] [{lesson_id}] _scripted.pdf 다운로드 중...")
+                self.progress_signal.emit(int((idx / total) * 80), f"[{lesson_id}] 다운로드 중...")
+                
+                try:
+                    download_from_drive(file_info['id'], str(local_file), drive_service=sync_service.drive_service)
+                    pdf_entries.append((lesson_id, local_file))
+                except Exception as e:
+                    self.log_signal.emit(f"❌ [{lesson_id}] 다운로드 실패: {str(e)}")
+
+            if not pdf_entries:
+                msg = "❌ 병합 가능한 _scripted.pdf 파일을 찾을 수 없거나 다운로드에 실패했습니다."
+                self.error_signal.emit(msg)
+                return None
+
+            # 4. 목차가 포함된 PDF 병합 생성
+            self.log_signal.emit(f"🔗 {len(pdf_entries)}개 수업 PDF를 목차(TOC)와 함께 강의 순서대로 병합하는 중...")
+            self.progress_signal.emit(90, "PDF 병합 및 목차 생성 중...")
+            
+            success, msg = pdf_service.merge_scripted_pdfs_and_save(pdf_entries=pdf_entries, output_path=self.output_path)
+            if not success:
+                self.error_signal.emit(msg)
+                return None
+
+            self.progress_signal.emit(100, "완료")
+            self.log_signal.emit(f"🎉 스크립트 합본 다운로드 및 병합 완료! (저장 위치: {self.output_path})")
+            return msg

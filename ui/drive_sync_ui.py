@@ -303,7 +303,7 @@ class DriveSyncUi(BaseUI):
         btn_dl_script = StyledButton("💾 스크립트 합본 다운로드", "important")
         
         
-        btn_dl_script.clicked.connect(self.controller.download_script_merged)
+        btn_dl_script.clicked.connect(self.download_script_merged)
         actions_layout.addWidget(btn_dl_script)
         
         actions_layout.addStretch() 
@@ -324,6 +324,43 @@ class DriveSyncUi(BaseUI):
         self.refresh_exam_categories()
 
     # --- 기능 메서드 ---
+    def get_checked_lessons(self) -> list[str]:
+        """테이블에서 선택(체크)된 행들의 수업 교시(Lesson ID) 리스트를 추출합니다."""
+        checked_lessons = []
+        for row in range(self.table.rowCount()):
+            chk_item = self.table.item(row, 0)
+            if chk_item and chk_item.checkState() == Qt.CheckState.Checked:
+                lesson_item = self.table.item(row, 1)
+                if lesson_item and lesson_item.text().strip():
+                    checked_lessons.append(lesson_item.text().strip())
+        return checked_lessons
+
+    def download_script_merged(self):
+        """체크된 수업들의 _scripted.pdf 파일 합본 다운로드를 시작합니다."""
+        checked_lessons = self.get_checked_lessons()
+        if not checked_lessons:
+            self.emit_log("⚠️ [오류] 스크립트 합본을 다운로드할 수업이 선택되지 않았습니다. 테이블에서 체크박스를 선택해주세요.")
+            return
+
+        sorted_checked = sorted(checked_lessons)
+        if len(sorted_checked) > 1:
+            default_filename = f"스크립트합본_{sorted_checked[0]}_{sorted_checked[-1]}.pdf"
+        else:
+            default_filename = f"스크립트합본_{sorted_checked[0]}.pdf"
+
+        output_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "스크립트 합본 PDF 저장 위치 선택",
+            os.path.join(self.local_download_path, default_filename),
+            "PDF Files (*.pdf)"
+        )
+        if not output_path:
+            self.emit_log("ℹ️ 스크립트 합본 다운로드가 취소되었습니다.")
+            return
+
+        self.emit_log(f"💾 총 {len(checked_lessons)}개 수업에 대한 스크립트 합본 다운로드를 요청합니다. (저장 위치: {output_path})")
+        self.controller.start_download_script_merged(checked_lessons=checked_lessons, output_path=output_path)
+
     def refresh_exam_categories(self, force_refresh: bool = False):
         """구글 드라이브에서 시험 기준(과목/차수) 폴더 목록을 비동기 조회합니다."""
         self.emit_log("구글 드라이브에서 시험 기준 폴더 목록을 조회합니다...")

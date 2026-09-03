@@ -15,6 +15,15 @@ class WhisperTranscriptionUi(BaseUI):
         super().__init__(task_manager=task_manager)
         self.controller = WhisperTranscriptionController(task_manager=self.task_manager)
         self.controller.ui = self
+        
+        # 컨트롤러 시그널 연결 (상행로 복구 및 비동기 콜백 연동)
+        self.controller.scan_completed.connect(self.populate_list)
+        self.controller.execution_completed.connect(self.on_transcription_finished)
+        self.controller.progress_signal.connect(self.update_progress)
+        self.controller.error_signal.connect(self.show_error)
+        self.controller.log_signal.connect(self.emit_log)
+        self.controller.loading_signal.connect(self.set_loading_state)
+        
         self.init_ui()
         self.check_macmini_connection()
         self.scan_drive_for_audio()
@@ -198,18 +207,19 @@ class WhisperTranscriptionUi(BaseUI):
         self.progress_bar.setValue(progress)
         # emit_log(message) if needed, but progress_bar is enough
 
-    def on_transcription_finished(self):
+    def on_transcription_finished(self, *args):
         self.run_whisper_btn.stop_loading()
         self.scan_btn.setEnabled(True)
         self.progress_bar.setValue(100)
         self.emit_log("🎉 Whisper 전사 작업이 완료되었습니다!")
         # 완료된 후 목록 재갱신
         self.scan_drive_for_audio()
-    def show_error(self, message):
+
+    def show_error(self, title: str, message: str):
         self.emit_log(f"오류 발생: {message}")
         self.run_whisper_btn.stop_loading()
-        if self.scan_btn.is_loading:
+        if hasattr(self, 'scan_btn') and hasattr(self.scan_btn, 'is_loading') and self.scan_btn.is_loading:
             self.scan_btn.stop_loading()
         else:
             self.scan_btn.setEnabled(True)
-        QMessageBox.critical(self, "오류", message)
+        super().show_error(title, message)

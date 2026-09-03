@@ -28,7 +28,7 @@ class WhisperService(BaseService):
     
     # [최적화 1] 매직 스트링 상수화 및 중복 제거
     AUDIO_EXTENSIONS = ('.wav', '.m4a', '.mp3', '.mp4', '.aac', '.flac')
-    INDICATOR_EXTENSIONS = ('_음성스크립트.txt', '_최종교정본.txt', '_done.json', '_scripted.pdf')
+    INDICATOR_EXTENSIONS = ('_음성스크립트.txt', '_최종교정본.txt', '_요약본.txt', '_scripted.pdf')
     
     # ===========================
     # [초기화 및 설정]
@@ -59,7 +59,7 @@ class WhisperService(BaseService):
 
         자동화 파이프라인에서 중복 처리를 방지(멱등성 보장)하기 위한 핵심 판별 로직입니다. 
         드라이브에 수많은 파일이 누적되어 있을 때, 오디오 파일(`.mp4`, `.mp3` 등)과 처리 완료를 나타내는 
-        식별 파일(`_음성스크립트.txt`, `_done.json` 등)을 한 번에 스캔합니다. 
+        식별 파일(`_음성스크립트.txt`, `_요약본.txt` 등)을 한 번에 스캔합니다. 
         
         완료된 파일들의 `base_name`(확장자를 제외한 순수 파일명)을 Set(집합) 자료구조에 캐싱해두고, 
         오디오 파일들의 `base_name`이 이 Set에 존재하는지 단일 탐색(O(1))으로 교차 검증합니다. 
