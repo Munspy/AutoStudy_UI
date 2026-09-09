@@ -28,6 +28,7 @@ PT_TIMEZONE = timezone(timedelta(hours=-8))
 # API 상태 및 에러 코드 상수 분리
 # ==========================================
 ERROR_QUOTA_EXCEEDED = "429"
+ERROR_SERVICE_UNAVAILABLE = "503"
 
 STATE_READY = "READY"
 STATE_BUSY = "BUSY"
@@ -49,7 +50,8 @@ class APIManager(BaseService):
     def __init__(self, state_file_name: str = "api_key_state.json") -> None:
         """APIManager 객체를 초기화하고 로컬 상태 파일과 전역 설정을 연동합니다.
 
-        Args:            state_file_name (str, optional): API 키 가용성 상태를 캐싱할 로컬 JSON 파일명. 기본값은 "api_key_state.json"입니다.
+        Args:
+            state_file_name (str, optional): API 키 가용성 상태를 캐싱할 로컬 JSON 파일명. 기본값은 "api_key_state.json"입니다.
         """
         # ===========================
         # [메인 비즈니스 로직]
@@ -66,26 +68,13 @@ class APIManager(BaseService):
         self.key_map: Dict[str, str] = {f"KEY_{i+1}": key for i, key in enumerate(Config.GEMINI_KEYS)}
         self.keys: List[str] = list(self.key_map.keys())
         
+        # 503 발생 시 모델별 잠금 만료 시각(UNIX timestamp) 관리
+        self.model_locks: Dict[str, float] = {}
+        
         self.state: Dict[str, Any] = self._load_state()
 
     def _load_state(self) -> Dict[str, Any]:
-        """로컬 파일 시스템에서 기존 API 키 상태 데이터를 로드하거나 초기화합니다.
-
-        이 메서드는 애플리케이션 시작 시 호출되어 이전에 실패했거나 쿨타임 중이었던 
-        API 키 상태를 복원합니다. 시스템이 예기치 않게 종료된 후 재시작되더라도 
-        할당량 초과(429) 상태를 기억하여 무의미한 API 호출 시도를 방지합니다.
-        파일이 손상(Corruption)되었을 경우를 대비해 기존 파일을 백업하고 새로운 상태로 초기화하는 
-        방어 로직이 포함되어 있습니다.
-
-        Args:            없음
-
-        Returns:
-            Dict[str, Any]: 복원되었거나 새로 초기화된 `키::모델` 조합의 상태 딕셔너리.
-        """
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
+        """로컬 파일 시스템에서 기존 API 키 상태 데이터를 로드하거나 초기화합니다."""
         initial_state = {}
         for k in self.keys:
             for m in self.models:
@@ -96,16 +85,19 @@ class APIManager(BaseService):
                     "error_code": None,
                     "error_time": 0.0
                 }
+        initial_state["_model_locks"] = {}
                 
         if self.state_file.exists():
             try:
                 with open(self.state_file, "r", encoding="utf-8") as f:
                     loaded_state = json.load(f)
+                    # 활성화된 모델 잠금 복원
+                    self.model_locks = loaded_state.get("_model_locks", {})
                     # 누락된 키 병합 및 강제 종료로 인한 좀비 상태 초기화
                     for combo, init_val in initial_state.items():
                         if combo not in loaded_state:
                             loaded_state[combo] = init_val
-                        else:
+                        elif combo != "_model_locks":
                             # 앱 재시작 시 기존 '사용 중' 플래그는 모두 무효화
                             loaded_state[combo]["is_in_use"] = False
                     return loaded_state
@@ -166,6 +158,27 @@ class APIManager(BaseService):
         dt = datetime.fromtimestamp(timestamp, tz=PT_TIMEZONE)
         return dt.strftime("%Y-%m-%d")
 
+    def lock_model(self, model_name: str, duration: float = None, current_time: Optional[float] = None) -> None:
+        """503(Service Unavailable) 등으로 인해 특정 모델을 전체 API 키에 대해 duration초 동안 전역 잠금합니다."""
+        if duration is None:
+            duration = Config.MODEL_LOCK_DURATION_503
+        if current_time is None:
+            current_time = time.time()
+        unlock_time = current_time + duration
+        self.model_locks[model_name] = unlock_time
+        if "_model_locks" not in self.state:
+            self.state["_model_locks"] = {}
+        self.state["_model_locks"][model_name] = unlock_time
+        
+        for k in self.keys:
+            c = f"{k}::{model_name}"
+            if c in self.state:
+                self.state[c]["error_code"] = ERROR_SERVICE_UNAVAILABLE
+                self.state[c]["error_time"] = current_time
+        
+        self._save_state()
+        print(f"🚨 [APIManager] '{model_name}' 모델 503 오류 발생: 전체 API 키에 대해 {duration:.0f}초 동안 전역 잠금 적용 (해제 예정: {datetime.fromtimestamp(unlock_time).strftime('%H:%M:%S')})")
+
     def end_task(self, key_id: str, model_name: str, error_code: Optional[str] = None) -> None:
         """API 호출 작업을 완료한 뒤 대여했던 키를 반납하고 상태를 업데이트합니다.
 
@@ -175,17 +188,14 @@ class APIManager(BaseService):
         상태 업데이트 후 `lock.notify_all()`을 호출하여, 가용 키가 나오기를 기다리며 
         수면(Wait) 상태에 빠져있던 다른 워커 스레드들을 즉시 깨워(Wake-up) 처리율(Throughput)을 극대화합니다.
 
-        Args:            key_id (str): 작업을 마친 API 키의 식별자(ID).
+        Args:
+            key_id (str): 작업을 마친 API 키의 식별자(ID).
             model_name (str): 사용했던 LLM 모델의 이름.
             error_code (Optional[str], optional): 작업 중 발생한 에러가 있다면 그 식별 코드(예: "429"). 정상 종료 시 None.
 
         Returns:
             None
         """
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         combo = f"{key_id}::{model_name}"
         current_time = time.time()
         
@@ -195,8 +205,12 @@ class APIManager(BaseService):
                 self.state[combo]["last_finished_at"] = current_time
                 
                 if error_code:
-                    self.state[combo]["error_code"] = str(error_code)
+                    err_str = str(error_code)
+                    self.state[combo]["error_code"] = err_str
                     self.state[combo]["error_time"] = current_time
+                    # 503 Service Unavailable 발생 시 해당 모델을 전체(모든 키) 설정된 시간만큼 잠금
+                    if ERROR_SERVICE_UNAVAILABLE in err_str:
+                        self.lock_model(model_name, duration=Config.MODEL_LOCK_DURATION_503, current_time=current_time)
                 else:
                     self.state[combo]["error_code"] = None
                 self._save_state()
@@ -211,7 +225,8 @@ class APIManager(BaseService):
         현재 사용 중(BUSY)인지, 요청 속도 제한 대기 중(COOLDOWN)인지, 하루 할당량을 모두 소진(DAILY_LIMIT)했는지 등 
         자세한 내부 상태를 판별합니다.
 
-        Args:            key_id (str): 상태를 조회할 API 키의 식별자(ID).
+        Args:
+            key_id (str): 상태를 조회할 API 키의 식별자(ID).
             model_name (str): 상태를 조회할 LLM 모델의 이름.
 
         Returns:
@@ -219,29 +234,41 @@ class APIManager(BaseService):
                 - 첫 번째 요소: 현재 상태를 나타내는 문자열 상수 (READY, BUSY, COOLDOWN, DAILY, ERROR, NOT_FOUND 중 하나).
                 - 두 번째 요소: 남은 쿨타임 초(float). 상태가 COOLDOWN이 아닐 경우 0.0을 반환합니다.
         """
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         combo = f"{key_id}::{model_name}"
         with self.lock:
             data = self.state.get(combo)
             if not data: return STATE_NOT_FOUND, 0.0
-            if data["is_in_use"]: return STATE_BUSY, 0.0
+            if data.get("is_in_use"): return STATE_BUSY, 0.0
             
             current_time = time.time()
+
+            # 1. 모델 전역 잠금(503) 검사
+            model_unlock = self.model_locks.get(model_name, 0.0)
+            if current_time < model_unlock:
+                remaining = model_unlock - current_time
+                return STATE_COOLDOWN, remaining
+            elif model_name in self.model_locks:
+                del self.model_locks[model_name]
+                if "_model_locks" in self.state and model_name in self.state["_model_locks"]:
+                    del self.state["_model_locks"][model_name]
+
+            # 2. 에러 코드 검사
             error_code = data.get("error_code")
             error_time = data.get("error_time", 0.0)
             
             if error_code:
-                # 상수로 에러 코드 비교
-                if error_code == ERROR_QUOTA_EXCEEDED:
+                if ERROR_SERVICE_UNAVAILABLE in str(error_code):
+                    # 503 잠금 시간이 경과했으므로 에러 해제
+                    data["error_code"] = None
+                    self._save_state()
+                elif str(error_code) == ERROR_QUOTA_EXCEEDED:
                     if self._get_pt_date(error_time) == self._get_pt_date(current_time):
                         return STATE_DAILY_LIMIT, 0.0
                 else:
-                    return STATE_ERROR, float(error_code) if error_code.isdigit() else 0.0
+                    return STATE_ERROR, float(error_code) if str(error_code).isdigit() else 0.0
             
-            time_since_finished = current_time - data["last_finished_at"]
+            # 3. 일반 API 쿨타임(15초) 검사
+            time_since_finished = current_time - data.get("last_finished_at", 0.0)
             if time_since_finished < self.cooldown_seconds:
                 remaining = self.cooldown_seconds - time_since_finished
                 return STATE_COOLDOWN, remaining
@@ -261,19 +288,16 @@ class APIManager(BaseService):
         즉시 깨어나 가용 키를 다시 탐색합니다. 이를 통해 다중 워커 환경에서 교착 상태(Deadlock)를 방지하고 
         API 호출량을 한계치까지 안전하게 밀어붙일 수 있습니다.
 
-        Args:            model_name (str): 작업을 요청할 대상 LLM 모델의 이름.
+        Args:
+            model_name (str): 작업을 요청할 대상 LLM 모델의 이름.
             timeout (int, optional): 가용 키를 찾지 못할 경우 대기할 최대 허용 시간(초). 기본값은 3600(1시간)입니다.
 
         Returns:
-            Tuple[str, str]: 할당에 성공한 최적 API 키의 식별자(ID)와 실제 API 키 문자열 값을 튜플로 반환합니다.
+            Tuple[str, str, str]: 할당에 성공한 최적 API 키의 식별자(ID), 실제 API 키 문자열, 모델명을 튜플로 반환합니다.
 
         Raises:
             TimeoutError: 지정된 `timeout` 시간을 모두 소진하고도 유효한 API 키를 할당받지 못한 경우 발생합니다.
         """
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         models = [model_name] if isinstance(model_name, str) else model_name
         model_display = ', '.join(models)
         print(f"\n🔍 [{model_display}] 사용 가능한 API Key 탐색 중...")
@@ -288,17 +312,24 @@ class APIManager(BaseService):
                 shortest_wait = timeout 
 
                 for m_name in models:
+                    # 503 전역 잠금 중인 모델은 건너뛰고 다음 우선순위 모델로!
+                    model_unlock = self.model_locks.get(m_name, 0.0)
+                    if current_time < model_unlock:
+                        remaining = model_unlock - current_time
+                        shortest_wait = min(shortest_wait, remaining)
+                        continue
+
                     for key_id, api_key in self.key_map.items():
                         if not api_key: continue
                         
                         data = self.state.get(f"{key_id}::{m_name}")
-                        if not data or data["is_in_use"]: continue
+                        if not data or data.get("is_in_use"): continue
                         
                         if data.get("error_code") == ERROR_QUOTA_EXCEEDED:
                             if self._get_pt_date(data["error_time"]) == self._get_pt_date(current_time):
                                 continue
                                 
-                        time_since_finished = current_time - data["last_finished_at"]
+                        time_since_finished = current_time - data.get("last_finished_at", 0.0)
                         if time_since_finished < self.cooldown_seconds:
                             remaining = self.cooldown_seconds - time_since_finished
                             shortest_wait = min(shortest_wait, remaining)

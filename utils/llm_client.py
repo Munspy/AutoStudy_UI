@@ -48,35 +48,30 @@ class GeminiAPIError(Exception):
 # ===========================
 
 def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user_prompt: str, temperature: float = 0.1, thinking_level: str = None, max_output_tokens: int = 65536) -> str:
-    """Google Gemini API를 호출하여 텍스트를 생성하는 코어 유틸리티 함수.
+    """Google Gemini API를 호출하여 텍스트를 스트리밍 방식으로 생성하는 코어 유틸리티 함수.
 
-    이 함수는 사용자 프롬프트와 시스템 인스트럭션을 조합하여 제미나이 모델에 텍스트 생성을 요청합니다.
-    자동화된 비동기 처리 관점에서, 수많은 PDF 페이지나 음성 변환 스크립트(Whisper 결과물)가 
-    Worker를 통해 쏟아져 들어올 때 빠르고 독립적으로 API와 통신해야 합니다. 
-    
-    이 로직은 시스템의 복잡한 비즈니스 로직(예: 사용량 추적, DB 저장, 키 로테이션 등)과는 완전히 
-    격리되어 작동하도록 설계되었습니다. 이러한 격리 설계는 API 통신이라는 본연의 목적에만 집중하게 함으로써 
-    코드의 응집도를 높이고, 향후 SDK 버전 업데이트나 인증 방식이 변경되더라도 수정 범위를 이 함수 내부로만 
-    제한하여 유지보수성을 극대화합니다. 내부적으로 `google.genai.Client`를 초기화하고 주어진 
-    환경 설정값(`temperature`)을 바탕으로 콘텐츠 생성을 요청한 뒤, 결과물만 추출하여 안전하게 반환합니다.
+    Thinking 기능 활성화 등으로 인한 연산 지연 시 발생하는 프록시 게이트웨이 타임아웃(503)을 방지하기 위해 
+    스트리밍(Streaming) 방식으로 통신하며, 반환되는 청크들을 순회·결합하여 최종 결과물을 생성합니다.
+
+    이 로직은 시스템의 복잡한 비즈니스 로직(예: 사용량 추적, DB 저장, 키 로테이션, 상위 재시도 등)과는 
+    격리되어 작동하도록 설계되었습니다.
 
     Args:
         api_key (str): Gemini API 서비스에 접근하고 인증하기 위한 사용자의 API 키.
         model_name (str): 텍스트 생성에 사용할 대상 Gemini 모델의 이름 (예: 'gemini-1.5-pro', 'gemini-2.5-flash').
         system_instruction (str): 모델의 페르소나, 역할, 어조 및 전반적인 행동 지침을 정의하는 시스템 프롬프트.
         user_prompt (str): 모델에게 전달하여 실제 답변 생성을 유도하는 사용자의 구체적인 질문 또는 입력 텍스트.
-        temperature (float, optional): 모델 응답의 창의성과 무작위성을 제어하는 하이퍼파라미터. 
-            0.0에 가까울수록 결정론적이고 일관된 응답을, 높은 값일수록 다양하고 예상치 못한 응답을 
-            생성합니다. 기본값은 0.1로, 학습 자료 자동화 생성 시 요구되는 안정적이고 사실적인 텍스트 생성에 맞춰져 있습니다.
+        temperature (float, optional): 모델 응답의 창의성과 무작위성을 제어하는 하이퍼파라미터. 기본값은 0.1.
         thinking_level (str, optional): 'HIGH', 'MEDIUM', 'LOW' 등 Thinking 기능의 수준.
-        max_output_tokens (int, optional): 최대 출력 토큰 수. Thinking 과정이 출력 토큰을 소모하므로 충분히 크게(예: 65536) 설정합니다.
+        max_output_tokens (int, optional): 최대 출력 토큰 수. 기본값은 65536.
 
     Returns:
-        str: 제미나이 모델이 성공적으로 생성하여 반환한 순수 텍스트 결과물(response.text).
+        str: 제미나이 모델이 성공적으로 생성하여 반환한 순수 텍스트 결과물.
 
     Raises:
         GeminiAPIError: 아래와 같은 다양한 원인으로 인해 정상적인 API 통신이 실패할 경우, 
             구체적인 에러 메시지와 에러 코드를 담아 발생시킵니다.
+            - 응답 절단: 최대 출력 토큰 초과로 응답이 절단된 경우 ('max_tokens')
             - API 통신 오류: 잘못된 API 키, 할당량 초과, 서버 내부 오류 등 (errors.APIError)
             - 네트워크 오류: 인터넷 연결 단절 또는 요청 시간 초과 (TimeoutError, ConnectionError)
             - 기타 알 수 없는 오류 (Exception)
@@ -95,23 +90,38 @@ def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user
             # google.genai 0.1+ 에서 지원하는 ThinkingConfig 사용
             config_dict["thinking_config"] = types.ThinkingConfig(thinking_level=thinking_level)
             
-        # 모델명, 프롬프트, 시스템 지시사항 및 온도를 설정하여 콘텐츠 생성 요청
-        response = client.models.generate_content(
+        # 프록시 게이트웨이 타임아웃(503) 방지를 위해 스트리밍 방식으로 요청
+        response_stream = client.models.generate_content_stream(
             model=model_name,
             contents=user_prompt,
             config=types.GenerateContentConfig(**config_dict)
         )
         
-        if response.candidates and response.candidates[0].finish_reason:
-            if "MAX_TOKENS" in str(response.candidates[0].finish_reason).upper():
-                raise GeminiAPIError("응답이 도중에 절단되었습니다 (MAX_TOKENS).", "max_tokens")
+        full_text_chunks = []
+        last_finish_reason = None
+        
+        # 스트림 청크를 순회하며 텍스트를 결합하고 종료 사유 추적
+        for chunk in response_stream:
+            if chunk.text:
+                full_text_chunks.append(chunk.text)
+            if chunk.candidates:
+                for candidate in chunk.candidates:
+                    if candidate.finish_reason:
+                        last_finish_reason = candidate.finish_reason
+                        
+        # 청크 순회 마지막에 MAX_TOKENS 절단 여부 확인
+        if last_finish_reason and "MAX_TOKENS" in str(last_finish_reason).upper():
+            raise GeminiAPIError("응답이 도중에 절단되었습니다 (MAX_TOKENS).", "max_tokens")
 
-        # 생성된 텍스트 결과물 반환
-        return response.text
+        return "".join(full_text_chunks)
         
     except errors.APIError as e:
         # API 레벨의 에러 발생 시 커스텀 예외로 래핑하여 던짐
         raise GeminiAPIError(f"LLM API 통신 오류: {e.message}", str(e.code))
+        
+    except GeminiAPIError:
+        # MAX_TOKENS 등으로 직접 발생시킨 GeminiAPIError는 래핑 변조 없이 그대로 전파
+        raise
         
     except (TimeoutError, ConnectionError) as e:
         # 네트워크 단절 및 타임아웃 오류 명시적 포착

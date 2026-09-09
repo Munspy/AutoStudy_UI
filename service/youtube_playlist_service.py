@@ -10,8 +10,11 @@ UI의 메인 화면(데이터 그리드)이나 Controller 계층이 클라우드
 """
 import urllib.parse as urlparse
 import re
+import csv
+import json
+import unicodedata
 from pathlib import Path
-from typing import Optional, Union, Dict, Any, List, Callable, Set
+from typing import Optional, Union, Dict, Any, List, Callable, Set, Tuple
 import concurrent.futures
 
 import yt_dlp
@@ -19,6 +22,7 @@ from googleapiclient.errors import HttpError
 
 from service.file_naming_service import FileNamingService
 from utils.auth_util import get_youtube_service
+from utils.config import BASE_DIR
 from base.base_service import BaseService
 
 PathLike = Union[str, Path]
@@ -35,7 +39,9 @@ class YoutubePlaylistService(BaseService):
     - 파이프라인 식별자 추출: `service.file_naming_service.FileNamingService`[cite: 1]
     - 미완료 음원 필터링 및 병렬 처리: `concurrent.futures.ThreadPoolExecutor`
     """
-    
+
+    CACHE_FILE = BASE_DIR / "youtube_metadata_cache.json"
+
     # ===========================
     # [초기화]
     # ===========================
@@ -49,6 +55,7 @@ class YoutubePlaylistService(BaseService):
         super().__init__(logger_callback=logger_callback)
         # 도메인 식별자 추출을 위해 FileNamingService 인스턴스 초기화
         self.naming_service = FileNamingService(logger_callback=logger_callback)
+        self._youtube_cache: Optional[Dict[str, Dict[str, str]]] = None
 
     # ===========================
     # [헬퍼 함수]
@@ -331,3 +338,147 @@ class YoutubePlaylistService(BaseService):
         except Exception as e:
             self._log(f"⚠️ 드라이브 기존 파일 검증 중 오류 발생: {str(e)}")
             return set()
+
+    # ===========================
+    # [유튜브 동영상 제목 파싱 및 교수/강의명 추출]
+    # ===========================
+    def parse_youtube_lesson_id(self, raw_title: str) -> Optional[str]:
+        """유튜브 동영상 제목에서 교시 ID(예: 0523_34, 0316_123)만 추출합니다."""
+        title = unicodedata.normalize("NFC", raw_title).strip()
+        m = re.search(r"(\d{4}_[\d,]+)", title)
+        return m.group(1) if m else None
+
+    def find_youtube_info_for_lesson(
+        self,
+        lesson_id: str,
+        yt_meta_map: Optional[Dict[str, Dict[str, str]]] = None
+    ) -> Dict[str, str]:
+        """강의 폴더의 교시 ID(예: 0316_2, 0523_34)와 일치하거나 포함되는 유튜브 메타데이터를 검색합니다."""
+        if yt_meta_map is None:
+            yt_meta_map = self.fetch_all_youtube_metadata()
+
+        if not yt_meta_map:
+            return {}
+
+        # 1. 완전 일치 (Exact match)
+        if lesson_id in yt_meta_map:
+            return yt_meta_map[lesson_id]
+
+        # 2. 콤마 제거 정규화 일치 (예: 0413_3,4 <-> 0413_34)
+        norm_target = lesson_id.replace(",", "").strip()
+        for k, v in yt_meta_map.items():
+            if k.replace(",", "").strip() == norm_target:
+                return v
+
+        # 3. 날짜 및 교시 포함 관계 매칭 (예: 폴더 0316_2 -> 유튜브 0316_123_김원규_호흡기 구조 Part 2)
+        m_target = re.match(r"^(\d{4})_(.*)$", lesson_id)
+        if m_target:
+            target_date = m_target.group(1)
+            target_period_str = m_target.group(2).replace(",", "").strip()
+            target_periods = set(target_period_str)
+
+            candidates = []
+            for k, v in yt_meta_map.items():
+                m_k = re.match(r"^(\d{4})_(.*)$", k)
+                if m_k and m_k.group(1) == target_date:
+                    cand_period_str = m_k.group(2).replace(",", "").strip()
+                    cand_periods = set(cand_period_str)
+                    overlap = target_periods.intersection(cand_periods)
+                    if overlap:
+                        # 겹치는 교시 수가 많고, 후보 영상의 전체 교시 범위가 가장 좁은 것 우선
+                        candidates.append((len(overlap), len(cand_periods), v))
+
+            if candidates:
+                candidates.sort(key=lambda x: (-x[0], x[1]))
+                return candidates[0][2]
+
+            # 4. 해당 날짜에 유튜브 영상이 단 1개만 등록되어 있는 경우
+            same_date_videos = [v for k, v in yt_meta_map.items() if k.startswith(target_date + "_")]
+            if len(same_date_videos) == 1:
+                return same_date_videos[0]
+
+        return {}
+
+    def fetch_all_youtube_metadata(self, force_refresh: bool = False) -> Dict[str, Dict[str, str]]:
+        """playlists.csv 에 기재된 모든 재생목록을 조회하여 lesson_id -> {교수, 강의명} 매핑 테이블을 구축합니다."""
+        if not force_refresh and self._youtube_cache is not None:
+            return self._youtube_cache
+
+        if not force_refresh and self.CACHE_FILE.exists():
+            try:
+                with open(self.CACHE_FILE, 'r', encoding='utf-8') as f:
+                    self._youtube_cache = json.load(f)
+                    self._log(f"🔍 유튜브 메타데이터 캐시 로드 완료 (총 {len(self._youtube_cache)}개 교시)")
+                    return self._youtube_cache
+            except Exception:
+                pass
+
+        cache_map: Dict[str, Dict[str, str]] = {}
+        playlists_csv = BASE_DIR / "playlists.csv"
+
+        if not playlists_csv.exists():
+            self._log("⚠️ playlists.csv 파일이 없습니다. 유튜브 메타 조회를 건너뜁니다.")
+            self._youtube_cache = {}
+            return self._youtube_cache
+
+        try:
+            youtube = get_youtube_service()
+        except Exception as e:
+            self._log(f"⚠️ YouTube API 서비스 인증 실패: {e}. 기본 메타데이터를 사용합니다.")
+            self._youtube_cache = {}
+            return self._youtube_cache
+
+        with open(playlists_csv, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            playlists = list(reader)
+
+        self._log(f"📺 YouTube 재생목록 {len(playlists)}개에서 강의 메타데이터 수집 중...")
+
+        for pl in playlists:
+            pid = pl.get("playlist_id") or pl.get("url", "")
+            if "list=" in pid:
+                pid = pid.split("list=")[-1].split("&")[0]
+
+            if not pid:
+                continue
+
+            page_token = None
+            while True:
+                try:
+                    res = youtube.playlistItems().list(
+                        part="snippet",
+                        playlistId=pid,
+                        maxResults=50,
+                        pageToken=page_token
+                    ).execute()
+                except Exception as e:
+                    self._log(f"⚠️ 재생목록({pid}) 조회 오류: {e}")
+                    break
+
+                for item in res.get("items", []):
+                    title = item["snippet"].get("title", "")
+                    vid = item["snippet"]["resourceId"].get("videoId", "")
+                    video_url = f"https://www.youtube.com/watch?v={vid}" if vid else ""
+
+                    lid = self.parse_youtube_lesson_id(title)
+                    if lid:
+                        cache_map[lid] = {
+                            "professor": "-",
+                            "lecture_name": f"강의_{lid}",
+                            "raw_title": title,
+                            "video_url": video_url
+                        }
+
+                page_token = res.get("nextPageToken")
+                if not page_token:
+                    break
+
+        self._youtube_cache = cache_map
+        try:
+            with open(self.CACHE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(cache_map, f, ensure_ascii=False, indent=2)
+            self._log(f"💾 유튜브 메타데이터 캐시 저장 완료 (총 {len(cache_map)}개 교시 식별)")
+        except Exception:
+            pass
+
+        return self._youtube_cache

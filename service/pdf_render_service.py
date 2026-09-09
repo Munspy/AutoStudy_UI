@@ -11,11 +11,12 @@ LLM(Gemini)이 생성한 요약본(단권화 노트)이나 스크립트 데이�
 창출하는 비즈니스 도메인 로직이 포함되어 있습니다.
 """
 
+import os
 import io
 import re
 import html
 from pathlib import Path
-from typing import Union
+from typing import Union, Optional
 
 import pymupdf
 import markdown
@@ -24,6 +25,7 @@ from pylatexenc.latex2text import LatexNodes2Text
 import threading
 
 from utils.config import Config
+from utils.pdf_core_util import clean_pdf_page_overflow
 from base.base_service import BaseService
 
 _pdf_rendering_lock = threading.Lock()
@@ -45,11 +47,8 @@ class PdfRenderService(BaseService):
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
         super().__init__()
-        self.default_font_path = getattr(
-            Config, 
-            "PDF_RENDER_FONT_PATH", 
-            "/System/Library/Fonts/Supplemental/AppleGothic.ttf"
-        )
+        self.default_font_path = Config.SCRIPT_FONT_PATH
+        self.bold_font_path = Config.SUMMARY_BOLD_FONT_PATH or self.default_font_path
         
         # [최적화 3] 반복 호출되는 정규식 패턴 사전 컴파일 캐싱
         # 대용량 텍스트 파싱 시 매번 정규식을 번역하는 엔진 오버헤드를 막기 위해, 
@@ -87,17 +86,21 @@ class PdfRenderService(BaseService):
             return ""
 
         def convert_math_block(match: re.Match) -> str:
-            # ===========================
-            # [메인 비즈니스 로직]
-            # ===========================
-            # 입력값을 바탕으로 핵심 로직을 수행합니다.
             math_expr = match.group(1)
             math_expr = re.sub(r'\\(\s+)', r'\1', math_expr)
             
-            try:                converted = LatexNodes2Text(math_mode=True).latex_to_text(math_expr)
+            try:
+                converted = LatexNodes2Text(math_mode='text').latex_to_text(math_expr)
             except Exception:
                 converted = (
-                    math_expr.replace(r'\times', '×')
+                    math_expr.replace(r'\rightarrow', '→')
+                    .replace(r'\to', '→')
+                    .replace(r'\Rightarrow', '⇒')
+                    .replace(r'\leftarrow', '←')
+                    .replace(r'\Leftarrow', '⇐')
+                    .replace(r'\leftrightarrow', '↔')
+                    .replace(r'\Leftrightarrow', '⇔')
+                    .replace(r'\times', '×')
                     .replace(r'\cdot', '·')
                     .replace(r'\le', '≤')
                     .replace(r'\ge', '≥')
@@ -109,18 +112,94 @@ class PdfRenderService(BaseService):
                 converted = converted.replace('\\', '')
             return html.escape(converted)
 
-        # 수식 블록 ($$, $) 텍스트 치환 (캐싱된 정규식 사용)
+        # 1. 수식 블록 ($$, $) 텍스트 치환
         text = self._math_display_pattern.sub(convert_math_block, text)
         text = self._math_inline_pattern.sub(convert_math_block, text)
         
-        # xhtml2pdf 패닉 유발 특수 기호 및 아스키 다이어그램 기호 치환
-        text = text.replace('──►', '-->').replace('►', '>').replace('▼', 'v')
-        text = text.replace('┌', '+').replace('┐', '+').replace('└', '+').replace('┘', '+')
-        text = text.replace('├', '+').replace('┤', '+').replace('┬', '+').replace('┴', '+')
-        text = text.replace('│', '|').replace('─', '-')
+        # 2. 잔여 LaTeX 화살표 및 아스키 다이어그램 기호 치환
+        text = (
+            text.replace(r'\rightarrow', '→')
+            .replace(r'\to', '→')
+            .replace(r'\Rightarrow', '⇒')
+            .replace(r'\leftarrow', '←')
+            .replace(r'\Leftarrow', '⇐')
+            .replace(r'\leftrightarrow', '↔')
+            .replace(r'\Leftrightarrow', '⇔')
+            .replace('──►', '-->')
+            .replace('►', '>')
+            .replace('▼', 'v')
+            .replace('┌', '+')
+            .replace('┐', '+')
+            .replace('└', '+')
+            .replace('┘', '+')
+            .replace('├', '+')
+            .replace('┤', '+')
+            .replace('┬', '+')
+            .replace('┴', '+')
+            .replace('│', '|')
+            .replace('─', '-')
+        )
         
-        # [최적화 1] 마크다운 리스트 포맷 정규화로 글머리 기호 렌더링 오류 방지
+        # 3. 볼드 문법 공백 정규화 및 볼드 뒤 띄어쓰기(간격) 보정
+        # 1) 닫는 ** 안쪽에 갇힌 공백을 바깥쪽 &nbsp;로 빼내어 다음 글자와 붙는 현상 방지
+        text = re.sub(r'\*\*([^\n*|]+?)[ \t]+\*\*', r'**\1**&nbsp; ', text)
+        text = re.sub(r'\*\*[ \t]+([^\n*|]+?)\*\*', r'**\1**', text)
+        # 2) ** 뒤에 일반 공백이 있는 경우 &nbsp;로 보강하여 xhtml2pdf 인라인 태그 전환 시 공백 축소 버그 방지
+        text = re.sub(r'\*\*[ \t]+(?=[^\n\s])', r'**&nbsp; ', text)
+
+        # 4. 줄 단위 정밀 처리: 표(Table) 경계 보호 및 표 셀 내부 불릿 줄바꿈(<br/>•)
+        lines = text.splitlines()
+        processed_lines = []
+        in_table = False
+
+        for line in lines:
+            stripped = line.strip()
+            is_table_row = stripped.startswith('|') and stripped.endswith('|')
+
+            # 표 블록 시작 감지 -> 표 시작 전 빈 줄 보장하여 이전 문단과 분리
+            if is_table_row and not in_table:
+                if processed_lines and processed_lines[-1].strip() != "":
+                    processed_lines.append("")
+                in_table = True
+            
+            # 표 블록 끝 감지 -> 표 끝난 후 빈 줄 보장하여 이후 문단이 표 셀로 흡수되는 현상 방지
+            elif not is_table_row and in_table:
+                in_table = False
+                if processed_lines and processed_lines[-1].strip() != "":
+                    processed_lines.append("")
+
+            if is_table_row:
+                # 표 구분선 행(|---|)은 그대로 유지
+                if re.match(r"^\|[\s\-:|]+\|$", stripped):
+                    processed_lines.append(stripped)
+                else:
+                    cells = stripped.split('|')
+                    new_cells = []
+                    for idx, c in enumerate(cells):
+                        if idx == 0 or idx == len(cells) - 1:
+                            new_cells.append(c)
+                            continue
+                        c_text = c.strip()
+                        # 표 셀 내부에서 연속된 불릿 항목 분리 (*, -, • 뒤에 공백 후 단어가 올 때 <br/>• 로 줄바꿈)
+                        c_text = re.sub(r"([^\s])\s+[\*\-•]\s+", r"\1<br/>• ", c_text)
+                        c_text = re.sub(r"^[\*\-]\s+", r"• ", c_text)
+                        new_cells.append(f" {c_text} ")
+                    processed_lines.append("|" + "|".join(new_cells[1:-1]) + "|")
+            else:
+                processed_lines.append(line)
+
+        if in_table:
+            processed_lines.append("")
+
+        text = "\n".join(processed_lines)
+
+        # 5. 마크다운 리스트 및 번호 앞 빈 줄 보장 (마크다운 구조 보존)
+        # 1) 글머리 기호 앞 빈 줄 보장
         text = self._list_spacing_pattern.sub(r'\1\n\n\2', text)
+        # 2) 번호 매기기 리스트 앞 빈 줄 보장 (문단 뒤 바로 붙는 \n1. -> \n\n1.)
+        text = re.sub(r'([^\n])\n(\d+\.\s)', r'\1\n\n\2', text)
+        # 3) 소제목 앞 빈 줄 보장 (문단 뒤 바로 붙는 \n**[숫자] -> \n\n**[숫자])
+        text = re.sub(r'([^\n])\n(\*\*\s*\[\d+\])', r'\1\n\n\2', text)
         return text
 
     def sanitize_markdown(self, text: str) -> str:
@@ -128,63 +207,65 @@ class PdfRenderService(BaseService):
         return self._sanitize_markdown(text)
 
     def _html_to_pdf_doc(self, html_content: str) -> pymupdf.Document:
-        """CSS가 주입된 완성형 HTML 문자열을 메모리 상의 `pymupdf.Document` 객체로 직접 변환합니다.
-
-        물리적인 디스크를 거치지 않고 I/O 바이트 버퍼(`io.BytesIO()`)를 활용하여 RAM 상에서 
-        문서를 즉시 컴파일(In-memory rendering)합니다. 이는 다수의 페이지를 렌더링해야 하는 
-        자동화 파이프라인에서 디스크 접근 병목(Bottleneck)을 제거하여 속도를 비약적으로 높이는 방식입니다.
-
-        Args:            html_content (str): CSS 스타일링과 정제된 텍스트가 모두 포함된 완성된 HTML 문서 문자열.
-
-        Returns:
-            pymupdf.Document: 조작 및 파일 저장이 가능한 메모리 상의 PDF 객체.
-        """
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
+        """CSS가 주입된 완성형 HTML 문자열을 메모리 상의 `pymupdf.Document` 객체로 직접 변환합니다."""
         pdf_io = io.BytesIO()
         pisa.CreatePDF(io.StringIO(html_content), dest=pdf_io)
         return pymupdf.open("pdf", pdf_io.getvalue())
 
-    def _get_css_template(self, margin: str = "40pt") -> str:
-        """의학 요약 노트 및 합성 PDF 포맷에 맞춘 기본 CSS 레이아웃 스타일 문자열을 반환합니다.
+    def _get_css_template(
+        self, 
+        margin: str = "40pt", 
+        font_path: Optional[str] = None, 
+        bold_font_path: Optional[str] = None,
+        font_family_name: str = "KoreanFont"
+    ) -> str:
+        """Legacy 코드(build_summary_compilation)의 스타일 시트를 완벽 계승하고 파트별 폰트 분리를 지원하는 CSS 템플릿."""
+        target_font = font_path if font_path is not None else self.default_font_path
+        target_bold = bold_font_path if bold_font_path is not None else self.bold_font_path
 
-        단순한 텍스트 배치가 아닌, 표(Table) 테두리 두께 조절, 줄바꿈 간격, 폰트 임베딩 등 
-        시각적 가독성(Readability)을 위한 스타일 시트입니다. 동적으로 `margin` 값을 주입받아 
-        일반 A4 요약본 렌더링과, 상단에 슬라이드가 들어가는 합성 PDF 렌더링 모두에 유연하게 대응합니다.
+        bold_css = ""
+        if target_bold and os.path.exists(target_bold) and target_bold != target_font:
+            bold_css = f"""
+            @font-face {{ 
+                font-family: {font_family_name}; 
+                src: url('{target_bold}'); 
+                font-weight: bold; 
+            }}
+            @font-face {{ 
+                font-family: monospace; 
+                src: url('{target_bold}'); 
+                font-weight: bold; 
+            }}
+            """
 
-        Args:            margin (str, optional): CSS `@page` 영역에 적용될 페이지 여백 문자열 
-                (예: "40pt" 또는 "430pt 40pt 40pt 40pt"). Defaults to "40pt".
+        font_face_css = ""
+        font_family_rule = "sans-serif"
+        mono_font_family_rule = "monospace"
 
-        Returns:
-            str: 렌더링될 문서의 Head 태그에 삽입될 `<style>` 내용.
-        """
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
+        if target_font and target_font != "":
+            font_face_css = f"""
+            @font-face {{ font-family: {font_family_name}; src: url('{target_font}'); }}
+            @font-face {{ font-family: monospace; src: url('{target_font}'); }}
+            {bold_css}
+            """
+            font_family_rule = f"{font_family_name}, sans-serif"
+            mono_font_family_rule = f"{font_family_name}, monospace"
+
         return f"""
-            @font-face {{ font-family: 'KoreanFont'; src: url('{self.default_font_path}'); }}
-            body {{ 
-                font-family: 'KoreanFont'; font-size: 10pt; line-height: 1.6; 
-                color: #1d1d1f; word-wrap: cjk; word-break: keep-all; 
-            }}
-            pre {{ 
-                font-family: 'KoreanFont', monospace; font-size: 7.5pt; line-height: 1.2; 
-                white-space: pre; background-color: #f4f5f7; padding: 10px; border: 1pt solid #ddd; 
-            }}
-            code {{ font-family: 'KoreanFont', monospace; }}
-            h1 {{ font-size: 18pt; border-bottom: 1.5pt solid #333; padding-bottom: 5px; margin-bottom: 15px; }}
-            h2 {{ font-size: 14pt; margin-top: 15px; margin-bottom: 10px; border-bottom: 0.5pt solid #ccc; }}
+            {font_face_css}
+            body {{ font-family: {font_family_rule}; font-size: 10pt; line-height: 1.6; color: #1d1d1f; word-wrap: cjk; word-break: keep-all; }}
+            pre, code, kbd, samp, tt {{ font-family: {mono_font_family_rule}; }}
+            pre {{ font-family: {mono_font_family_rule}; font-size: 7.5pt; line-height: 1.2; white-space: pre-wrap; word-wrap: break-word; background-color: #f4f5f7; padding: 10px; border: 1pt solid #ddd; }}
+            code {{ font-family: {mono_font_family_rule}; font-size: 8.5pt; background-color: #f4f5f7; padding: 2px 4px; border-radius: 3px; }}
+            h1 {{ font-size: 18pt; font-weight: bold; border-bottom: 1.5pt solid #333; padding-bottom: 5px; margin-bottom: 15px; -pdf-keep-with-next: true; }}
+            h2 {{ font-size: 14pt; font-weight: bold; margin-top: 15px; margin-bottom: 10px; border-bottom: 0.5pt solid #ccc; -pdf-keep-with-next: true; }}
+            h3 {{ font-size: 12pt; font-weight: bold; margin-top: 12px; margin-bottom: 8px; -pdf-keep-with-next: true; }}
+            strong, b {{ font-weight: bold; }}
             p {{ margin-bottom: 8px; text-align: justify; }}
-            
-            /* [최적화 1] xhtml2pdf 리스트(글머리 기호) 씹힘 방지 속성 명시적 부여 */
-            ul {{ margin-bottom: 10pt; margin-left: 20pt; list-style-type: disc; display: block; }}
-            li {{ display: list-item; margin-bottom: 4pt; line-height: 1.5; }}
-            
+            ul, ol {{ margin-bottom: 10pt; margin-left: 25pt; }}
+            li {{ margin-bottom: 5pt; padding-left: 2pt; }}
             table {{ width: 100%; border-collapse: collapse; margin-bottom: 15px; }}
-            th, td {{ border: 0.5pt solid #999; padding: 8px; text-align: left; vertical-align: top; }}
+            th, td {{ border: 0.5pt solid #999; padding: 8px; text-align: left; vertical-align: top; word-wrap: break-word; }}
             th {{ background-color: #f0f0f0; font-weight: bold; text-align: center; }}
             @page {{ size: a4 portrait; margin: {margin}; }}
         """
@@ -193,7 +274,7 @@ class PdfRenderService(BaseService):
     # 2. 메인 렌더링 비즈니스 엔트리포인트
     # ==========================================
 
-    def create_pdf_from_markdown(self, md_text: str, custom_css: str = None) -> pymupdf.Document:
+    def create_pdf_from_markdown(self, md_text: str, custom_css: str = None, body_prefix: str = "") -> pymupdf.Document:
         """마크다운 텍스트를 파싱하여 메모리 상의 PDF(pymupdf.Document) 객체로 변환 반환합니다.
 
         상위 Service나 Worker가 단권화 노트를 최종 PDF로 배포할 때 호출되는 퍼블릭 API입니다. 
@@ -201,8 +282,10 @@ class PdfRenderService(BaseService):
         메모리 버퍼 렌더링(`_html_to_pdf_doc`)을 순차적으로 파이프라이닝(Pipelining)합니다. 
         파일 시스템에 접근하지 않고 객체만 반환하므로 동시성 환경에서도 안전합니다.
 
-        Args:            md_text (str): 변환할 대상 마크다운 포맷의 텍스트.
+        Args:
+            md_text (str): 변환할 대상 마크다운 포맷의 텍스트.
             custom_css (str, optional): 기본 템플릿 대신 적용할 커스텀 CSS 문자열. Defaults to None.
+            body_prefix (str, optional): body 태그 직후에 삽입할 HTML 문자열. Defaults to "".
 
         Returns:
             pymupdf.Document: 모든 데이터가 렌더링된 메모리 기반 PDF 객체 (사용 후 close 필수).
@@ -218,7 +301,10 @@ class PdfRenderService(BaseService):
         html_content = f"""
         <!DOCTYPE html>
         <html><head><meta charset="utf-8"><style>{css_str}</style></head>
-        <body>{html_body}</body></html>
+        <body>
+            {body_prefix}
+            {html_body}
+        </body></html>
         """
         return self._html_to_pdf_doc(html_content)
 
@@ -251,18 +337,24 @@ class PdfRenderService(BaseService):
         Raises:
             Exception: 파일이 없거나 디스크 공간 부족, 렌더링 엔진 에러 등 예외 발생 시 로그 출력과 함께 상위로 전파됩니다.
         """
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
         a4_width, a4_height = 595.0, 842.0
         top_half_rect = pymupdf.Rect(0, 0, a4_width, a4_height / 2)
-        custom_css = self._get_css_template(margin="430pt 40pt 40pt 40pt")
+        script_font = Config.SCRIPT_FONT_PATH
+        custom_css = self._get_css_template(
+            margin="430pt 40pt 40pt 40pt", 
+            font_path=script_font, 
+            bold_font_path=""
+        )
         out_path_str = str(output_path)
         
         # [최적화 2] 컨텍스트 매니저를 통해 대용량 원본 파일 및 출력 파일의 메모리 누수 100% 방지
         try:
             with pymupdf.open(str(orig_pdf_path)) as orig_doc, pymupdf.Document() as out_doc:
+                # [오버플로우 정제] 웹 인쇄 시 이전 슬라이드 하단으로 누출된 다음 슬라이드 투명 텍스트 정밀 제거
+                redacted_count = clean_pdf_page_overflow(orig_doc)
+                if redacted_count > 0:
+                    self._log(f"   ➔ 🧹 슬라이드 간 오버플로우 텍스트 {redacted_count}개 라인 정제 완료")
+
                 for page_index in range(len(orig_doc)):
                     slide_num = page_index + 1
                     raw_text = slides_data_dict.get(slide_num, "").strip()

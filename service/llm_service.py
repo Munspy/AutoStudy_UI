@@ -16,6 +16,7 @@ from typing import Dict, Optional, Callable
 from base.base_service import BaseService
 from utils.llm_client import call_gemini_api, GeminiAPIError
 from service.api_key_tracker import api_mgr
+from utils.config import Config
 
 # 순수 통신을 담당하는 유틸리티 임포트
 from utils.llm_client import call_gemini_api
@@ -145,7 +146,10 @@ class LlmService(BaseService):
                 
             except GeminiAPIError as e:
                 error_code = e.code
-                self._log(f"⚠️ [AI 팀 - {task_id}] '{key_id}' ({chosen_model}) 오류 [HTTP {error_code}]. 다른 Key/모델로 재시도합니다...")
+                if "503" in str(error_code):
+                    self._log(f"🚨 [AI 팀 - {task_id}] '{chosen_model}' 모델에서 503 (Service Unavailable) 발생! 해당 모델을 {Config.MODEL_LOCK_DURATION_503:.0f}초 동안 전체 잠금 처리하고 다른 모델로 재시도합니다...")
+                else:
+                    self._log(f"⚠️ [AI 팀 - {task_id}] '{key_id}' ({chosen_model}) 오류 [HTTP {error_code}]. 다른 Key/모델로 재시도합니다...")
             except Exception as e:
                 error_code = "unknown"
                 self._log(f"⚠️ [AI 팀 - {task_id}] '{key_id}' ({chosen_model}) 예외: {str(e)}. 다른 Key/모델로 재시도합니다...")
@@ -338,7 +342,15 @@ Definitive Treatment (최종 치료)
 
 위 데이터를 바탕으로 System Instruction에 명시된 결과물을 출력해 줘."""
 
-        return self._execute_llm_task("Gemini 요약 작업", model_name, system_instruction, user_prompt, task_id, on_start_callback)
+        return self._execute_llm_task(
+                    "Gemini 요약 작업", 
+                    model_name, 
+                    system_instruction, 
+                    user_prompt, 
+                    task_id, 
+                    on_start_callback, 
+                    thinking_level="HIGH"
+                )
 
     # ==========================================
     # 3. Anki 데이터 생성 (준비물: 교정본 + 강의록)

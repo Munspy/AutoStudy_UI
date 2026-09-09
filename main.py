@@ -27,7 +27,7 @@ from ui.transcript_merge_split_ui import TranscriptMergeSplitUi
 from ui.whisper_transcription_ui  import WhisperTranscriptionUi
 from ui.gemini_processing_ui      import GeminiProcessingUi
 from ui.youtube_playlist_ui       import YoutubePlaylistUi
-from ui.json_editer_ui            import JsonEditerUi
+from ui.raw_data_editor_ui       import RawDataEditorUi
 
 from base.base_task_manager import BaseTaskManager
 
@@ -84,7 +84,7 @@ class AutomationDashboard(QMainWindow):
             "6. Whisper 기반 음성 전사",
             "7. Gemini 기반 교정/요약/Anki",
             "8. Youtube 재생목록 관리",
-            "9. Json 직접 수정"
+            "9. Raw data 직접수정"
         ])
         # 기본으로 첫 번째 메뉴가 선택되도록 설정
         self.sidebar.setCurrentRow(0)
@@ -199,8 +199,8 @@ class AutomationDashboard(QMainWindow):
         self.tab8.log_signal.connect(self.log_msg)
         self.stacked_widget.addWidget(self.tab8)
 
-        # 탭 9: JSON 파일 직접 수정
-        self.tab9 = JsonEditerUi(self.global_task_manager)
+        # 탭 9: Raw data 직접수정
+        self.tab9 = RawDataEditorUi(self.global_task_manager)
         # self.tab9.log_signal.connect(self.log_msg)
         self.stacked_widget.addWidget(self.tab9)
 

@@ -96,7 +96,8 @@ class DriveSyncWorker(BaseWorker):
         # ===========================
         # [테이블 렌더링용 데이터 조립]
         # ===========================
-        # 4. 테이블 렌더링용 데이터 조립
+        # 4. 테이블 렌더링용 데이터 조립 (시간표 및 메타데이터 사전 로드)
+        sync_service.preload_metadata()
         table_data = []
         total_lessons = len(sorted_lessons)
         
@@ -198,7 +199,15 @@ class ScriptedPdfMergeWorker(BaseWorker):
                 
                 try:
                     download_from_drive(file_info['id'], str(local_file), drive_service=sync_service.drive_service)
-                    pdf_entries.append((lesson_id, local_file))
+                    # timetable 기반 목차(TOC) 제목 설정
+                    tt_info = sync_service.timetable_service.find_timetable_info_for_lesson(lesson_id)
+                    prof = tt_info.get("professor", "").strip() if tt_info else ""
+                    lec = tt_info.get("lecture_name", "").strip() if tt_info else ""
+                    if prof and lec:
+                        toc_title = f"{lesson_id} {prof} - {lec}"
+                    else:
+                        toc_title = lesson_id
+                    pdf_entries.append((toc_title, local_file))
                 except Exception as e:
                     self.log_signal.emit(f"❌ [{lesson_id}] 다운로드 실패: {str(e)}")
 

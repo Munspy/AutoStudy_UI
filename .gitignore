@@ -19,8 +19,11 @@ UI-code.xml
 visualize_all.py
 .DS_Store
 .env
-.gitignore.env
 .DS_Store
 legacy.xml
-
+youtube_metadata_cache.json
 api_key_state.json
+timetable_cache.json
+backup_to_notion.py
+generate_scripted_pdf.py
+service/notion_backup_service.py

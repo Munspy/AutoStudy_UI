@@ -22,12 +22,14 @@ from base.base_service import BaseService
 # 분리된 도메인 서비스 임포트
 from service.file_naming_service import FileNamingService
 from service.pipeline_status_service import PipelineStatusService
+from service.youtube_playlist_service import YoutubePlaylistService
+from service.timetable_service import TimetableService
 
 class DriveSyncService(BaseService):
     """드라이브 및 로컬 폴더의 파일을 스캔하여 각 수업 교시별 동기화 상태를 판별하는 단일 책임 서비스.
 
     구글 드라이브 API 통신(`get_drive_service`, `get_all_drive_files`), 파일 시스템 스캔, 
-    도메인 로직 처리(`FileNamingService`, `PipelineStatusService`)에 대한 의존성을 묶어 
+    도메인 로직 처리(`FileNamingService`, `PipelineStatusService`, `YoutubePlaylistService`, `TimetableService`)에 대한 의존성을 묶어 
     Controller가 복잡한 상태 취합 로직에 관여하지 않도록 캡슐화(Encapsulation)합니다.
     """
     
@@ -36,11 +38,14 @@ class DriveSyncService(BaseService):
         super().__init__(logger_callback=logger_callback)
         
         self.drive_service = get_drive_service()
+        # self.target_folder_id: str = "1LGpUait4f5AxSnb5zhmPIMYAE96ipJue"
         self.target_folder_id: str = Config.TARGET_DRIVE_DIR
         
         # 도메인 서비스 인스턴스화
         self.naming_service = FileNamingService()
         self.pipeline_service = PipelineStatusService(self.drive_service)
+        self.yt_service = YoutubePlaylistService(logger_callback=self._log)
+        self.timetable_service = TimetableService(logger_callback=self._log)
         
         # 시험 기준 카테고리 캐시
         self._exam_categories_cache: Optional[List[Tuple[str, str]]] = None
@@ -202,18 +207,47 @@ class DriveSyncService(BaseService):
             "scripted_pdf": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "scripted_pdf"),
         }
 
+    def preload_metadata(self, force_refresh: bool = False) -> None:
+        """시간표(timetable) 및 유튜브 메타데이터를 백그라운드에서 사전 로드합니다."""
+        try:
+            self.timetable_service.fetch_all_timetable_metadata(
+                force_refresh=force_refresh, 
+                drive_service=self.drive_service
+            )
+        except Exception as e:
+            self._log(f"⚠️ timetable 사전 로드 실패: {e}")
+
     # =========================================================================
     # [2단계: 존재 유무 데이터 -> DriveSync(1번 탭) 가공 데이터 (줄, 야붙, 완료 등)]
     # =========================================================================
     def format_drive_sync_data(self, lesson_id: str, flags: Dict[str, bool]) -> Dict[str, Any]:
-        """존재 유무 플래그를 바탕으로 1번 탭(DriveSync UI) 테이블용 데이터를 가공/조립합니다."""
+        """존재 유무 플래그와 타임테이블/유튜브 메타데이터를 바탕으로 1번 탭(DriveSync UI) 테이블용 데이터를 가공/조립합니다."""
         note_status = "완료" if flags.get("final_pdf") else ("야붙" if flags.get("yaboot") else ("줄" if flags.get("jul") else "없음"))
         script_status = "O (완료)" if flags.get("script") else ("Whisper AI 전사 필요" if flags.get("audio") else "영상 없음")
 
+        # 1. 드라이브 최상단 timetable 스프레드시트 데이터 우선 조회
+        tt_info = self.timetable_service.find_timetable_info_for_lesson(
+            lesson_id, 
+            drive_service=self.drive_service
+        )
+        tt_prof = tt_info.get("professor", "").strip() if tt_info else ""
+        tt_lec = tt_info.get("lecture_name", "").strip() if tt_info else ""
+
+        # 2. timetable에 교수명 또는 강의명이 누락된 경우 유튜브 메타데이터로 폴백
+        default_lec = f"강의_{lesson_id}"
+        if not tt_prof or not tt_lec or tt_prof == "-":
+            yt_info = self.yt_service.find_youtube_info_for_lesson(lesson_id)
+            professor = tt_prof if (tt_prof and tt_prof != "-") else yt_info.get("professor", "-")
+            lecture_name = tt_lec if (tt_lec and tt_lec != default_lec) else yt_info.get("lecture_name", default_lec)
+        else:
+            professor = tt_prof
+            lecture_name = tt_lec
+
         return {
             "수업교시": lesson_id,
-            "교수": "-", 
-            "강의명": f"강의_{lesson_id}", 
+            "교수": professor, 
+            "강의명": lecture_name, 
+            "과목명": tt_info.get("subject", "") if tt_info else "",
             "필기 상태": note_status,
             "음성 스크립트 상태": script_status,
             "교정 스크립트": flags.get("corrected_txt", False),

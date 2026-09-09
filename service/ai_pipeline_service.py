@@ -276,9 +276,12 @@ class AiPipelineService(BaseService):
                     )
 
                     try:
-                        self.summary_pdf_service.generate_and_upload_scripted_pdf(
-                            base_name, summary_text, src_text, target_folder_id, drive_service
-                        )
+                        if corrected_text:
+                            self.summary_pdf_service.generate_and_upload_scripted_pdf(
+                                base_name, summary_text, corrected_text, target_folder_id, drive_service
+                            )
+                        else:
+                            self._log(f"⚠️ [{base_name}] 최종교정본이 없어 _scripted.pdf 생성을 건너뜁니다.")
                     except Exception as pdf_e:
                         self._log(f"❌ {base_name} _scripted.pdf 생성 실패: {str(pdf_e)}")
 

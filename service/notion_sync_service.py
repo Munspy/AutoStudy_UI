@@ -409,18 +409,27 @@ class NotionSyncService(BaseService):
             block_type = "paragraph"
             content = line
 
-            if line.startswith("### "):
-                block_type, content = "heading_3", line[4:]
-            elif line.startswith("## "):
-                block_type, content = "heading_2", line[3:]
-            elif line.startswith("# "):
-                block_type, content = "heading_1", line[2:]
-            elif line.startswith("* ") or line.startswith("- "):
-                block_type, content = "bulleted_list_item", line[2:]
+            m_heading = re.match(r'^(#{1,6})\s+(.+)$', line)
+            if m_heading:
+                h_level = len(m_heading.group(1))
+                content = m_heading.group(2)
+                if h_level == 1:
+                    block_type = "heading_1"
+                elif h_level == 2:
+                    block_type = "heading_2"
+                else:
+                    # Notion API는 heading_1, heading_2, heading_3만 지원하므로 ####(H4) 이상은 heading_3로 변환
+                    block_type = "heading_3"
+            elif line.startswith(("* ", "- ", "+ ")):
+                block_type = "bulleted_list_item"
+                content = line[2:]
             elif re.match(r'^\d+\.\s+', line):
                 # 숫자 번호 매기기 리스트(1., 2. 등) 지원 추가
                 block_type = "numbered_list_item"
                 content = re.sub(r'^\d+\.\s+', '', line)
+            elif line.startswith("> "):
+                block_type = "quote"
+                content = line[2:]
 
             blocks.append({
                 "object": "block",

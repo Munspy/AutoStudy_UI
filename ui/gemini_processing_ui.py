@@ -19,6 +19,7 @@ from base.base_ui_components import LoadingButton, CardWidget, StyledTableWidget
 
 from controller.gemini_processing_controller import GeminiProcessingController
 from service.api_key_tracker import api_mgr
+from utils.config import Config
 
 # 키 상태 정의 상수
 STATE_READY = "READY"        # 🟢 대기 중
@@ -102,7 +103,10 @@ class KeyBadge(QWidget):
         painter.setPen(text_color)
 
         if self.state == STATE_COOLDOWN:
-            display_text = f"{self.remaining_cd:.1f}s"
+            if self.remaining_cd >= 10:
+                display_text = f"{int(self.remaining_cd)}s"
+            else:
+                display_text = f"{self.remaining_cd:.1f}s"
         else:
             # 뱃지 공간 제약으로 인해 화면 표시용으로 텍스트 축약
             display_text = self.name.replace("gemini-", "").replace("-flash", "").replace("-preview", "")
@@ -139,8 +143,8 @@ class GeminiProcessingUi(BaseUI):
         self.controller.loading_signal.connect(self.handle_loading_state)
         self.controller.log_signal.connect(self.emit_log)
 
-        self.api_keys = ["KEY_1", "KEY_2", "KEY_3"]
-        self.models = ["gemini-3-flash-preview", "gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"] 
+        self.api_keys = [f"KEY_{i+1}" for i in range(len(Config.GEMINI_KEYS))]
+        self.models = Config.GEMINI_MODELS
         
         self.badge_widgets = {}
         self.init_ui()
@@ -280,7 +284,8 @@ class GeminiProcessingUi(BaseUI):
                 status, extra = api_mgr.check_combo_status(key_name, model_name)
                 
                 if status == "COOLDOWN":
-                    badge.set_cooldown(extra, total=api_mgr.cooldown_seconds)
+                    total_cd = Config.MODEL_LOCK_DURATION_503 if extra > api_mgr.cooldown_seconds else api_mgr.cooldown_seconds
+                    badge.set_cooldown(extra, total=total_cd)
                 elif status in [STATE_READY, STATE_BUSY, STATE_DAILY_LIMIT]:
                     badge.set_state(status)
                 else:
@@ -464,12 +469,8 @@ class GeminiProcessingUi(BaseUI):
     def execute_auto_run(self):
         self.emit_log("선택된 작업을 시작합니다. (상태는 api_manager에 의해 제어됩니다)")
         
-        # 작업별 허용 모델 정의
-        allowed_models = {
-            "교정": ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"],
-            "요약": ["gemini-3-flash-preview"],
-            "Anki": ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash"]
-        }
+        # 작업별 허용 모델 정의 (요약: 3-flash-preview 고정, 교정/Anki: 3.5 -> 3.6 -> 3.7 우선순위)
+        allowed_models = Config.TASK_ALLOWED_MODELS
         
         # 모델 인덱스 초기화 (키는 백그라운드 api_manager가 런타임에 동적으로 할당함)
         task_model_idx = { "교정": 0, "요약": 0, "Anki": 0 }

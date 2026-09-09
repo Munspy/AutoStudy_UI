@@ -12,6 +12,7 @@ PDF 파일의 물리적 조작(병합, 분할, 재조합) 및 UI 렌더링을 �
 병합/분할 시 발생할 수 있는 객체 파편화 및 파일 용량 팽창을 막기 위한 최적화 로직이 일관되게 적용되어 있습니다.
 """
 
+import re
 from pathlib import Path
 from typing import List, Tuple, Union, Optional, Sequence
 from contextlib import ExitStack
@@ -273,3 +274,76 @@ def merge_specific_pages(
         # 최적화 압축 저장
         out_pdf.save(str(out_path), garbage=4, deflate=True)
         return str(out_path)
+
+
+# ==========================================
+# 4. 슬라이드 오버플로우 텍스트 정제
+# ==========================================
+
+def clean_pdf_page_overflow(doc: pymupdf.Document) -> int:
+    """웹 뷰어 브라우저 인쇄 시 다음 페이지 상단 텍스트가 이전 페이지 하단으로 오버플로우된 투명/누출 텍스트를 감지하여 제거합니다.
+
+    원본 슬라이드의 벡터 그래픽, 서식, 유효 텍스트는 100% 보존하면서, 
+    페이지 간 경계 오차로 인해 발생한 중복 오버플로우 텍스트 객체만 PyMuPDF Redaction을 통해 안전하게 물리 삭제합니다.
+
+    Args:
+        doc (pymupdf.Document): 검사 및 정제할 대상 PDF Document 객체.
+
+    Returns:
+        int: 삭제(Redaction) 처리된 오버플로우 텍스트 라인 수.
+    """
+    total_redacted = 0
+    num_pages = len(doc)
+    if num_pages <= 1:
+        return 0
+
+    def norm(s: str) -> str:
+        return re.sub(r'\s+', '', s).lower()
+
+    for i in range(num_pages - 1):
+        p_curr = doc[i]
+        p_next = doc[i + 1]
+
+        # 1. 다음 페이지(i+1) 상단 45% 영역에 위치한 기준 텍스트 라인 수집
+        next_h = p_next.rect.height
+        next_top_lines = []
+        td_next = p_next.get_text('dict')
+        for block in td_next.get('blocks', []):
+            if block.get('type') == 0:  # 텍스트 블록
+                for line in block.get('lines', []):
+                    l_bbox = line.get('bbox', [0, 0, 0, 0])
+                    if l_bbox[3] <= next_h * 0.45:
+                        line_text = ''.join(s.get('text', '') for s in line.get('spans', [])).strip()
+                        n_line = norm(line_text)
+                        if len(n_line) >= 4:
+                            next_top_lines.append(n_line)
+
+        if not next_top_lines:
+            continue
+
+        # 2. 현재 페이지(i) 하단 45% 영역에 위치한 텍스트 라인 검사
+        curr_h = p_curr.rect.height
+        td_curr = p_curr.get_text('dict')
+        rects_to_redact = []
+
+        for block in td_curr.get('blocks', []):
+            if block.get('type') == 0:
+                for line in block.get('lines', []):
+                    l_bbox = line.get('bbox', [0, 0, 0, 0])
+                    # 현재 페이지 하단 45% 영역에 존재하는 텍스트만 대상
+                    if l_bbox[1] >= curr_h * 0.55:
+                        line_text = ''.join(s.get('text', '') for s in line.get('spans', [])).strip()
+                        n_line = norm(line_text)
+                        if len(n_line) >= 4:
+                            # 다음 페이지 상단 텍스트와 부분/전체 일치하는지 확인
+                            if any(n_line in nl or nl in n_line for nl in next_top_lines):
+                                rects_to_redact.append(pymupdf.Rect(l_bbox))
+
+        # 3. 오버플로우 텍스트 Redaction 적용
+        if rects_to_redact:
+            for r in rects_to_redact:
+                p_curr.add_redact_annot(r)
+            p_curr.apply_redactions()
+            total_redacted += len(rects_to_redact)
+
+    return total_redacted

@@ -15,7 +15,7 @@ API와 통신할 때 필요한 주요 설정값과 상수들을 제공합니다.
 import os
 import re
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -86,9 +86,24 @@ class Config:
     ]
 
     TARGET_DRIVE_DIR: str = extract_drive_id(os.getenv("TARGET_DRIVE_DIR", ""))
-    PDF_RENDER_FONT_PATH: str = os.getenv(
-        "PDF_RENDER_FONT_PATH", 
-        "/System/Library/Fonts/Supplemental/AppleGothic.ttf"
+
+    _nanum_regular = BASE_DIR / "NanumGothic.ttf"
+    _nanum_bold = BASE_DIR / "NanumGothicBold.ttf"
+
+    # 요약 파트 폰트 (나눔고딕 및 볼드)
+    SUMMARY_FONT_PATH: str = os.getenv(
+        "SUMMARY_FONT_PATH", 
+        str(_nanum_regular) if _nanum_regular.exists() else ""
+    )
+    SUMMARY_BOLD_FONT_PATH: str = os.getenv(
+        "SUMMARY_BOLD_FONT_PATH",
+        str(_nanum_bold) if _nanum_bold.exists() else SUMMARY_FONT_PATH
+    )
+
+    # 슬라이드 스크립트 파트 폰트 (xhtml2pdf 기본 폰트)
+    SCRIPT_FONT_PATH: str = os.getenv(
+        "SCRIPT_FONT_PATH", 
+        ""
     )
 
     GEMINI_KEYS: List[str] = [
@@ -98,15 +113,25 @@ class Config:
     ]
 
     NOTION_TOKEN: Optional[str] = os.getenv("NOTION_TOKEN")
+    NOTION_DATABASE_ID: Optional[str] = os.getenv("NOTION_DATABASE_ID")
+    TESSERACT_CMD: Optional[str] = os.getenv("TESSERACT_CMD")
 
     # [개선 1] SSOT(단일 진실 공급원): 모델 리스트 및 API 쿨타임을 전역 설정으로 이관
     API_COOLDOWN_SECONDS: float = 15.0
+    MODEL_LOCK_DURATION_503: float = 240.0  # 503 발생 시 해당 모델 전역 잠금 시간 (초)
     GEMINI_MODELS: List[str] = [
         "gemini-3-flash-preview", 
         "gemini-3.5-flash", 
         "gemini-3.6-flash", 
-        "gemini-3.7-flash"
+        "gemini-3.7-flash",
+        "gemini-3.8-flash"
     ]
+
+    TASK_ALLOWED_MODELS: Dict[str, List[str]] = {
+        "교정": ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"],
+        "요약": ["gemini-3-flash-preview"],
+        "Anki": ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"]
+    }
 
 # ===========================
 # [설정값 검증]

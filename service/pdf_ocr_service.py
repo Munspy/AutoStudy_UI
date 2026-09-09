@@ -22,6 +22,7 @@ import imagehash
 from PIL import Image
 
 from utils.config import Config
+from utils.pdf_core_util import clean_pdf_page_overflow
 from base.base_service import BaseService
 
 # 경로 표준 입력을 위한 타입 정의
@@ -233,7 +234,7 @@ class PdfOcrService(BaseService):
             self._log(f"⚠️ OCR 대상 파일을 찾을 수 없습니다: {file_p.name}")
             return None
 
-        cmd = tesseract_cmd or getattr(Config, 'TESSERACT_CMD', None)
+        cmd = tesseract_cmd or Config.TESSERACT_CMD
         if cmd:
             pytesseract.pytesseract.tesseract_cmd = cmd
 
@@ -242,6 +243,9 @@ class PdfOcrService(BaseService):
             custom_config = r'--oem 1 --psm 3'
 
             with pymupdf.open(str(file_p)) as doc:
+                # [오버플로우 정제] 슬라이드 간 누출된 중복/투명 텍스트 선제 제거
+                clean_pdf_page_overflow(doc)
+
                 for i, page in enumerate(doc):
                     text = page.get_text().strip()
 
