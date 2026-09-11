@@ -12,13 +12,13 @@
 import shutil
 import tempfile
 from pathlib import Path
-from typing import List, Tuple, Optional, Callable, Union
+from typing import Callable, List, Optional, Tuple, Union
 
-from utils.pdf_core_util import split_pdf_two_parts, merge_pdfs
-from utils.drive_api import upload_to_drive
-from utils.auth_util import get_drive_service
 from base.base_service import BaseService
+from utils.auth_util import get_drive_service
 from utils.config import Config
+from utils.drive_api import upload_to_drive
+from utils.pdf_core_util import merge_pdfs, split_pdf_two_parts
 
 # 모던 파이썬 타입 힌팅 적용
 PathLike = Union[str, Path]
@@ -34,7 +34,12 @@ class PdfOperationService(BaseService):
     - 클라우드 저장: `utils.drive_api.upload_to_drive`, `utils.auth_util.get_drive_service`
     - 부모 클래스: `BaseService` (공통 로깅 인터페이스 상속)
     """
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+
+    @property
+    def drive_service(self):
+        from utils.auth_util import get_drive_service
+        return get_drive_service()
+    def __init__(self) -> None:
         """PdfOperationService를 초기화하고 Google Drive 서비스 객체를 준비합니다.
 
         Args:            logger_callback (Optional[Callable[[str], None]], optional): 비동기 작업 중 
@@ -44,8 +49,7 @@ class PdfOperationService(BaseService):
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        super().__init__(logger_callback=logger_callback)
-        self.drive_service = get_drive_service()
+        super().__init__()
         self.target_folder_id: str = Config.TARGET_DRIVE_DIR
 
     def split_and_save(
@@ -140,7 +144,8 @@ class PdfOperationService(BaseService):
         save_name: str, 
         is_drive: bool, 
         target_dir: Optional[PathLike] = None,
-        save_local: bool = False
+        save_local: bool = False,
+        cancel_checker: Optional[Callable[[], bool]] = None
     ) -> Tuple[bool, str]:
         """여러 PDF 파일을 하나로 병합하고, 지정된 저장소(로컬/드라이브)에 안전하게 배포합니다."""
         
@@ -161,6 +166,9 @@ class PdfOperationService(BaseService):
                     self._log(f"📥 구글 드라이브에서 {len(paths_to_merge)}개 PDF 다운로드 중...")
                     from utils.drive_api import download_from_drive
                     for idx, item in enumerate(paths_to_merge, 1):
+                        if cancel_checker and cancel_checker():
+                            return False, "⚠️ 사용자에 의해 작업이 취소되었습니다."
+
                         p_str = str(item)
                         if Path(p_str).exists():
                             local_paths_to_merge.append(p_str)
@@ -177,13 +185,19 @@ class PdfOperationService(BaseService):
                 if not local_paths_to_merge:
                     return False, "❌ 병합할 다운로드된 PDF 파일이 없습니다."
 
+                if cancel_checker and cancel_checker():
+                    return False, "⚠️ 사용자에 의해 작업이 취소되었습니다."
+
                 temp_merged_path = temp_p / save_name
                 
                 self._log(f"🔗 {len(local_paths_to_merge)}개의 PDF 파일 병합을 시작합니다...")
                 
                 # 1. 물리적 PDF 병합 연산
-                merge_pdfs(local_paths_to_merge, temp_merged_path)
+                merge_pdfs(local_paths_to_merge, temp_merged_path, cancel_checker=cancel_checker)
                 
+                if cancel_checker and cancel_checker():
+                    return False, "⚠️ 사용자에 의해 작업이 취소되었습니다."
+
                 msg_parts = []
                 # 2. 로컬 저장 처리
                 if needs_local:
@@ -202,6 +216,9 @@ class PdfOperationService(BaseService):
                 self._log(msg)
                 return True, msg
                     
+        except InterruptedError as e:
+            self._log(str(e))
+            return False, str(e)
         except Exception as e:
             msg = f"❌ 병합/저장 중 시스템 오류 발생: {str(e)}"
             self._log(msg)
@@ -210,14 +227,18 @@ class PdfOperationService(BaseService):
     def merge_scripted_pdfs_and_save(
         self,
         pdf_entries: List[Tuple[str, PathLike]],
-        output_path: PathLike
+        output_path: PathLike,
+        cancel_checker: Optional[Callable[[], bool]] = None
     ) -> Tuple[bool, str]:
         """목차(TOC) 정보를 포함하여 _scripted.pdf 파일들을 병합하고 지정된 디렉토리에 저장합니다."""
         try:
-            out_str = merge_pdfs(pdf_entries, output_path)
+            out_str = merge_pdfs(pdf_entries, output_path, cancel_checker=cancel_checker)
             msg = f"✅ 스크립트 합본 PDF 생성 성공: {out_str}"
             self._log(msg)
             return True, msg
+        except InterruptedError as e:
+            self._log(str(e))
+            return False, str(e)
         except Exception as e:
             msg = f"❌ 스크립트 합본 PDF 생성 실패: {str(e)}"
             self._log(msg)

@@ -11,22 +11,22 @@ LLM(Gemini)이 생성한 요약본(단권화 노트)이나 스크립트 데이�
 창출하는 비즈니스 도메인 로직이 포함되어 있습니다.
 """
 
-import os
-import io
-import re
 import html
-from pathlib import Path
-from typing import Union, Optional
-
-import pymupdf
-import markdown
-from xhtml2pdf import pisa
-from pylatexenc.latex2text import LatexNodes2Text
+import io
+import os
+import re
 import threading
+from pathlib import Path
+from typing import Optional, Union
 
+import markdown
+import pymupdf
+from pylatexenc.latex2text import LatexNodes2Text
+from xhtml2pdf import pisa
+
+from base.base_service import BaseService
 from utils.config import Config
 from utils.pdf_core_util import clean_pdf_page_overflow
-from base.base_service import BaseService
 
 _pdf_rendering_lock = threading.Lock()
 PathLike = Union[str, Path]
@@ -39,16 +39,15 @@ class PdfRenderService(BaseService):
     LlmService나 PipelineStatusService에서 가공된 텍스트 데이터를 주입받아 동작합니다.
     """
 
-    def __init__(self, logger_callback=None):
-        self.logger_callback = logger_callback
+    def __init__(self):
         """PdfRenderService 인스턴스를 초기화하고 전역 설정 및 정규식을 로드합니다."""
         # ===========================
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
         super().__init__()
-        self.default_font_path = Config.SCRIPT_FONT_PATH
-        self.bold_font_path = Config.SUMMARY_BOLD_FONT_PATH or self.default_font_path
+        self.default_font_path = Config.FONT_PATH
+        self.bold_font_path = Config.BOLD_FONT_PATH or self.default_font_path
         
         # [최적화 3] 반복 호출되는 정규식 패턴 사전 컴파일 캐싱
         # 대용량 텍스트 파싱 시 매번 정규식을 번역하는 엔진 오버헤드를 막기 위해, 
@@ -149,7 +148,7 @@ class PdfRenderService(BaseService):
 
         # 4. 줄 단위 정밀 처리: 표(Table) 경계 보호 및 표 셀 내부 불릿 줄바꿈(<br/>•)
         lines = text.splitlines()
-        processed_lines = []
+        processed_lines: list[str] = []
         in_table = False
 
         for line in lines:
@@ -253,7 +252,7 @@ class PdfRenderService(BaseService):
 
         return f"""
             {font_face_css}
-            body {{ font-family: {font_family_rule}; font-size: 10pt; line-height: 1.6; color: #1d1d1f; word-wrap: cjk; word-break: keep-all; }}
+            body {{ font-family: {font_family_rule}; font-size: 10pt; line-height: 1.77; color: #1d1d1f; word-wrap: cjk; word-break: keep-all; }}
             pre, code, kbd, samp, tt {{ font-family: {mono_font_family_rule}; }}
             pre {{ font-family: {mono_font_family_rule}; font-size: 7.5pt; line-height: 1.2; white-space: pre-wrap; word-wrap: break-word; background-color: #f4f5f7; padding: 10px; border: 1pt solid #ddd; }}
             code {{ font-family: {mono_font_family_rule}; font-size: 8.5pt; background-color: #f4f5f7; padding: 2px 4px; border-radius: 3px; }}
@@ -274,7 +273,7 @@ class PdfRenderService(BaseService):
     # 2. 메인 렌더링 비즈니스 엔트리포인트
     # ==========================================
 
-    def create_pdf_from_markdown(self, md_text: str, custom_css: str = None, body_prefix: str = "") -> pymupdf.Document:
+    def create_pdf_from_markdown(self, md_text: str, custom_css: str | None = None, body_prefix: str = "") -> pymupdf.Document:
         """마크다운 텍스트를 파싱하여 메모리 상의 PDF(pymupdf.Document) 객체로 변환 반환합니다.
 
         상위 Service나 Worker가 단권화 노트를 최종 PDF로 배포할 때 호출되는 퍼블릭 API입니다. 
@@ -339,12 +338,8 @@ class PdfRenderService(BaseService):
         """
         a4_width, a4_height = 595.0, 842.0
         top_half_rect = pymupdf.Rect(0, 0, a4_width, a4_height / 2)
-        script_font = Config.SCRIPT_FONT_PATH
-        custom_css = self._get_css_template(
-            margin="430pt 40pt 40pt 40pt", 
-            font_path=script_font, 
-            bold_font_path=""
-        )
+        custom_css = self._get_css_template(margin="430pt 40pt 40pt 40pt")
+        custom_css = self._get_css_template(margin="430pt 55pt 40pt 55pt")
         out_path_str = str(output_path)
         
         # [최적화 2] 컨텍스트 매니저를 통해 대용량 원본 파일 및 출력 파일의 메모리 누수 100% 방지

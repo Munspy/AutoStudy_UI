@@ -10,8 +10,11 @@ Whisper AI를 통해 추출된 음성 스크립트나 Gemini LLM으로 전송할
 Controller 또는 백그라운드 Worker 계층에 의해 호출되어 텍스트 데이터의 무결성을 보장합니다.
 """
 
-from typing import List, Optional, Callable
+from typing import Callable, List, Optional
+import re
+
 from base.base_service import BaseService
+
 
 class TextProcessingService(BaseService):
     """텍스트 데이터의 내용을 분석하고 규칙에 따라 병합/분할을 수행하는 서비스 클래스.
@@ -25,7 +28,7 @@ class TextProcessingService(BaseService):
     # ===========================
     # [초기화]
     # ===========================
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+    def __init__(self) -> None:
         """TextProcessingService 인스턴스를 초기화합니다.
 
         Args:
@@ -34,23 +37,16 @@ class TextProcessingService(BaseService):
                 Defaults to None.
         """
         # [최적화 2] BaseService 초기화를 통해 로깅 시스템 통합
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
 
     # ===========================
     # [텍스트 분할 처리]
     # ===========================
     def split_text_content(self, text_content: str) -> List[str]:
-        """텍스트가 정확히 한 번의 줄바꿈으로 두 부분으로 나뉘는지 검증하고 분할합니다.
+        """텍스트가 '=' 4개 이상 기호(====)로 정확히 두 부분으로 나뉘는지 검증하고 분할합니다.
 
-        자동화된 학습 자료 파이프라인에서 특정 텍스트 데이터(예: 특정 슬라이드의 질문과 답변, 
-        또는 명확하게 두 파트로 나뉘어야 하는 스크립트 본문)가 규칙에 맞게 작성되었는지 검증할 때 사용됩니다. 
-        대량의 데이터를 비동기 Worker가 백그라운드에서 처리할 때, 사용자의 입력 실수나 
-        LLM의 포맷 이탈로 인해 텍스트가 1조각이거나 3조각 이상으로 쪼개질 경우, 하위 시스템(Anki 등)이 
-        심각한 오작동을 일으킬 수 있습니다. 
-        
-        따라서 이 메서드는 `splitlines()`를 이용해 운영체제 환경(\n, \r\n)에 무관하게 텍스트를 쪼갠 뒤, 
-        그 결과가 정확히 2개인지 엄격하게 검사(Fail-fast)하여 비정형 데이터의 구조적 위험을 
-        파이프라인 최전방에서 차단합니다.
+        기존에는 줄바꿈(엔터) 기준으로 분할했으나, 본문 내 자유로운 엔터 사용을 위해
+        구분자를 '====' (4개 이상)으로 변경했습니다.
 
         Args:
             text_content (str): 검증 및 분할을 수행할 원본 문자열 데이터.
@@ -59,23 +55,19 @@ class TextProcessingService(BaseService):
             List[str]: 공백이 제거(strip)된 정확히 2개의 문자열 요소를 가지는 리스트.
 
         Raises:
-            ValueError: 입력된 텍스트가 비어 있거나, 엔터(줄바꿈) 기준으로 나누었을 때 
-                정확히 2개의 조각으로 분리되지 않는 경우(구조적 규칙 위반 시) 발생합니다.
+            ValueError: 텍스트가 비어 있거나, 구분자('====') 기준으로 나누었을 때 
+                정확히 2개의 조각으로 분리되지 않는 경우 발생.
         """
-        # 입력 텍스트가 비어있는지 검사
         if not text_content:
             self._log("⚠️ 입력된 텍스트가 비어 있습니다.")
             raise ValueError("입력된 텍스트가 비어 있습니다.")
 
-        # [최적화 1] splitlines()를 사용하여 운영체제(\n, \r\n) 무관하게 안전하게 분할
-        # [최적화 3] List[str] 타입 힌트를 통해 명확한 반환 타입 보장
-        # 비어있지 않은 각 파트의 공백을 제거하여 리스트로 저장
-        parts: List[str] = [p.strip() for p in text_content.splitlines() if p.strip()]
+        # 구분자: '=' 4개 이상
+        parts: List[str] = [p.strip() for p in re.split(r'={4,}', text_content) if p.strip()]
         
         # 정확히 2개로 분할되었는지 검증
         if len(parts) != 2:
-            # 에러 발생 시 명확한 사유를 로깅하고, 분할된 개수를 포함하여 예외 발생
-            error_msg = f"엔터(줄바꿈)가 정확히 한 번 적용되어 두 부분으로 나뉘어야 합니다. (현재 분할된 조각 수: {len(parts)}개)"
+            error_msg = f"구분자('====')가 정확히 한 번 사용되어 두 부분으로 나뉘어야 합니다. (현재 분할된 조각 수: {len(parts)}개)"
             self._log(f"❌ 텍스트 분할 오류: {error_msg}")
             raise ValueError(error_msg)
             

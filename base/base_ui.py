@@ -12,8 +12,9 @@
     PyQt6.QtCore: QSettings, pyqtSignal, Qt 등 설정 및 이벤트.
 """
 
-from PyQt6.QtWidgets import QWidget, QMessageBox
-from PyQt6.QtCore import pyqtSignal, QSettings, Qt
+from PyQt6.QtCore import QSettings, Qt, pyqtSignal
+from PyQt6.QtWidgets import QMessageBox, QWidget
+
 
 class BaseUI(QWidget):
     """모든 UI 탭 화면의 기반이 되는 공통 부모 클래스입니다.

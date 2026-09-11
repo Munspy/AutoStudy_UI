@@ -1,12 +1,12 @@
-from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, CardWidget, StyledListWidget, StyledCheckBox
-
-from PyQt6.QtWidgets import QListWidgetItem
-
-from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QListWidgetItem, 
-                             QProgressBar, QMessageBox)
 from PyQt6.QtCore import Qt
-from controller.whisper_transcription_controller import WhisperTranscriptionController
+from PyQt6.QtWidgets import (QHBoxLayout, QLabel, QListWidgetItem, QMessageBox,
+                             QProgressBar, QVBoxLayout)
+
+from base.base_ui import BaseUI
+from base.base_ui_components import (CardWidget, LoadingButton, StyledCheckBox,
+                                     StyledListWidget)
+from controller.whisper_transcription_controller import \
+    WhisperTranscriptionController
 
 
 class WhisperTranscriptionUi(BaseUI):
@@ -218,7 +218,7 @@ class WhisperTranscriptionUi(BaseUI):
     def show_error(self, title: str, message: str):
         self.emit_log(f"오류 발생: {message}")
         self.run_whisper_btn.stop_loading()
-        if hasattr(self, 'scan_btn') and hasattr(self.scan_btn, 'is_loading') and self.scan_btn.is_loading:
+        if getattr(self.scan_btn, 'is_loading', False):
             self.scan_btn.stop_loading()
         else:
             self.scan_btn.setEnabled(True)

@@ -11,17 +11,18 @@
 
 import os
 import re
-from pathlib import Path
-from typing import List, Dict, Any, Optional
 from contextlib import ExitStack
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional
 
 import pymupdf
-from base.base_service import BaseService
 
+from base.base_service import BaseService
+from service.file_naming_service import FileNamingService
 # 순수 유틸리티 호출 (도메인 무관)
 from service.pdf_ocr_service import PdfOcrService
-from service.file_naming_service import FileNamingService
 from utils.filename_util import normalize_text
+
 
 class PdfAnalysisService(BaseService):
     """의학 강의 자료 PDF의 페이지 간 유사도를 분석하고 병합 레시피를 생성하는 서비스 클래스.
@@ -36,7 +37,7 @@ class PdfAnalysisService(BaseService):
     - 결과물은 Controller로 반환되어 UI의 수동 검수 테이블에 바인딩됩니다.
     """
     
-    def __init__(self, sim_threshold: float = 0.8, hash_threshold: int = 12, lookahead: int = 5, logger_callback=None):
+    def __init__(self, naming_service, ocr_service, sim_threshold: float = 0.8, hash_threshold: int = 12, lookahead: int = 5):
         """매칭 알고리즘 튜닝 파라미터 및 의존성 서비스를 초기화합니다.
 
         Args:            sim_threshold (float, optional): 두 페이지가 동일하다고 판정할 텍스트 일치율 임계값 (0.0 ~ 1.0). 기본값은 0.8(80%).
@@ -48,7 +49,7 @@ class PdfAnalysisService(BaseService):
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
         # 매칭 알고리즘 튜닝 파라미터
         self.sim_threshold = sim_threshold
         self.hash_threshold = hash_threshold
@@ -59,10 +60,10 @@ class PdfAnalysisService(BaseService):
         
         # 도메인 규칙: 줄필기 1페이지를 강제 인식하기 위한 식별자 폰트
         self.indicator_font = "apple"
-        self.naming_service = FileNamingService()
+        self.naming_service = naming_service
 
         # OCR 서비스 인스턴스화
-        self.ocr_service = PdfOcrService(logger_callback=self._log)
+        self.ocr_service = ocr_service
         
         # [최적화] 정규식 사전 컴파일 캐싱 (성능 향상)
         # 자동화 파이프라인에서 수백 개의 파일을 스캔할 때 매번 정규식 엔진을 번역하지 않도록 캐싱하여 CPU 부하를 줄입니다.
@@ -104,8 +105,7 @@ class PdfAnalysisService(BaseService):
                     os.rename(str(file_path), str(new_path))
                     file_path = new_path
                 except Exception as e:
-                    if self.logger:
-                        self.logger(f"파일명 변경 실패: {e}")
+                    self._log(f"파일명 변경 실패: {e}")
             
             if "줄필기" in name_nfc:
                 base_name = self._jul_pattern.sub('', name_nfc).strip()
@@ -135,7 +135,8 @@ class PdfAnalysisService(BaseService):
         self, 
         folder_path: str | Path, 
         selected_keys: List[str], 
-        matched_groups: Dict[str, Dict[str, Any]]
+        matched_groups: Dict[str, Dict[str, Any]],
+        cancel_checker: Optional[Callable[[], bool]] = None
     ) -> List[Dict[str, Any]]:
         """선택된 파일 쌍(Pair)의 페이지별 텍스트 및 이미지를 분석하여 최종 병합 레시피(Recipe)를 생성합니다.        이 메서드는 의학 강의 자료 자동화의 핵심 지능(Intelligence)입니다.
         줄필기와 야붙 PDF는 강의 슬라이드를 기반으로 하지만, 필기 공간 추가나 요약 페이지 삽입 등으로 인해 
@@ -207,6 +208,10 @@ class PdfAnalysisService(BaseService):
 
                     # [도메인 규칙 2] 텍스트 유사도 및 이미지 해시 비교 루프
                     while i < total_jul and j < total_yaboot:
+                        if cancel_checker and cancel_checker():
+                            self._log("작업이 취소되었습니다. 매칭을 중단합니다.")
+                            return []
+
                         text_jul = self.ocr_service.get_filtered_text(jul_pdf[i], self.ignore_fonts)
                         text_yaboot = self.ocr_service.get_filtered_text(yaboot_pdf[j], self.ignore_fonts)
                         sim = self.ocr_service.calculate_text_similarity(text_jul, text_yaboot)
@@ -265,7 +270,12 @@ class PdfAnalysisService(BaseService):
 
 
 
-    def execute_merge(self, base_data: List[Dict[str, Any]], output_folder: str | Path) -> List[str]:
+    def execute_merge(
+        self, 
+        base_data: List[Dict[str, Any]], 
+        output_folder: str | Path,
+        cancel_checker: Optional[Callable[[], bool]] = None
+    ) -> List[str]:
         """확정된 레시피를 바탕으로 실제 물리적 PDF 병합을 수행하고 디스크에 저장합니다.
 
         분석 서비스의 종착점이자 가장 무거운 디스크 I/O 작업이 일어나는 메서드입니다. 
@@ -309,6 +319,10 @@ class PdfAnalysisService(BaseService):
                     opened_pdfs: Dict[str, pymupdf.Document] = {}
                     
                     for item in items:
+                        if cancel_checker and cancel_checker():
+                            self._log("작업이 취소되었습니다. 병합을 중단합니다.")
+                            return []
+
                         t_val = item["type"]
                         target = None
                         

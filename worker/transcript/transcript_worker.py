@@ -1,11 +1,13 @@
 import os
 from datetime import datetime
+
 from base.base_worker import BaseWorker
-from service.text_processing_service import TextProcessingService
-from service.file_naming_service import FileNamingService
+from core.container import AppContainer
 from utils.auth_util import get_drive_service
-from utils.drive_api import get_all_drive_files, in_memory_download_from_drive, upload_to_drive
 from utils.config import Config
+from utils.drive_api import (get_all_drive_files,
+                             in_memory_download_from_drive, upload_to_drive)
+
 
 class TranscriptDriveSearchWorker(BaseWorker):
     """구글 드라이브에서 특정 기간의 텍스트 파일을 검색하는 워커 클래스입니다."""
@@ -33,7 +35,7 @@ class TranscriptDriveSearchWorker(BaseWorker):
         txt_files = [f for f in all_files if f.get('name', '').lower().endswith('.txt')]
         
         # 명명 규칙 서비스를 사용하여 날짜 범위 내의 파일만 다시 필터링합니다.
-        naming_service = FileNamingService()
+        naming_service = AppContainer.get_instance().file_naming
         filtered_dicts = naming_service.filter_files_by_date_range(txt_files, start_mmdd, end_mmdd)
         
         # ===========================
@@ -107,7 +109,7 @@ class TranscriptSplitSaveWorker(BaseWorker):
         # ===========================
         # [텍스트 분할 및 로컬 저장]
         # ===========================
-        text_service = TextProcessingService()
+        text_service = AppContainer.get_instance().text_processing
         parts = text_service.split_text_content(self.text_content)
         
         saved_paths = []
@@ -148,6 +150,7 @@ class TranscriptMergeSaveWorker(BaseWorker):
     def do_work(self):
         """병합된 텍스트를 로컬에 저장하고, 필요 시 드라이브에 업로드합니다."""
         import os
+
         # ===========================
         # [병합 파일 로컬 저장]
         # ===========================

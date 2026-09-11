@@ -8,22 +8,22 @@ UI의 메인 화면(데이터 그리드)이나 Controller 계층이 클라우드
 이 서비스가 유튜브 서버 측의 최신 상태를 실시간으로 긁어와(Scraping/API Fetch) 로컬 및 드라이브 상태와 
 교차 검증(Cross-validation)할 수 있도록 데이터를 공급합니다.
 """
-import urllib.parse as urlparse
-import re
+import concurrent.futures
 import csv
 import json
+import re
 import unicodedata
+import urllib.parse as urlparse
 from pathlib import Path
-from typing import Optional, Union, Dict, Any, List, Callable, Set, Tuple
-import concurrent.futures
+from typing import Any, Callable, Dict, List, Optional, Set, Union
 
 import yt_dlp
 from googleapiclient.errors import HttpError
 
+from base.base_service import BaseService
 from service.file_naming_service import FileNamingService
 from utils.auth_util import get_youtube_service
 from utils.config import BASE_DIR
-from base.base_service import BaseService
 
 PathLike = Union[str, Path]
 
@@ -45,16 +45,16 @@ class YoutubePlaylistService(BaseService):
     # ===========================
     # [초기화]
     # ===========================
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+    def __init__(self, naming_service) -> None:
         """YoutubePlaylistService 인스턴스를 초기화하고 의존성을 주입받습니다.
 
         Args:
             logger_callback (Optional[Callable[[str], None]], optional): 비동기 스레드 실행 시 
                 진행 상황과 오류를 메인 UI 스레드로 전달하기 위한 콜백. Defaults to None.
         """
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
         # 도메인 식별자 추출을 위해 FileNamingService 인스턴스 초기화
-        self.naming_service = FileNamingService(logger_callback=logger_callback)
+        self.naming_service = naming_service
         self._youtube_cache: Optional[Dict[str, Dict[str, str]]] = None
 
     # ===========================
@@ -182,32 +182,16 @@ class YoutubePlaylistService(BaseService):
         except Exception as e:
             raise Exception(f"❌ 재생목록 정보 조회 실패 ({playlist_id}): {str(e)}")
 
-    def fetch_playlist_videos(self, playlist_id: str, existing_prefixes: set, naming_service) -> List[Dict]:
-        """YouTube API를 통해 재생목록 내의 모든 영상 목록을 순회(Pagination)하며 조회하고 포맷팅합니다.
-
-        한 번의 API 요청(`playlistItems`)으로는 최대 50개의 영상만 가져올 수 있으므로, 
-        `nextPageToken`을 활용한 Pagination 루프를 돌며 전체 리스트를 완전히 스크래핑합니다. 
-        이후 얻어낸 각 영상의 ID들을 쉼표(,)로 묶어 `videos` API에 배치(Batch) 요청을 한 번 더 날려, 
-        영상별 정확한 재생 시간(`duration`)을 조회합니다. 
-        
-        조회된 제목 문자열을 `FileNamingService`에 통과시켜 파이프라인 식별자(`lesson_id`)를 추출하고, 
-        이를 구글 드라이브 상의 기존 데이터(`existing_prefixes`)와 대조하여 이미 추출/동기화가 완료된 영상인지 
-        ("O" 또는 "X") 마킹(Tagging)하는 복합 비즈니스 로직입니다.
-
-        Args:
-            playlist_id (str): 영상 목록을 긁어올 재생목록의 고유 ID.
-            existing_prefixes (set): 구글 드라이브에 이미 처리 완료된 파일들의 `lesson_id`를 담고 있는 집합(Set).
-            naming_service (FileNamingService): 도메인 식별자를 추출할 네이밍 서비스 인스턴스.[cite: 1]
-
-        Returns:
-            List[Dict]: 제목, 길이, 추출 완료 여부(`extracted`), 영상 고유 ID, `lesson_id(prefix)` 등을 
-                포함하는 딕셔너리들의 리스트. UI 테이블 렌더링에 직접 사용됩니다.
-        """
+    def fetch_playlist_videos(self, playlist_id: str, existing_prefixes: set, naming_service, cancel_checker=None) -> List[Dict]:
+        """YouTube API를 통해 재생목록 내의 모든 영상 목록을 순회(Pagination)하며 조회하고 포맷팅합니다."""
         youtube_service = get_youtube_service()
         videos = []
         next_page_token = None
         
         while True:
+            if cancel_checker and cancel_checker():
+                break
+
             # 재생목록 내부 아이템 조회 (페이지네이션)
             pl_request = youtube_service.playlistItems().list(
                 part='snippet', playlistId=playlist_id, maxResults=50, pageToken=next_page_token
@@ -231,6 +215,7 @@ class YoutubePlaylistService(BaseService):
             duration_map = {v['id']: v['contentDetails'].get('duration', '') for v in vid_response.get('items', [])}
 
             for vid, title in vid_ids:
+                if cancel_checker and cancel_checker(): break
                 duration_iso = duration_map.get(vid, '')
                 # 내부 헬퍼 함수 적용
                 length_str = self._parse_iso_duration(duration_iso)

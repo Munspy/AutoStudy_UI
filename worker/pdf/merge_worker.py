@@ -1,3 +1,5 @@
+from core.container import AppContainer
+
 """
 PDF 병합(Merge) 관련 워커 모듈입니다.
 
@@ -6,7 +8,7 @@ PDF 병합(Merge) 관련 워커 모듈입니다.
 병합된 PDF를 저장하는 기능과 연동됩니다.
 """
 from base.base_worker import BaseWorker
-from service.pdf_operation_service import PdfOperationService
+
 
 class PdfMergeWorker(BaseWorker):
     """여러 PDF 파일을 하나로 병합하는 작업을 처리하는 워커 클래스.
@@ -35,7 +37,7 @@ class PdfMergeWorker(BaseWorker):
         # [서비스 초기화 및 작업 데이터 설정]
         # ===========================
         # PDF 조작 서비스를 초기화합니다.
-        operation_service = PdfOperationService(logger_callback=self.log_signal.emit)
+        operation_service = AppContainer.get_instance().pdf_operation
         
         # 작업 데이터를 변수에 할당합니다.
         paths_to_merge = self.task['paths_to_merge']
@@ -59,7 +61,8 @@ class PdfMergeWorker(BaseWorker):
             save_name=save_name,
             is_drive=is_drive,
             target_dir=target_dir,
-            save_local=save_local
+            save_local=save_local,
+            cancel_checker=self.is_cancelled
         )
         
         # ===========================

@@ -12,9 +12,7 @@ API 키 관리, 요청 쿨타임(Rate Limit), 로테이션 등 복잡한 상위 
 """
 
 import google.genai as genai
-from google.genai import types
-from google.genai import errors 
-
+from google.genai import errors, types
 
 # ===========================
 # [LLM 에러 처리]
@@ -47,7 +45,7 @@ class GeminiAPIError(Exception):
 # [LLM API 호출]
 # ===========================
 
-def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user_prompt: str, temperature: float = 0.1, thinking_level: str = None, max_output_tokens: int = 65536) -> str:
+def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user_prompt: str, temperature: float = 0.1, thinking_level: str | None = None, max_output_tokens: int = 65536) -> str:
     """Google Gemini API를 호출하여 텍스트를 스트리밍 방식으로 생성하는 코어 유틸리티 함수.
 
     Thinking 기능 활성화 등으로 인한 연산 지연 시 발생하는 프록시 게이트웨이 타임아웃(503)을 방지하기 위해 
@@ -94,7 +92,7 @@ def call_gemini_api(api_key: str, model_name: str, system_instruction: str, user
         response_stream = client.models.generate_content_stream(
             model=model_name,
             contents=user_prompt,
-            config=types.GenerateContentConfig(**config_dict)
+            config=types.GenerateContentConfig(**config_dict)  # type: ignore
         )
         
         full_text_chunks = []

@@ -4,17 +4,15 @@
 좌/우 또는 상/하로 분할된 뷰에서 텍스트를 검토하고 수정할 수 있는 기능을 제공합니다.
 """
 
-from PyQt6.QtWidgets import (
-    QDialog, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-    QLineEdit, QSplitter, QTextEdit, QScrollArea, QAbstractSpinBox
-)
-from PyQt6.QtCore import Qt, pyqtSignal, QDate
-from PyQt6.QtGui import QPixmap, QImage
+from PyQt6.QtCore import QDate, Qt
+from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtWidgets import (QAbstractSpinBox, QHBoxLayout, QLabel, QSplitter,
+                             QTextEdit, QVBoxLayout, QWidget)
 
 from base.base_ui import BaseUI
-from base.base_ui_components import (
-    CardWidget, StyledButton, LoadingButton, StyledDateEdit, SearchLineEdit, LabeledInput
-)
+from base.base_ui_components import (CardWidget, LabeledInput, LoadingButton,
+                                     SearchLineEdit, StyledButton,
+                                     StyledDateEdit)
 from controller.raw_data_editor_controller import RawDataEditorController
 
 
@@ -153,14 +151,14 @@ class RawDataEditorUi(BaseUI):
         bottom_layout = QHBoxLayout()
         
         self.btn_prev = StyledButton("◀ 이전", btn_type="secondary")
-        self.btn_prev.clicked.connect(lambda: self.controller.change_page(-1))
+        self.btn_prev.clicked.connect(self.on_prev_page)
         
         self.lbl_page = QLabel("Page: - / -")
         self.lbl_page.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_page.setFixedWidth(100)
         
         self.btn_next = StyledButton("다음 ▶", btn_type="secondary")
-        self.btn_next.clicked.connect(lambda: self.controller.change_page(1))
+        self.btn_next.clicked.connect(self.on_next_page)
         
         bottom_layout.addWidget(self.btn_prev)
         bottom_layout.addWidget(self.lbl_page)
@@ -219,13 +217,23 @@ class RawDataEditorUi(BaseUI):
 
     def on_text_changed(self):
         """텍스트 에디터 내용 변경 이벤트 처리."""
-        pass
 
-    def on_save_local(self):
+    def on_prev_page(self):
+        if self.controller.pdf_doc:
+            self.on_save_local(silent=True)
+            self.controller.change_page(-1)
+
+    def on_next_page(self):
+        if self.controller.pdf_doc:
+            self.on_save_local(silent=True)
+            self.controller.change_page(1)
+
+    def on_save_local(self, silent=False):
         """수정된 텍스트를 컨트롤러 메모리에 임시 저장합니다."""
         text = self.text_edit.toPlainText()
         self.controller.save_current_page_text(text)
-        self.emit_log("현재 페이지 변경사항이 임시 저장되었습니다.")
+        if not silent:
+            self.emit_log("현재 페이지 변경사항이 임시 저장되었습니다.")
 
     def on_discard(self):
         """가장 처음 드라이브에서 가져왔던 원본 텍스트 상태로 복구합니다."""
@@ -234,7 +242,11 @@ class RawDataEditorUi(BaseUI):
 
     def on_apply(self):
         """모든 변경사항을 하나로 합쳐 드라이브에 업로드합니다."""
+        if not self.controller.pdf_doc:
+            self.emit_log("먼저 파일을 불러오세요.")
+            return
+            
         # 현재 화면에 수정 중인 사항도 저장
-        self.on_save_local()
+        self.on_save_local(silent=True)
             
         self.controller.apply_all_changes()

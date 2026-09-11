@@ -3,9 +3,14 @@
 UI(Tab3PdfMerge)와 연동하여 병합할 PDF 파일 목록 조회,
 미리보기 생성, 실제 병합 작업을 수행하는 워커들을 제어합니다.
 """
-from base.base_controller import BaseController
-from worker.pdf import PdfFileListWorker, PdfMergeWorker
 from PyQt6.QtCore import pyqtSignal
+
+from base.base_controller import BaseController
+# Moved from inline
+from worker.pdf import (PdfBatchPreviewPrepareWorker, PdfFileListWorker,
+                        PdfMergeWorker,
+                        PdfMergePreviewRenderWorker)
+
 
 class PdfMergeController(BaseController):
     """PDF 파일 병합 제어를 담당하는 클래스입니다.
@@ -27,6 +32,7 @@ class PdfMergeController(BaseController):
     merge_completed = pyqtSignal(str)
     preview_prepared = pyqtSignal(str, object, str, bool, str)
     preview_finished = pyqtSignal(object)
+    page_rendered = pyqtSignal(str, int, bytes)
 
     def __init__(self, task_manager=None):
         # BaseController를 통한 컨트롤러 초기화
@@ -74,7 +80,6 @@ class PdfMergeController(BaseController):
         Returns:
             None
         """
-        from worker.pdf import PdfBatchPreviewPrepareWorker
         # 여러 PDF 파일의 미리보기를 일괄 생성할 워커 인스턴스 생성
         worker = PdfBatchPreviewPrepareWorker(items_to_prepare, file_paths, drive_cache, temp_dir, is_drive)
         # 개별 파일 미리보기 준비가 완료될 때마다 시그널 발생
@@ -106,4 +111,12 @@ class PdfMergeController(BaseController):
         # 병합 완료 시 결과를 전달하기 위한 연결
         worker.finished_signal.connect(self.merge_completed.emit)
         # 백그라운드에서 병합 작업 시작
+        self.start_worker(worker)
+
+    # ===========================
+    # [부분 페이지 렌더링]
+    # ===========================
+    def request_render_pages(self, item_text, local_path, start_page, end_page):
+        worker = PdfMergePreviewRenderWorker(item_text, local_path, start_page, end_page)
+        worker.page_rendered.connect(self.page_rendered.emit)
         self.start_worker(worker)

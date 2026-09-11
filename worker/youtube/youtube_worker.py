@@ -1,9 +1,8 @@
 from base.base_worker import BaseWorker
-from service.youtube_playlist_service import YoutubePlaylistService
-from service.youtube_media_service import YoutubeMediaService
-from service.file_naming_service import FileNamingService
+from core.container import AppContainer
 from utils.auth_util import get_drive_service
 from utils.config import Config
+
 
 class PlaylistFetchWorker(BaseWorker):
     """유튜브 재생목록 데이터를 수집하는 워커 클래스입니다."""
@@ -12,8 +11,8 @@ class PlaylistFetchWorker(BaseWorker):
         """PlaylistFetchWorker 초기화."""
         super().__init__()
         self.playlist_id = playlist_id
-        self.yt_service = YoutubePlaylistService(logger_callback=self.log_signal.emit)
-        self.naming_service = FileNamingService(logger_callback=self.log_signal.emit)
+        self.yt_service = AppContainer.get_instance().yt_playlist
+        self.naming_service = AppContainer.get_instance().file_naming
 
     def do_work(self):
         """재생목록 내의 비디오 목록을 가져옵니다."""
@@ -33,7 +32,12 @@ class PlaylistFetchWorker(BaseWorker):
         if self.is_cancelled(): return
         self.log_signal.emit("공식 YouTube API를 통해 영상 목록과 길이를 일괄 조회합니다 🚀")
         # 비디오 목록을 가져와서 반환합니다.
-        videos = self.yt_service.fetch_playlist_videos(self.playlist_id, existing_prefixes, self.naming_service)
+        videos = self.yt_service.fetch_playlist_videos(
+            self.playlist_id, 
+            existing_prefixes, 
+            self.naming_service,
+            cancel_checker=self.is_cancelled
+        )
         
         return videos
 
@@ -45,7 +49,7 @@ class YoutubeUploadWorker(BaseWorker):
         """YoutubeUploadWorker 초기화."""
         super().__init__()
         self.target_videos = target_videos
-        self.media_service = YoutubeMediaService(logger_callback=self.log_signal.emit)
+        self.media_service = AppContainer.get_instance().youtube_media
 
     def do_work(self):
         """대상 비디오들의 다운로드 및 업로드 작업을 수행합니다."""
@@ -70,7 +74,8 @@ class YoutubeUploadWorker(BaseWorker):
                 self.media_service.download_and_upload_audio(
                     url=item['url'],
                     prefix=prefix,
-                    drive_folder_id=drive_folder_id
+                    drive_folder_id=drive_folder_id,
+                    cancel_checker=self.is_cancelled
                 )
                 self.log_signal.emit(f"✅ 업로드 완료: {prefix}.wav")
             except Exception as e:
@@ -89,7 +94,7 @@ class PlaylistUpdateCheckerWorker(BaseWorker):
         """PlaylistUpdateCheckerWorker 초기화."""
         super().__init__()
         self.playlists = playlists
-        self.yt_service = YoutubePlaylistService(logger_callback=self.log_signal.emit)
+        self.yt_service = AppContainer.get_instance().yt_playlist
 
     def do_work(self):
         """각 재생목록의 최신 업데이트 상태를 확인합니다."""

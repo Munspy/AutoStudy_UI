@@ -10,20 +10,20 @@ PDF 내부의 파편화된 데이터(폰트, 좌표, 픽셀 등)를 직접 다�
 """
 
 import io
-from pathlib import Path
-from typing import List, Union, Optional, Set, Callable
 from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Callable, List, Optional, Set, Union
 
 import cv2
-import numpy as np
-import pytesseract
-import pymupdf
 import imagehash
+import numpy as np
+import pymupdf
+import pytesseract
 from PIL import Image
 
+from base.base_service import BaseService
 from utils.config import Config
 from utils.pdf_core_util import clean_pdf_page_overflow
-from base.base_service import BaseService
 
 # 경로 표준 입력을 위한 타입 정의
 PathLike = Union[str, Path]
@@ -40,7 +40,7 @@ class PdfOcrService(BaseService):
     - 부모 클래스인 `BaseService`를 상속받아 공통 로깅 인터페이스를 사용합니다[cite: 1].
     """
     
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None, default_ignore_fonts: Optional[List[str]] = None) -> None:
+    def __init__(self, default_ignore_fonts: Optional[List[str]] = None) -> None:
         """PdfOcrService 객체를 초기화하고 폰트 필터링 캐시를 구성합니다.
 
         Args:            logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 로그를 
@@ -52,7 +52,7 @@ class PdfOcrService(BaseService):
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
         # [최적화] 매번 리스트 컴프리헨션을 돌리지 않도록 Set 자료구조로 캐싱하여 O(1) 탐색 속도 확보
         self._cached_ignore_fonts: Set[str] = set(f.lower() for f in (default_ignore_fonts or []))
 

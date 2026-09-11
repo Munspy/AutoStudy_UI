@@ -1,15 +1,19 @@
 
-from PyQt6.QtWidgets import QListWidgetItem
-
 from pathlib import Path
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QLineEdit, QFileDialog, QListWidgetItem, QAbstractSpinBox, QMessageBox)
-from PyQt6.QtCore import Qt, QDate
+
+from PyQt6.QtCore import QDate, Qt
 from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QHBoxLayout,
+                             QLabel, QLineEdit, QListWidgetItem, QMessageBox,
+                             QVBoxLayout, QWidget)
 
 from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit, PreviewScrollArea
+from base.base_ui_components import (COLORS, CardWidget, LoadingButton,
+                                     PreviewScrollArea, StyledButton,
+                                     StyledCheckBox, StyledDateEdit,
+                                     StyledListWidget)
 from controller.pdf_split_controller import PdfSplitController
+
 
 class PdfSplitUi(BaseUI):
     def __init__(self, task_manager=None):
@@ -217,7 +221,8 @@ class PdfSplitUi(BaseUI):
         self.controller.start_prepare_preview(path_or_id, is_drive)
         
         # 파일명 추천 로직
-        import os, re
+        import os
+        import re
         base, ext = os.path.splitext(filename)
         m = re.search(r'(\d+)_([1-9])([1-9])(.*)', base)
         m2 = re.search(r'(\d+)_([1-9]),([1-9])(.*)', base)
@@ -277,7 +282,7 @@ class PdfSplitUi(BaseUI):
             split_point = -1
             is_overlap = False
 
-        if not hasattr(self, 'page_images'):
+        if not self.page_images:
             return
 
         self.scroll_area.clear()
@@ -320,36 +325,12 @@ class PdfSplitUi(BaseUI):
         if not self._selected_path_or_id:
             return
 
-        location = "드라이브" if self._selected_is_drive else "로컬"
-        reply = QMessageBox.question(
-            self, "원본 파일 삭제",
-            f"원본 {location} 파일을 삭제하시겠습니까?\n\n"
-            f"{self._selected_path_or_id}\n\n"
-            + ("(드라이브 휴지통으로 이동합니다)" if self._selected_is_drive else "(이 작업은 되돌릴 수 없습니다)"),
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        from base.base_ui_components import prompt_delete_original_helper
+        prompt_delete_original_helper(
+            parent_widget=self,
+            file_paths_or_ids=[self._selected_path_or_id],
+            is_drive=self._selected_is_drive,
+            log_callback=self.emit_log
         )
-        if reply == QMessageBox.StandardButton.Yes:
-            if self._selected_is_drive:
-                from utils.drive_api import delete_drive_file
-                from utils.auth_util import get_drive_service
-                try:
-                    ok = delete_drive_file(self._selected_path_or_id, drive_service=get_drive_service())
-                    if ok:
-                        self.emit_log(f"원본 드라이브 파일을 휴지통으로 이동했습니다.")
-                    else:
-                        self.emit_log("드라이브 파일 삭제 실패.")
-                except Exception as e:
-                    self.emit_log(f"드라이브 파일 삭제 오류: {e}")
-            else:
-                import os
-                try:
-                    if os.path.exists(self._selected_path_or_id):
-                        os.remove(self._selected_path_or_id)
-                        self.emit_log(f"원본 로컬 파일 삭제 완료: {self._selected_path_or_id}")
-                    else:
-                        self.emit_log("원본 파일을 찾을 수 없습니다.")
-                except Exception as e:
-                    self.emit_log(f"로컬 파일 삭제 오류: {e}")
-
         self._selected_path_or_id = None
         self._selected_is_drive = False

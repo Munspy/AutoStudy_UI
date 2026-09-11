@@ -1,16 +1,23 @@
-from PyQt6.QtWidgets import QTableWidget, QHeaderView
-from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledTableWidget, StyledCheckBox, StyledComboBox, StatusBadge
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QTableWidget, QTableWidgetItem, QLabel, 
-                             QHeaderView, QInputDialog, QMessageBox, QDialog)
-from PyQt6.QtCore import Qt, pyqtSignal, QUrl
+from PyQt6.QtCore import Qt, QUrl, pyqtSignal
 from PyQt6.QtGui import QDesktopServices
+from PyQt6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QInputDialog,
+                             QLabel, QMessageBox, QPushButton, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout, QWidget)
 
+from base.base_ui import BaseUI
+from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StatusBadge,
+                                     StyledButton, StyledCheckBox,
+                                     StyledComboBox, StyledTableWidget)
 # ---------------------------------------------------------
 # 백엔드 함수 모듈 임포트 (경로 호환성 처리)
 # ---------------------------------------------------------
-from controller.youtube_playlist_controller import YoutubePlaylistController, load_csv_data, rename_playlist, delete_playlist, parse_playlist_id, get_playlist_title, add_playlist_to_csv
+from controller.youtube_playlist_controller import (YoutubePlaylistController,
+                                                    add_playlist_to_csv,
+                                                    delete_playlist,
+                                                    get_playlist_title,
+                                                    load_csv_data,
+                                                    parse_playlist_id,
+                                                    rename_playlist)
 
 
 class PlaylistManagerDialog(QDialog):
@@ -273,18 +280,19 @@ class YoutubePlaylistUi(BaseUI):
             self.playlist_combo.setCurrentIndex(0)
 
     def add_playlist_dialog(self):
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QLineEdit
+        from PyQt6.QtWidgets import QDialog, QLabel, QLineEdit, QVBoxLayout
+
         from base.base_ui_components import StyledButton
-        
+
         # 1st Dialog: URL input
         dialog = QDialog(self)
         dialog.setWindowTitle('재생목록 추가')
         dialog.setFixedSize(400, 150)
-        dialog.setStyleSheet("background-color: #FFFFFF; ")
+        dialog.setStyleSheet("background-color: " + COLORS["background_input"] + "; ")
         layout = QVBoxLayout(dialog)
         layout.addWidget(QLabel("YouTube 재생목록 URL을 입력하세요:"))
         url_input = QLineEdit()
-        url_input.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 4px;")
+        url_input.setStyleSheet("padding: 8px; border: 1px solid " + COLORS["border_input"] + "; border-radius: 4px;")
         layout.addWidget(url_input)
         
         btn_layout = QHBoxLayout()
@@ -310,11 +318,11 @@ class YoutubePlaylistUi(BaseUI):
             name_dialog = QDialog(self)
             name_dialog.setWindowTitle('재생목록 이름 지정')
             name_dialog.setFixedSize(400, 150)
-            name_dialog.setStyleSheet("background-color: #FFFFFF; ")
+            name_dialog.setStyleSheet("background-color: " + COLORS["background_input"] + "; ")
             n_layout = QVBoxLayout(name_dialog)
             n_layout.addWidget(QLabel("목록을 구별할 이름을 입력하세요:"))
             name_input = QLineEdit(default_name)
-            name_input.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 4px;")
+            name_input.setStyleSheet("padding: 8px; border: 1px solid " + COLORS["border_input"] + "; border-radius: 4px;")
             n_layout.addWidget(name_input)
             
             n_btn_layout = QHBoxLayout()

@@ -4,8 +4,10 @@ UI(Tab7GeminiProcessing)와 연동하여 LLM 스캔 및 단위 작업(Task) 워�
 생성하고 실행하며, 결과를 시그널을 통해 UI에 반영합니다.
 """
 from PyQt6.QtCore import pyqtSignal
+
 from base.base_controller import BaseController
-from worker.llm.llm_worker import LLMTaskWorker, LLMScanWorker
+from worker.llm.llm_worker import LLMScanWorker, LLMTaskWorker
+
 
 class GeminiProcessingController(BaseController):
     """Gemini LLM 작업들의 실행 및 상태 관리를 담당하는 컨트롤러 클래스입니다.
@@ -62,7 +64,7 @@ class GeminiProcessingController(BaseController):
             return
 
         # base_name 기준으로 작업 분류
-        grouped_tasks = {}
+        grouped_tasks: dict[str, list] = {}
         for task in task_queue:
             b_name = task['base_name']
             if b_name not in grouped_tasks:

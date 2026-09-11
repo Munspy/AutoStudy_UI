@@ -14,7 +14,7 @@
 
 import shutil
 from pathlib import Path
-from typing import Union, List, Tuple
+from typing import List, Tuple, Union
 
 # 경로 입력 시 str과 pathlib.Path 모두 지원하도록 정의
 PathLike = Union[str, Path]

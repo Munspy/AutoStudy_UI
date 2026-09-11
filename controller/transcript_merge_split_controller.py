@@ -3,16 +3,17 @@
 UI(Tab5TranscriptMergeSplit)와 연동하여 로컬 및 구글 드라이브 상의
 텍스트 파일 검색, 내용 읽기, 내용 분할 및 병합 저장 워커들을 제어합니다.
 """
-# controller/transcript_merge_split_controller.py
+
 from PyQt6.QtCore import pyqtSignal
+
 from base.base_controller import BaseController
+from core.container import AppContainer
 from utils.file_util import list_local_files
-from worker.transcript.transcript_worker import (
-    TranscriptDriveSearchWorker, 
-    TranscriptReadWorker, 
-    TranscriptSplitSaveWorker, 
-    TranscriptMergeSaveWorker
-)
+from worker.transcript.transcript_worker import (TranscriptDriveSearchWorker,
+                                                 TranscriptMergeSaveWorker,
+                                                 TranscriptReadWorker,
+                                                 TranscriptSplitSaveWorker)
+
 
 class TranscriptController(BaseController):
     """스크립트 병합 및 분할 작업을 제어하는 클래스입니다.
@@ -95,44 +96,15 @@ class TranscriptController(BaseController):
     # [파일 분할 및 병합 저장]
     # ===========================
     def execute_split_save(self, folder_path, filename, text_content, name1, name2, is_drive):
-        """사용자가 수정한 텍스트 내용을 분할하여 2개의 새로운 파일로 저장하는 워커를 실행합니다.
-
-        Args:
-            folder_path (str): 저장될 기준 폴더 경로.
-            filename (str): 원본 파일명.
-            text_content (list): 2개로 분할된 텍스트 컨텐츠.
-            name1 (str): 첫 번째 분할 저장할 파일명.
-            name2 (str): 두 번째 분할 저장할 파일명.
-            is_drive (bool): 드라이브 모드 여부.
-
-        Returns:
-            None
-        """
-        # 분할 저장 작업을 처리할 워커 생성
+        """사용자가 수정한 텍스트 내용을 분할하여 2개의 새로운 파일로 저장하는 워커를 실행합니다."""
         worker = TranscriptSplitSaveWorker(folder_path, filename, text_content, name1, name2, is_drive)
-        # 저장 완료 시 시그널 방출 연결
         worker.finished_signal.connect(self.split_save_completed.emit)
-        # 워커 실행
         self.start_worker(worker)
 
     def execute_merge_save(self, folder_path, files_to_merge, merged_content, custom_name, is_drive):
-        """여러 스크립트 파일 내용을 하나로 병합하여 저장하는 워커를 실행합니다.
-
-        Args:
-            folder_path (str): 저장될 기준 폴더 경로.
-            files_to_merge (list): 병합할 원본 파일 목록.
-            merged_content (str): 하나로 합쳐진 텍스트 컨텐츠.
-            custom_name (str): 병합본을 저장할 커스텀 파일명.
-            is_drive (bool): 드라이브 모드 여부.
-
-        Returns:
-            None
-        """
-        # 병합 저장 작업을 처리할 워커 생성
+        """여러 스크립트 파일 내용을 하나로 병합하여 저장하는 워커를 실행합니다."""
         worker = TranscriptMergeSaveWorker(folder_path, files_to_merge, merged_content, custom_name, is_drive)
-        # 완료 시 시그널 연결
         worker.finished_signal.connect(self.merge_save_completed.emit)
-        # 워커 실행
         self.start_worker(worker)
 
 # ===========================
@@ -140,10 +112,8 @@ class TranscriptController(BaseController):
 # ===========================
 def generate_split_filenames(filename: str) -> list:
     # 파일명 생성 서비스를 이용해 분할 파일명 자동 생성
-    from service.file_naming_service import FileNamingService
-    return FileNamingService().generate_split_filenames(filename)
+    return AppContainer.get_instance().file_naming.generate_split_filenames(filename)
 
 def generate_merged_filename(filenames: list) -> str:
     # 파일명 생성 서비스를 이용해 병합 파일명 자동 생성
-    from service.file_naming_service import FileNamingService
-    return FileNamingService().generate_merged_filename(filenames)
+    return AppContainer.get_instance().file_naming.generate_merged_filename(filenames)

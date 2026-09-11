@@ -6,27 +6,32 @@ Google Drive 최상단 디렉토리(TARGET_DRIVE_DIR)에 위치한 'timetable' �
 수업 교시(Lesson ID)별 교수명, 강의명, 과목명, 시험 차수 등의 메타데이터를 제공합니다.
 """
 
-import io
-import re
 import csv
+import io
 import json
+import re
 from pathlib import Path
-from typing import Optional, Dict, Any, Callable
+from typing import Any, Callable, Dict, Optional
 
 from base.base_service import BaseService
-from utils.config import BASE_DIR, Config
 from utils.auth_util import get_drive_service
+from utils.config import BASE_DIR, Config
 from utils.drive_api import in_memory_download_from_drive
 
 
 class TimetableService(BaseService):
     """드라이브의 timetable 스프레드시트 파싱 및 수업 메타데이터 매칭 전담 서비스."""
 
+    @property
+    def drive_service(self):
+        from utils.auth_util import get_drive_service
+        return get_drive_service()
+
     CACHE_FILE: Path = BASE_DIR / "timetable_cache.json"
 
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+    def __init__(self) -> None:
         """TimetableService를 초기화합니다."""
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
         self._timetable_cache: Optional[Dict[str, Dict[str, str]]] = None
 
     def fetch_timetable_file_id(self, drive_service: Any = None) -> Optional[str]:

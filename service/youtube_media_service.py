@@ -1,4 +1,5 @@
 from base.base_service import BaseService
+
 """유튜브 미디어 다운로드 및 구글 드라이브 업로드 전담 서비스 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
@@ -11,10 +12,13 @@ from base.base_service import BaseService
 """
 import os
 import tempfile
+from typing import Any, Callable, Optional
+
 import yt_dlp
-from typing import Any, Optional
 from googleapiclient.http import MediaFileUpload
+
 from utils.auth_util import get_drive_service
+
 
 class YoutubeMediaService(BaseService):
     """유튜브 음원 추출(yt-dlp) 및 구글 드라이브 업로드를 전담하는 서비스 클래스.
@@ -31,39 +35,7 @@ class YoutubeMediaService(BaseService):
     # ===========================
     # [오디오 다운로드 및 업로드]
     # ===========================
-    def download_and_upload_audio(self, url: str, prefix: str, drive_folder_id: str, drive_service: Optional[Any] = None) -> None:
-        """단일 유튜브 영상을 WAV 포맷으로 추출한 뒤 구글 드라이브에 안전하게 업로드합니다.
-
-        자동화된 학습 자료 파이프라인에서 Whisper AI가 음성을 텍스트로 원활하게 변환하기 
-        위해서는 입력 오디오의 엄격한 규격화가 필수적입니다. 
-        이 메서드는 단순한 영상 다운로드를 넘어, `yt-dlp`와 `FFmpeg` 후처리(post-processor)를 연계하여 
-        스트리밍된 미디어를 강제로 **16kHz, 1채널(Mono)** WAV 파일로 트랜스코딩합니다. 
-        이 규격은 Whisper STT 엔진이 요구하는 최적의 오디오 포맷이므로, 하위 파이프라인에서 
-        오디오 리샘플링 작업을 다시 수행하는 오버헤드를 원천적으로 제거합니다.
-
-        또한, 장시간 연속으로 영상을 다운로드하는 배치(Batch) 처리 환경에서 
-        로컬 디스크 공간이 고갈되거나 파일 덮어쓰기 충돌이 발생하지 않도록 
-        `tempfile.TemporaryDirectory` 격리 공간 내에서 다운로드와 변환을 수행합니다. 
-        네트워크 업로드가 끝난 후 `with` 블록을 빠져나가면 즉시 찌꺼기 미디어 파일들을 휘발(Clean-up)시켜 
-        시스템 리소스를 안전하게 회수합니다.
-
-        Args:
-            url (str): 음원을 추출할 대상 유튜브 영상의 단일 URL.
-            prefix (str): 로컬 임시 파일 생성 및 구글 드라이브 저장 시 사용할 파일명 (확장자 제외). 
-                일반적으로 파이프라인 상태 관리를 위한 '날짜_교시' 형태의 식별자가 주입됩니다.
-            drive_folder_id (str): 추출된 WAV 파일이 업로드될 구글 드라이브 대상 폴더의 고유 ID.
-            drive_service (Optional[Any], optional): 인증이 완료된 구글 드라이브 API 서비스 객체. 
-                지정되지 않은 경우 `get_drive_service()`를 통해 최신 객체를 가져옵니다.
-
-        Returns:
-            None: 반환값 없이 외부 스토리지(구글 드라이브)에 업로드를 수행하고 종료됩니다.
-
-        Raises:
-            FileNotFoundError: `yt-dlp` 다운로드 및 FFmpeg 변환 프로세스가 실패하여 
-                임시 디렉토리 내에 지정된 이름의 WAV 파일이 정상적으로 생성되지 않았을 때 발생합니다.
-            Exception: 구글 드라이브 네트워크 업로드 중 토큰 만료, 클라우드 용량 초과, 
-                네트워크 단절 등의 이유로 `MediaFileUpload` 객체의 `.execute()`가 실패할 때 발생합니다.
-        """
+    def download_and_upload_audio(self, url: str, prefix: str, drive_folder_id: str, drive_service: Optional[Any] = None, cancel_checker: Optional[Callable[[], bool]] = None) -> None:
         if drive_service is None:
             drive_service = get_drive_service()
         
@@ -71,18 +43,26 @@ class YoutubeMediaService(BaseService):
         with tempfile.TemporaryDirectory() as temp_dir:
             temp_wav_path = os.path.join(temp_dir, f'{prefix}.wav')
             
+            def progress_hook(d):
+                if cancel_checker and cancel_checker():
+                    raise InterruptedError("사용자에 의해 다운로드가 취소되었습니다.")
+
             # yt-dlp 옵션 설정: 최고 품질의 오디오를 다운로드하여 16kHz 모노 WAV로 후처리
             ydl_opts = {
                 'format': 'ba[ext=m4a]/bestaudio/best', 
                 'outtmpl': os.path.join(temp_dir, f'{prefix}.%(ext)s'),
                 'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'wav'}],
                 'postprocessor_args': {'ffmpeg': ['-acodec', 'pcm_s16le', '-ar', '16000', '-ac', '1']},
-                'quiet': True, 'no_warnings': True
+                'quiet': True, 'no_warnings': True,
+                'progress_hooks': [progress_hook]
             }
             
             # 오디오 다운로드 및 트랜스코딩 수행
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
+
+            if cancel_checker and cancel_checker():
+                raise InterruptedError("다운로드 완료 후 업로드 전 취소되었습니다.")
 
             # 파일이 정상적으로 생성되었는지 검증
             if not os.path.exists(temp_wav_path):
@@ -92,5 +72,5 @@ class YoutubeMediaService(BaseService):
             file_metadata = {'name': f'{prefix}.wav', 'parents': [drive_folder_id]}
             media = MediaFileUpload(temp_wav_path, mimetype='audio/wav', resumable=True)
             
-            # 업로드 실행
+            # 업로드 실행 (업로드 자체는 일시정지/취소가 제한적이나 API 완료 후 worker loop에서 중단됨)
             drive_service.files().create(body=file_metadata, media_body=media).execute()

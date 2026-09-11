@@ -1,18 +1,20 @@
 
-from PyQt6.QtWidgets import QListWidgetItem
-
-from pathlib import Path
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QLineEdit, QFileDialog, QScrollArea, QFrame, QListWidgetItem, 
-                             QAbstractSpinBox, QMessageBox)
-from PyQt6.QtCore import Qt, pyqtSignal, QDate
-from PyQt6.QtGui import QImage, QPixmap
 import os
-import pymupdf
+from pathlib import Path
 
-from controller.pdf_merge_controller import PdfMergeController
+import pymupdf
+from PyQt6.QtCore import QDate, Qt, pyqtSignal
+from PyQt6.QtGui import QImage, QPixmap
+from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QFrame,
+                             QHBoxLayout, QLabel, QLineEdit, QListWidgetItem,
+                             QScrollArea, QVBoxLayout, QWidget)
+
 from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit
+from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StyledButton,
+                                     StyledCheckBox, StyledDateEdit,
+                                     StyledListWidget)
+from controller.pdf_merge_controller import PdfMergeController
+
 
 class PreviewState:
     def __init__(self, doc, path, is_drive):
@@ -21,6 +23,7 @@ class PreviewState:
         self.is_drive = is_drive
         self.total_pages = doc.page_count
         self.loaded_pages = 0
+        self.is_loading = False
 
 
 
@@ -40,11 +43,13 @@ class PdfMergeUi(BaseUI):
         self.controller.merge_completed.connect(self.on_merge_completed)
         self.controller.preview_prepared.connect(self.on_item_prepared)
         self.controller.preview_finished.connect(self.on_preview_worker_finished)
+        self.controller.page_rendered.connect(self.on_page_rendered)
 
+        import tempfile
         self.file_paths = {}
         self.preview_states = {}
         self.drive_cache = {}
-        self.temp_dir = "/tmp/antigravity_pdf_cache"
+        self.temp_dir = os.path.join(tempfile.gettempdir(), "antigravity_pdf_cache")
         os.makedirs(self.temp_dir, exist_ok=True)
         
         self.init_ui()
@@ -173,7 +178,7 @@ class PdfMergeUi(BaseUI):
         # ===========================
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
-        self.scroll_area.setStyleSheet("QScrollArea { border: 1px solid #EAEAEA; border-radius: 8px; background-color: #FFFFFF; }")
+        self.scroll_area.setStyleSheet("QScrollArea { border: 1px solid #EAEAEA; border-radius: 8px; background-color: " + COLORS["background_input"] + "; }")
         
         self.preview_container = QWidget()
         self.preview_container.setStyleSheet("background-color: #FAFAFA;")
@@ -213,6 +218,16 @@ class PdfMergeUi(BaseUI):
         target_dir = self.folder_input.text()
         start_str = self.start_date.date().toString("MMdd")
         end_str = self.end_date.date().toString("MMdd")
+        
+        # [BUG-FIX] 이전 문서 핸들 명시적 닫기 (메모리 누수 방지)
+        for state in self.preview_states.values():
+            if getattr(state, 'doc', None):
+                try:
+                    state.doc.close()
+                except Exception:
+                    pass
+        self.preview_states.clear()
+
         self.file_list.blockSignals(True)
         self.file_list.clear()
         self.file_paths.clear()
@@ -372,20 +387,43 @@ class PdfMergeUi(BaseUI):
             
     def load_more_pages(self, state, frame, batch_size=8):
         if not state.doc or state.loaded_pages >= state.total_pages: return
+        if getattr(state, 'is_loading', False): return
         
-        pages_layout = frame.layout().itemAt(1).layout()
+        state.is_loading = True
         end = min(state.loaded_pages + batch_size, state.total_pages)
-        for i in range(state.loaded_pages, end):
-            try:
-                page = state.doc.load_page(i)
-                pix = page.get_pixmap(matrix=pymupdf.Matrix(0.3, 0.3))
-                img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format.Format_RGB888)
-                lbl = QLabel()
-                lbl.setPixmap(QPixmap.fromImage(img))
-                pages_layout.addWidget(lbl)
-            except:
-                pass
+        item_text = frame.property("item_text")
+        
+        local_path = state.path
+        if state.is_drive and state.path in self.drive_cache:
+            local_path = self.drive_cache[state.path]
+            
+        self.controller.request_render_pages(item_text, local_path, state.loaded_pages, end)
         state.loaded_pages = end
+
+    def on_page_rendered(self, item_text, page_index, image_bytes):
+        if item_text not in self.preview_states: return
+        state = self.preview_states[item_text]
+        
+        # 찾기: preview_layout에서 해당 item_text를 가진 프레임을 찾음
+        target_frame = None
+        for i in range(self.preview_layout.count()):
+            w = self.preview_layout.itemAt(i).widget()
+            if w and w.property("item_text") == item_text:
+                target_frame = w
+                break
+                
+        if not target_frame: return
+        
+        pages_layout = target_frame.layout().itemAt(1).layout()
+        img = QImage.fromData(image_bytes, "png")
+        lbl = QLabel()
+        lbl.setPixmap(QPixmap.fromImage(img))
+        pages_layout.addWidget(lbl)
+        
+        # 렌더링이 완료되었는지 확인 (배치 마지막 페이지)
+        # Note: 비동기로 도착하므로 정확한 끝 시점은 loaded_pages - 1 과 비교
+        if page_index == state.loaded_pages - 1:
+            state.is_loading = False
         
     def on_scroll(self, value):
         if value >= self.scroll_area.verticalScrollBar().maximum() - 10:

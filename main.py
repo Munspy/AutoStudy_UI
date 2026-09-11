@@ -10,26 +10,31 @@ Dependencies:
     - base.base_task_manager (작업 관리)
 """
 import sys
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                             QListWidget, QStackedWidget, QProgressBar, QTextEdit, 
-                             QLabel, QSplitter)
+
 from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (QApplication, QListWidget, QMainWindow,
+                             QProgressBar, QSplitter, QStackedWidget,
+                             QTextEdit, QVBoxLayout, QWidget)
+
+from base.base_task_manager import BaseTaskManager
+from core.logger import GlobalLogger
 
 # ---------------------------------------------------------
 # 분리한 탭 모듈 임포트
 # ---------------------------------------------------------
 
-from ui.drive_sync_ui             import DriveSyncUi
-from ui.combine_notes_ui          import CombineNotesUi
-from ui.pdf_merge_ui              import PdfMergeUi
-from ui.pdf_split_ui              import PdfSplitUi
-from ui.transcript_merge_split_ui import TranscriptMergeSplitUi
-from ui.whisper_transcription_ui  import WhisperTranscriptionUi
-from ui.gemini_processing_ui      import GeminiProcessingUi
-from ui.youtube_playlist_ui       import YoutubePlaylistUi
-from ui.raw_data_editor_ui       import RawDataEditorUi
+from ui.combine_notes_ui            import CombineNotesUi
+from ui.drive_sync_ui               import DriveSyncUi
+from ui.gemini_processing_ui        import GeminiProcessingUi
+from ui.pdf_merge_ui                import PdfMergeUi
+from ui.pdf_split_ui                import PdfSplitUi
+from ui.raw_data_editor_ui          import RawDataEditorUi
+from ui.transcript_merge_split_ui   import TranscriptMergeSplitUi
+from ui.whisper_transcription_ui    import WhisperTranscriptionUi
+from ui.youtube_playlist_ui         import YoutubePlaylistUi
 
-from base.base_task_manager import BaseTaskManager
+
+
 
 class AutomationDashboard(QMainWindow):
     """스크립트본 생성 자동화 UI의 메인 윈도우 클래스.
@@ -128,6 +133,9 @@ class AutomationDashboard(QMainWindow):
         self.global_task_manager.queue_progress_signal.connect(self.update_global_progress)
         self.global_task_manager.queue_finished_signal.connect(self.on_queue_finished)
         
+        # 전역 로거 시그널 연결 (모든 탭과 서비스의 로그를 수신)
+        GlobalLogger.log_signal.connect(self.log_msg)
+        
         # 내부 탭들 생성 및 초기화
         self.init_tabs()
         # 사이드바 아이템 선택 시 스택 위젯의 활성 페이지가 전환되도록 연결
@@ -201,7 +209,7 @@ class AutomationDashboard(QMainWindow):
 
         # 탭 9: Raw data 직접수정
         self.tab9 = RawDataEditorUi(self.global_task_manager)
-        # self.tab9.log_signal.connect(self.log_msg)
+        self.tab9.log_signal.connect(self.log_msg)
         self.stacked_widget.addWidget(self.tab9)
 
 

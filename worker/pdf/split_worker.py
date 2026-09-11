@@ -1,6 +1,7 @@
 from base.base_worker import BaseWorker
-from service.pdf_operation_service import PdfOperationService
+from core.container import AppContainer
 from utils.auth_util import get_drive_service
+
 
 class PdfSplitWorker(BaseWorker):
     """PDF 파일을 특정 페이지 기준으로 분할하는 워커 클래스입니다."""
@@ -42,7 +43,7 @@ class PdfSplitWorker(BaseWorker):
         # [서비스 초기화 및 취소 확인]
         # ===========================
         # PDF 조작 서비스를 초기화합니다.
-        operation_service = PdfOperationService(logger_callback=self.log_signal.emit)
+        operation_service = AppContainer.get_instance().pdf_operation
         
         # 작업이 취소되었는지 확인합니다.
         if self.is_cancelled(): return None

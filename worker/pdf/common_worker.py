@@ -1,10 +1,12 @@
 import os
+
 from base.base_worker import BaseWorker
+from core.container import AppContainer
 from utils.auth_util import get_drive_service
+from utils.config import Config
 from utils.drive_api import get_all_drive_files
 from utils.file_util import list_local_files
-from utils.config import Config
-from service.file_naming_service import FileNamingService
+
 
 class PdfFileListWorker(BaseWorker):
     """지정된 조건에 따라 로컬 또는 구글 드라이브의 PDF 파일 목록을 조회하는 워커 클래스입니다."""
@@ -70,7 +72,7 @@ class PdfFileListWorker(BaseWorker):
             pdf_files = [f for f in files if f.get('name', '').lower().endswith('.pdf')]
 
             # 명명 규칙 서비스로 날짜 범위에 맞게 필터링
-            naming_service = FileNamingService(logger_callback=self.log_signal.emit)
+            naming_service = AppContainer.get_instance().file_naming
             filtered_pdfs = naming_service.filter_files_by_date_range(pdf_files, self.start_str, self.end_str)
 
             # 파일 ID 매핑 생성

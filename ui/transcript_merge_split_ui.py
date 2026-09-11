@@ -1,18 +1,19 @@
 import os
-
-from PyQt6.QtWidgets import QListWidget
-
 from pathlib import Path
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QLineEdit, QFileDialog, QScrollArea, QAbstractSpinBox, QStackedWidget, 
-                             QSizePolicy, QTextEdit, QMessageBox,
-                             QListWidget)
-from PyQt6.QtCore import Qt, QDate
+
+from PyQt6.QtCore import QDate, Qt
+from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QHBoxLayout,
+                             QLabel, QLineEdit, QListWidget, QMessageBox,
+                             QScrollArea, QSizePolicy, QStackedWidget,
+                             QTextEdit, QVBoxLayout, QWidget)
 
 from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, StyledButton, CardWidget, StyledListWidget, StyledCheckBox, StyledDateEdit
+from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StyledButton,
+                                     StyledCheckBox, StyledDateEdit,
+                                     StyledListWidget)
+from controller.transcript_merge_split_controller import (
+    TranscriptController, generate_merged_filename, generate_split_filenames)
 
-from controller.transcript_merge_split_controller import TranscriptController, generate_split_filenames, generate_merged_filename
 
 class TranscriptMergeSplitUi(BaseUI):
 
@@ -72,7 +73,7 @@ class TranscriptMergeSplitUi(BaseUI):
         local_layout.addWidget(QLabel("📂"))
         
         self.folder_input = QLineEdit(str(Path.home() / "Downloads"))
-        self.folder_input.setStyleSheet("padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF;")
+        self.folder_input.setStyleSheet("padding: 6px; border: 1px solid " + COLORS["border_input"] + "; border-radius: 6px; background-color: " + COLORS["background_input"] + ";")
         self.folder_input.setReadOnly(True)
         local_layout.addWidget(self.folder_input)
         
@@ -133,7 +134,7 @@ class TranscriptMergeSplitUi(BaseUI):
         search_layout.addWidget(QLabel("🔍 텍스트 검색:"))
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("검색어를 입력하세요 (Ctrl+F)")
-        self.search_input.setStyleSheet("padding: 6px; border: 1px solid #D1D1CE; border-radius: 6px; background-color: #FFFFFF;")
+        self.search_input.setStyleSheet("padding: 6px; border: 1px solid " + COLORS["border_input"] + "; border-radius: 6px; background-color: " + COLORS["background_input"] + ";")
         self.search_input.returnPressed.connect(self.find_text)
         search_layout.addWidget(self.search_input)
         
@@ -152,7 +153,7 @@ class TranscriptMergeSplitUi(BaseUI):
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.scroll_area.setStyleSheet("QScrollArea { border: 1px solid #EAEAEA; border-radius: 8px; background-color: #FFFFFF; }")
+        self.scroll_area.setStyleSheet("QScrollArea { border: 1px solid #EAEAEA; border-radius: 8px; background-color: " + COLORS["background_input"] + "; }")
         
         self.preview_container = QWidget()
         self.preview_container.setStyleSheet("background-color: #FAFAFA;")
@@ -189,12 +190,12 @@ class TranscriptMergeSplitUi(BaseUI):
         
         split_layout.addWidget(QLabel("저장 파일명 1:"))
         self.split_name_1 = QLineEdit()
-        self.split_name_1.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; min-width: 140px;")
+        self.split_name_1.setStyleSheet("padding: 8px; border: 1px solid " + COLORS["border_input"] + "; border-radius: 8px; background-color: " + COLORS["background_input"] + "; font-weight: bold; min-width: 140px;")
         split_layout.addWidget(self.split_name_1)
         
         split_layout.addWidget(QLabel("저장 파일명 2:"))
         self.split_name_2 = QLineEdit()
-        self.split_name_2.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; min-width: 140px;")
+        self.split_name_2.setStyleSheet("padding: 8px; border: 1px solid " + COLORS["border_input"] + "; border-radius: 8px; background-color: " + COLORS["background_input"] + "; font-weight: bold; min-width: 140px;")
         split_layout.addWidget(self.split_name_2)
         
         split_layout.addStretch()
@@ -214,7 +215,7 @@ class TranscriptMergeSplitUi(BaseUI):
         
         merge_layout.addWidget(QLabel("병합 저장 파일명:"))
         self.merge_name_input = QLineEdit()
-        self.merge_name_input.setStyleSheet("padding: 8px; border: 1px solid #D1D1CE; border-radius: 8px; background-color: #FFFFFF; font-weight: bold; min-width: 250px;")
+        self.merge_name_input.setStyleSheet("padding: 8px; border: 1px solid " + COLORS["border_input"] + "; border-radius: 8px; background-color: " + COLORS["background_input"] + "; font-weight: bold; min-width: 250px;")
         merge_layout.addWidget(self.merge_name_input)
         
         merge_layout.addStretch()
@@ -346,30 +347,34 @@ class TranscriptMergeSplitUi(BaseUI):
         vbox.addWidget(text_edit)
         self.preview_layout.addWidget(container)
 
-    from PyQt6.QtGui import QTextCursor
     def find_text(self):
         from PyQt6.QtGui import QTextCursor
         search_text = self.search_input.text()
         if not search_text or not self.current_text_edits: return
             
         found = False
+        # 1. 현재 커서 위치들에서 순차적으로 검색 시도
         for text_edit in self.current_text_edits:
             if text_edit.find(search_text):
                 found = True
                 text_edit.setFocus()
                 break
                 
-            cursor = text_edit.textCursor()
-            cursor.movePosition(QTextCursor.MoveOperation.Start)
-            text_edit.setTextCursor(cursor)
-            
-            if text_edit.find(search_text):
-                found = True
-                text_edit.setFocus()
-                break
+        # 2. 끝까지 못 찾았다면, 모든 에디터의 커서를 처음으로 되돌리고 다시 전체 검색
+        if not found:
+            for text_edit in self.current_text_edits:
+                cursor = text_edit.textCursor()
+                cursor.movePosition(QTextCursor.MoveOperation.Start)
+                text_edit.setTextCursor(cursor)
+                
+                if text_edit.find(search_text):
+                    found = True
+                    text_edit.setFocus()
+                    break
                 
         if not found:
-            QMessageBox.information(self, "검색 결과", "더 이상 검색 결과가 없습니다.")
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.information(self, "검색 결과", "검색 결과가 없습니다.")
 
     def execute_split_save(self):
         if not self.file_list.selectedItems(): return
@@ -394,6 +399,29 @@ class TranscriptMergeSplitUi(BaseUI):
     def _on_split_save_finished(self, msg):
         QMessageBox.information(self, "완료", msg)
         self.log_signal.emit("✅ 분할 작업 및 저장이 완료되었습니다.")
+        
+        selected_items = self.file_list.selectedItems()
+        if selected_items:
+            fname = selected_items[0].text()
+            is_drive = self.drive_check.isChecked()
+            
+            paths_or_ids = []
+            if is_drive:
+                file_id = self.controller.drive_files_cache.get(fname)
+                if file_id:
+                    paths_or_ids.append(file_id)
+            else:
+                folder_path = self.folder_input.text()
+                paths_or_ids.append(os.path.join(folder_path, fname))
+                
+            from base.base_ui_components import prompt_delete_original_helper
+            prompt_delete_original_helper(
+                parent_widget=self,
+                file_paths_or_ids=paths_or_ids,
+                is_drive=is_drive,
+                log_callback=self.emit_log
+            )
+
         self.populate_file_list()
 
     def execute_merge_save(self):
@@ -418,5 +446,28 @@ class TranscriptMergeSplitUi(BaseUI):
         msg, new_filename = res
         QMessageBox.information(self, "완료", msg)
         self.log_signal.emit(f"✅ 병합 작업 및 저장이 완료되었습니다: {new_filename}")
+        
+        selected_items = self.file_list.selectedItems()
+        if selected_items:
+            is_drive = self.drive_check.isChecked()
+            filenames = [item.text() for item in selected_items]
+            paths_or_ids = []
+            
+            if is_drive:
+                for fname in filenames:
+                    file_id = self.controller.drive_files_cache.get(fname)
+                    if file_id: paths_or_ids.append(file_id)
+            else:
+                folder_path = self.folder_input.text()
+                paths_or_ids = [os.path.join(folder_path, fname) for fname in filenames]
+                
+            from base.base_ui_components import prompt_delete_original_helper
+            prompt_delete_original_helper(
+                parent_widget=self,
+                file_paths_or_ids=paths_or_ids,
+                is_drive=is_drive,
+                log_callback=self.emit_log
+            )
+            
         self.populate_file_list()
 

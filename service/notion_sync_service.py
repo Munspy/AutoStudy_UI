@@ -1,3 +1,4 @@
+import typing
 """Notion API 연동 및 마크다운 변환 서비스 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
@@ -11,11 +12,13 @@ Notion API가 인식할 수 있는 엄격한 Block 객체(JSON 구조)로 파싱
 """
 import re
 import time
-from typing import Optional, List, Dict, Any, Callable
+from typing import Any, Callable, Dict, List, Optional
+
 from notion_client import Client
 
-from utils.config import Config
 from base.base_service import BaseService
+from utils.config import Config
+
 
 class NotionSyncService(BaseService):
     """마크다운 텍스트를 Notion Block 객체로 변환하고 API 통신을 전담하는 통합 서비스 클래스.
@@ -30,7 +33,7 @@ class NotionSyncService(BaseService):
     - 상위 Controller 또는 비동기 Worker로부터 LLM 요약 결과물(Markdown 문자열)을 주입받아 동작합니다.
     """
 
-    def __init__(self, auth_token: Optional[str] = None, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+    def __init__(self, auth_token: Optional[str] = None) -> None:
         """NotionSyncService 인스턴스를 초기화합니다.
 
         Args:            auth_token (Optional[str], optional): 명시적으로 주입할 Notion API 토큰. 
@@ -43,7 +46,7 @@ class NotionSyncService(BaseService):
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
         # BaseService 초기화 시 콜백을 등록하여 내부에서 self._log()로 일괄 처리
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
         self._auth_token: Optional[str] = auth_token
         self._client: Optional[Client] = None
 
@@ -105,15 +108,7 @@ class NotionSyncService(BaseService):
         """
         client = self._get_client()
         try:
-            response = client.databases.query(
-                **{
-                    "database_id": database_id,
-                    "filter": {
-                        "property": title_property_name,
-                        "rich_text": {"contains": title_query}
-                    }
-                }
-            )
+            response = client.request(path=f"databases/{database_id}/query", method="POST", body={"filter": {"property": title_property_name, "rich_text": {"contains": title_query}}})
             results = response.get("results", [])
             if results:
                 return results[0]["id"]
@@ -148,8 +143,9 @@ class NotionSyncService(BaseService):
                 parent={"database_id": database_id}, 
                 properties=properties
             )
-            self._log(f"✨ Notion 페이지 생성 완료 (ID: {created_page['id']})")
-            return created_page["id"]
+            created_page_dict = typing.cast(dict, created_page)
+            self._log(f"✨ Notion 페이지 생성 완료 (ID: {created_page_dict['id']})")
+            return created_page_dict["id"]
         except Exception as e:
             self._log(f"❌ Notion 페이지 생성 실패: {str(e)}")
             raise Exception(f"Notion 페이지 생성 실패: {str(e)}")

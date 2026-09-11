@@ -1,4 +1,5 @@
 from base.base_service import BaseService
+
 """API 키 추적 및 상태 관리 유틸리티 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Utils(유틸리티) 계층**에 속합니다.
@@ -13,14 +14,14 @@ from base.base_service import BaseService
 """
 
 import json
-import time
-import threading
 import shutil
-from datetime import datetime, timezone, timedelta
+import threading
+import time
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from utils.config import Config, BASE_DIR
+from utils.config import BASE_DIR, Config
 
 PT_TIMEZONE = timezone(timedelta(hours=-8))
 
@@ -158,25 +159,28 @@ class APIManager(BaseService):
         dt = datetime.fromtimestamp(timestamp, tz=PT_TIMEZONE)
         return dt.strftime("%Y-%m-%d")
 
-    def lock_model(self, model_name: str, duration: float = None, current_time: Optional[float] = None) -> None:
+    def lock_model(self, model_name: str, duration: float | None = None, current_time: Optional[float] = None) -> None:
         """503(Service Unavailable) 등으로 인해 특정 모델을 전체 API 키에 대해 duration초 동안 전역 잠금합니다."""
         if duration is None:
             duration = Config.MODEL_LOCK_DURATION_503
         if current_time is None:
             current_time = time.time()
         unlock_time = current_time + duration
-        self.model_locks[model_name] = unlock_time
-        if "_model_locks" not in self.state:
-            self.state["_model_locks"] = {}
-        self.state["_model_locks"][model_name] = unlock_time
         
-        for k in self.keys:
-            c = f"{k}::{model_name}"
-            if c in self.state:
-                self.state[c]["error_code"] = ERROR_SERVICE_UNAVAILABLE
-                self.state[c]["error_time"] = current_time
-        
-        self._save_state()
+        with self.lock:
+            self.model_locks[model_name] = unlock_time
+            if "_model_locks" not in self.state:
+                self.state["_model_locks"] = {}
+            self.state["_model_locks"][model_name] = unlock_time
+            
+            for k in self.keys:
+                c = f"{k}::{model_name}"
+                if c in self.state:
+                    self.state[c]["error_code"] = ERROR_SERVICE_UNAVAILABLE
+                    self.state[c]["error_time"] = current_time
+            
+            self._save_state()
+            
         print(f"🚨 [APIManager] '{model_name}' 모델 503 오류 발생: 전체 API 키에 대해 {duration:.0f}초 동안 전역 잠금 적용 (해제 예정: {datetime.fromtimestamp(unlock_time).strftime('%H:%M:%S')})")
 
     def end_task(self, key_id: str, model_name: str, error_code: Optional[str] = None) -> None:
@@ -275,7 +279,7 @@ class APIManager(BaseService):
                 
             return STATE_READY, 0.0
 
-    def get_available_key(self, model_name, timeout: int = 3600):
+    def get_available_key(self, model_name, timeout: int = 3600, cancel_checker: Optional[Callable[[], bool]] = None):
         """현재 즉시 사용할 수 있는(Ready 상태인) 최적의 API 키를 찾아 스레드 안전하게 할당(Checkout)합니다.
 
         Service 계층이 LLM API 요청을 보내기 직전에 호출하는 핵심 메서드입니다. 
@@ -291,12 +295,14 @@ class APIManager(BaseService):
         Args:
             model_name (str): 작업을 요청할 대상 LLM 모델의 이름.
             timeout (int, optional): 가용 키를 찾지 못할 경우 대기할 최대 허용 시간(초). 기본값은 3600(1시간)입니다.
+            cancel_checker (Optional[Callable[[], bool]], optional): 작업 취소 여부 판별 콜백.
 
         Returns:
             Tuple[str, str, str]: 할당에 성공한 최적 API 키의 식별자(ID), 실제 API 키 문자열, 모델명을 튜플로 반환합니다.
 
         Raises:
             TimeoutError: 지정된 `timeout` 시간을 모두 소진하고도 유효한 API 키를 할당받지 못한 경우 발생합니다.
+            InterruptedError: 대기 중 cancel_checker가 True를 반환한 경우 발생합니다.
         """
         models = [model_name] if isinstance(model_name, str) else model_name
         model_display = ', '.join(models)
@@ -305,11 +311,16 @@ class APIManager(BaseService):
         
         with self.lock: 
             while True:
+                if cancel_checker and cancel_checker():
+                    raise InterruptedError("작업이 취소되었습니다.")
+
                 current_time = time.time()
                 if current_time - start_time > timeout:
                     raise TimeoutError(f"API Key 확보 시간 초과 ({timeout}초)")
                 
                 shortest_wait = timeout 
+                any_in_use = False
+                all_quota_exceeded = True
 
                 for m_name in models:
                     # 503 전역 잠금 중인 모델은 건너뛰고 다음 우선순위 모델로!
@@ -317,18 +328,26 @@ class APIManager(BaseService):
                     if current_time < model_unlock:
                         remaining = model_unlock - current_time
                         shortest_wait = min(shortest_wait, remaining)
+                        all_quota_exceeded = False
                         continue
 
                     for key_id, api_key in self.key_map.items():
                         if not api_key: continue
                         
                         data = self.state.get(f"{key_id}::{m_name}")
-                        if not data or data.get("is_in_use"): continue
+                        if not data:
+                            continue
+                            
+                        if data.get("is_in_use"): 
+                            any_in_use = True
+                            all_quota_exceeded = False
+                            continue
                         
                         if data.get("error_code") == ERROR_QUOTA_EXCEEDED:
                             if self._get_pt_date(data["error_time"]) == self._get_pt_date(current_time):
                                 continue
                                 
+                        all_quota_exceeded = False
                         time_since_finished = current_time - data.get("last_finished_at", 0.0)
                         if time_since_finished < self.cooldown_seconds:
                             remaining = self.cooldown_seconds - time_since_finished
@@ -339,9 +358,15 @@ class APIManager(BaseService):
                         self._save_state()
                         print(f"✅ [{m_name}] '{key_id}' 할당 완료 및 작업 시작!")
                         return key_id, api_key, m_name
+                
+                if all_quota_exceeded and not any_in_use:
+                    raise Exception(f"오늘 사용 가능한 모든 API Key의 할당량이 초과되었습니다.")
                     
                 # 모든 키가 사용 중이거나 쿨타임인 경우
                 # 락을 해제한 채로 가장 짧은 쿨타임만큼만 정확히 수면(Wait)
-                self.lock.wait(timeout=shortest_wait)
+                wait_time = shortest_wait if not any_in_use else timeout
+                if cancel_checker:
+                    wait_time = min(wait_time, 1.0) # 취소 확인을 위해 최대 1초 단위로 깨어남
+                self.lock.wait(timeout=wait_time)
 
 api_mgr = APIManager()

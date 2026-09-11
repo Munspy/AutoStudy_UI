@@ -10,10 +10,13 @@ Controller, DriveSyncService, Worker 등 다른 계층들이 파일의 논리적
 """
 
 import re
+from utils.constants import FileSuffix, Extensions
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Callable, Set
-from utils.filename_util import normalize_text
+from typing import Any, Callable, Dict, List, Optional, Set
+
 from base.base_service import BaseService
+from utils.filename_util import normalize_text
+
 
 class FileNamingService(BaseService):
     """의학 강의 자료의 파일명 명명 규칙(도메인 지식)을 전담하여 파싱하고 생성하는 서비스 클래스.
@@ -25,7 +28,7 @@ class FileNamingService(BaseService):
     파이프라인의 데이터 흐름을 제어하는 기준 식별자를 제공합니다.
     """
     
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+    def __init__(self) -> None:
         """FileNamingService 객체를 초기화하고 성능 최적화를 위한 정규식 패턴을 사전 컴파일합니다.
 
         Args:            logger_callback (Optional[Callable[[str], None]], optional): 로그 메시지를 UI나 상위 레이어로 
@@ -35,7 +38,7 @@ class FileNamingService(BaseService):
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
         
         # [최적화] 자주 사용하는 정규식 패턴을 인스턴스 생성 시 한 번만 컴파일(번역)하여 저장해 둡니다.
         # 드라이브 동기화 워커가 파일 수백 개를 파싱할 때 매번 정규식 엔진을 번역하는 과정이 생략되어 
@@ -284,7 +287,7 @@ class FileNamingService(BaseService):
         if len(file_names) < 2:
             return ""
             
-        is_all_scripted = all('_scripted.pdf' in f.lower() for f in file_names)
+        is_all_scripted = all(f'_{FileSuffix.SCRIPTED}{Extensions.PDF}' in f.lower() for f in file_names)
         dates: Set[str] = set()
         periods: Set[str] = set()
         
@@ -297,7 +300,7 @@ class FileNamingService(BaseService):
         if len(dates) == 1:
             date_str = dates.pop()
             if is_all_scripted:
-                suggested = f"{date_str}_merged_scripted.pdf"
+                suggested = f"{date_str}_merged_{FileSuffix.SCRIPTED}{Extensions.PDF}"
             else:
                 # 추천 파일명 생성 시에도 중복 교시 제거 및 오름차순 정렬 적용
                 sorted_periods = sorted(list(periods))

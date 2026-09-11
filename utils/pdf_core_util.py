@@ -13,9 +13,10 @@ PDF 파일의 물리적 조작(병합, 분할, 재조합) 및 UI 렌더링을 �
 """
 
 import re
-from pathlib import Path
-from typing import List, Tuple, Union, Optional, Sequence
 from contextlib import ExitStack
+from pathlib import Path
+from typing import List, Optional, Sequence, Tuple, Union
+
 import pymupdf
 
 from utils.file_util import ensure_parent_dir
@@ -93,7 +94,8 @@ def get_page_image_bytes(
 def merge_pdfs(
     pdf_paths: Sequence[Union[PathLike, Tuple[str, PathLike]]], 
     output_path: PathLike,
-    toc_titles: Optional[List[str]] = None
+    toc_titles: Optional[List[str]] = None,
+    cancel_checker: Optional[callable] = None
 ) -> str:
     """여러 PDF 파일 경로를 순서대로 병합하여 새로운 하나의 단일 PDF 파일로 저장합니다.
     
@@ -106,12 +108,14 @@ def merge_pdfs(
         pdf_paths (Sequence[Union[PathLike, Tuple[str, PathLike]]]): 병합할 대상 PDF 파일 경로들 또는 (목차 제목, 파일 경로) 튜플 리스트.
         output_path (PathLike): 병합이 완료된 결과물 PDF를 저장할 최종 경로.
         toc_titles (Optional[List[str]], optional): 각 PDF의 첫 페이지에 등록할 목차 제목 리스트. Defaults to None.
+        cancel_checker (Optional[callable], optional): 취소 여부 판별 콜백.
 
     Returns:
         str: 정상적으로 병합 및 압축되어 저장된 최종 결과물 파일의 절대/상대 경로 문자열.
 
     Raises:
         ValueError: `pdf_paths` 리스트가 비어 있는 경우 발생합니다.
+        InterruptedError: 취소된 경우 발생.
     """
     if not pdf_paths:
         raise ValueError("❌ 병합할 PDF 파일 목록이 비어있습니다.")
@@ -122,6 +126,9 @@ def merge_pdfs(
 
     with pymupdf.open() as out_pdf:
         for idx, item in enumerate(pdf_paths):
+            if cancel_checker and cancel_checker():
+                raise InterruptedError("PDF 병합 중 취소되었습니다.")
+                
             if isinstance(item, (tuple, list)) and len(item) == 2:
                 title, path = item[0], item[1]
             else:
@@ -215,7 +222,8 @@ def split_pdf_two_parts(
 
 def merge_specific_pages(
     page_recipe: List[Tuple[PathLike, int]], 
-    output_path: PathLike
+    output_path: PathLike,
+    cancel_checker: Optional[callable] = None
 ) -> str:
     """임의의 PDF 파일과 특정 페이지 번호 조합(레시피)을 전달받아 단일 PDF로 맞춤 병합합니다.
     
@@ -232,12 +240,14 @@ def merge_specific_pages(
         page_recipe (List[Tuple[PathLike, int]]): 발췌 및 병합할 페이지들의 순서와 출처 정보가 담긴 레시피 리스트입니다.
             각 요소는 `(소스 PDF 파일 경로, 추출할 페이지 번호(0-based))` 형태의 튜플로 구성됩니다.
         output_path (PathLike): 발췌된 페이지들이 하나로 조립되어 저장될 최종 PDF 파일의 경로입니다.
+        cancel_checker (Optional[callable], optional): 취소 여부 판별 콜백. Defaults to None.
 
     Returns:
         str: 맞춤 병합 및 최적화(압축) 저장이 완료되어 생성된 최종 조립 PDF 파일의 경로 문자열입니다.
 
     Raises:
         ValueError: `page_recipe` 리스트가 비어 있어 병합할 페이지 정보가 하나도 입력되지 않은 경우 발생합니다.
+        InterruptedError: 취소된 경우 발생.
     """
     if not page_recipe:
         raise ValueError("❌ 페이지 레시피 목록이 비어있습니다.")
@@ -250,6 +260,9 @@ def merge_specific_pages(
         opened_pdfs = {}  # 동일 파일의 반복 오픈 I/O 오버헤드를 막기 위한 메모리 캐싱
         
         for path, page_num in page_recipe:
+            if cancel_checker and cancel_checker():
+                raise InterruptedError("PDF 병합 중 취소되었습니다.")
+                
             p_str = str(path)
             
             # 캐시에 해당 문서가 없다면 새로 열기 시도

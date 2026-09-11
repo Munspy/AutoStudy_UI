@@ -5,14 +5,12 @@
 주요 의존성으로 BaseController 및 worker.pdf 내의 관련 워커들을 사용합니다.
 """
 from PyQt6.QtCore import pyqtSignal
+
 from base.base_controller import BaseController
+from worker.pdf import (PdfCombineSaveWorker, PdfInspectionWorker,
+                        PdfMatchListWorker)
 
-# 지금 PDF worker 에 너무 많은 worker들이 산재해 있는데
-# 이를 적절하게 쪼개서 여러 worker 파일들로 만들어야 함
-# 추후에 AI 에이전트의 도움을 받아서 해결하자
 
-# 각 실행 코드 시작부에 self.cleanup_worker() 들이 반복되는데 다른 코드에서도 이거 다 없애야 함
-from worker.pdf import PdfInspectionWorker, PdfCombineSaveWorker, PdfMatchListWorker
 
 class CombineNotesController(BaseController):
     """PDF 파일 매칭, 검수, 병합 작업을 담당하는 컨트롤러 클래스입니다.

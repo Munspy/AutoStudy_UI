@@ -12,27 +12,28 @@ Functions:
     build_pdf_frame: PDF 페이지 이미지를 바이트 단위로 추출해 썸네일로 변환하는 함수.
 """
 import sys
-
-from PyQt6.QtWidgets import QListWidgetItem
-
 from pathlib import Path
-from PyQt6.QtWidgets import (QApplication, QVBoxLayout, 
-                             QHBoxLayout, QPushButton, QLabel, QLineEdit, QFileDialog, 
-                             QGraphicsOpacityEffect, QListWidgetItem, QDialog, QWidget)
-from PyQt6.QtCore import Qt
 
-from base.base_ui import BaseUI
-from controller.combine_notes_controller import CombineNotesController
+from PyQt6.QtCore import Qt
+from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog,
+                             QGraphicsOpacityEffect, QHBoxLayout, QLabel,
+                             QLineEdit, QListWidgetItem, QPushButton,
+                             QVBoxLayout, QWidget)
+
 import utils.pdf_data_util as pdf_data_util
+from base.base_ui import BaseUI
+from base.base_ui_components import (COLORS, CardWidget, PreviewScrollArea,
+                                     StyledButton, StyledCheckBox,
+                                     StyledListWidget,
+                                     create_pdf_thumbnail_frame)
+from controller.combine_notes_controller import CombineNotesController
+from utils.pdf_core_util import get_page_image_bytes
 
 # ==========================================
 # 🌟 분리해둔 utils 공구함 및 UI 헬퍼 임포트
 # ==========================================
 # (수정) 순수 바이트를 반환하는 함수로 변경
 
-from utils.pdf_core_util import get_page_image_bytes
-from base.base_ui_components import (create_pdf_thumbnail_frame, StyledButton, CardWidget, StyledListWidget,
-                                     StyledCheckBox, PreviewScrollArea)
 
 # ==========================================
 # 헬퍼 함수: UI 프레임 조립기
@@ -520,8 +521,9 @@ class CombineNotesUi(BaseUI):
 
     def _ask_delete_source_files(self):
         """병합에 사용된 원본 로컬 파일 삭제 여부를 묻고, 확인 시 삭제합니다."""
-        from PyQt6.QtWidgets import QMessageBox
         import os
+
+        from PyQt6.QtWidgets import QMessageBox
 
         # base_data에서 사용된 원본 파일 경로 수집 (중복 제거)
         source_paths = set()

@@ -1,4 +1,4 @@
-from typing import List, Dict, Any, Tuple
+from typing import Any, Dict, List, Tuple
 
 # ===========================
 # [UI 데이터 초기화 및 상태 관리]

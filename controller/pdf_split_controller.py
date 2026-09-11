@@ -7,10 +7,13 @@ UI(Tab4PdfSplit)와 연동하여 분할할 PDF 파일 목록 조회,
 import os
 import shutil
 import tempfile
-from PyQt6.QtCore import pyqtSignal
-from base.base_controller import BaseController
-from worker.pdf import PdfFileListWorker, PdfPreviewPrepareWorker, PdfSplitWorker
 
+from PyQt6.QtCore import pyqtSignal
+
+from base.base_controller import BaseController
+# Moved from inline
+from worker.pdf import (PdfFileListWorker, PdfPreviewPrepareWorker,
+                        PdfSplitPreviewRenderWorker, PdfSplitWorker)
 
 
 class PdfSplitController(BaseController):
@@ -35,6 +38,7 @@ class PdfSplitController(BaseController):
     split_completed = pyqtSignal(str)
 
     def __init__(self, task_manager=None):
+        self.temp_dir = None
         # BaseController 상속 초기화
         super().__init__(task_manager)
         # 파일 분할 전 임시로 사용할 디렉토리 생성
@@ -42,7 +46,7 @@ class PdfSplitController(BaseController):
 
     def __del__(self):
         # 객체가 소멸될 때 임시 디렉토리를 정리
-        if hasattr(self, 'temp_dir') and os.path.exists(self.temp_dir):
+        if self.temp_dir and os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir, ignore_errors=True)
 
     # ===========================
@@ -97,7 +101,6 @@ class PdfSplitController(BaseController):
         Returns:
             None
         """
-        from worker.pdf import PdfSplitPreviewRenderWorker
         # PDF의 페이지별 렌더링 작업을 수행할 워커 생성
         worker = PdfSplitPreviewRenderWorker(local_path, total_pages)
         # 단일 페이지 렌더링 완료 시마다 시그널 방출

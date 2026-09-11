@@ -6,42 +6,44 @@
 및 결과물의 Google Drive 업로드를 전담합니다.
 """
 
+import concurrent.futures
 import os
 import tempfile
 import traceback
-import concurrent.futures
-from pathlib import Path
-from typing import Optional, Callable, List, Dict, Any
+from typing import Any, Callable, Dict, List, Optional
 
 from base.base_service import BaseService
-from service.llm_service import LlmService
-from service.folder_management_service import FolderManagementService
-from service.summary_pdf_service import SummaryPdfService
 from service.anki_service import AnkiGenerationService
+from service.folder_management_service import FolderManagementService
+from service.llm_service import LlmService
 from service.pdf_ocr_service import PdfOcrService
+from service.summary_pdf_service import SummaryPdfService
 from utils.auth_util import get_drive_service
-from utils.drive_api import (
-    upload_to_drive,
-    temp_download_from_drive,
-    in_memory_download_from_drive
-)
+from utils.constants import FileSuffix
+from utils.drive_api import (in_memory_download_from_drive,
+                             temp_download_from_drive, upload_to_drive)
 
 
 class AiPipelineService(BaseService):
     """교시별 AI 파이프라인 작업의 실행과 드라이브 동기화를 전담하는 오케스트레이션 서비스 클래스."""
 
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+    @property
+    def drive_service(self):
+        from utils.auth_util import get_drive_service
+        return get_drive_service()
+
+    def __init__(self, llm_service, folder_service, summary_pdf_service, anki_gen_service, pdf_ocr_service) -> None:
         """AiPipelineService 인스턴스를 초기화합니다.
 
         Args:
             logger_callback (Optional[Callable[[str], None]], optional): 로그 출력 콜백 함수.
         """
-        super().__init__(logger_callback=logger_callback)
-        self.llm_service = LlmService(logger_callback=logger_callback)
-        self.folder_service = FolderManagementService(logger_callback=logger_callback)
-        self.summary_pdf_service = SummaryPdfService(logger_callback=logger_callback)
-        self.anki_gen_service = AnkiGenerationService(logger_callback=logger_callback)
-        self.pdf_ocr_service = PdfOcrService(logger_callback=logger_callback)
+        super().__init__()
+        self.llm_service = llm_service
+        self.folder_service = folder_service
+        self.summary_pdf_service = summary_pdf_service
+        self.anki_gen_service = anki_gen_service
+        self.pdf_ocr_service = pdf_ocr_service
 
     def get_text_from_drive(self, folder_id: str, file_name: str, drive_service=None) -> Optional[str]:
         """구글 드라이브의 특정 폴더에서 텍스트 파일 내용을 읽어 반환합니다."""
@@ -66,16 +68,16 @@ class AiPipelineService(BaseService):
         return files[0]['id'] if files else None
 
     def upload_text_to_drive(self, folder_id: str, file_name: str, text: str, drive_service=None) -> None:
-        """구글 드라이브의 지정된 폴더에 텍스트 파일을 업로드합니다. 동일 이름의 이전 파일은 삭제합니다."""
+        """구글 드라이브의 지정된 폴더에 텍스트 파일을 업로드합니다. 업로드 성공 시 동일 이름의 이전 파일은 삭제합니다."""
         if drive_service is None:
             drive_service = get_drive_service()
 
-        # 기존 동일 이름의 구버전 파일 삭제 (중복 생성 방지)
+        # 기존 동일 이름의 구버전 파일 ID 확보 (업로드 전)
+        old_file_ids = []
         try:
             query = f"'{folder_id}' in parents and name = '{file_name}' and trashed = false"
             res = drive_service.files().list(q=query, fields="files(id, name)").execute()
-            for old_f in res.get('files', []):
-                drive_service.files().delete(fileId=old_f['id']).execute()
+            old_file_ids = [f['id'] for f in res.get('files', [])]
         except Exception:
             pass
 
@@ -86,7 +88,16 @@ class AiPipelineService(BaseService):
             mime_type = "application/json" if file_name.endswith('.json') else "text/plain"
             if file_name.endswith('.csv'):
                 mime_type = "text/csv"
+                
+            # 새 파일 업로드
             upload_to_drive(temp_path, folder_id, mime_type=mime_type, drive_service=drive_service)
+            
+        # 업로드 성공 후 기존 파일들 영구 삭제 (또는 휴지통 이동)
+        for old_id in old_file_ids:
+            try:
+                drive_service.files().update(fileId=old_id, body={'trashed': True}).execute()
+            except Exception:
+                pass
 
     def run_pipeline_for_group(
         self,
@@ -159,7 +170,7 @@ class AiPipelineService(BaseService):
                 return False
 
             # 3. 음성스크립트 확보 (교시당 1회)
-            audio_txt_name = f"{base_name}_음성스크립트.txt"
+            audio_txt_name = f"{base_name}_{FileSuffix.TRANSCRIPT_RAW}.txt"
             audio_text = self.get_text_from_drive(target_folder_id, audio_txt_name, drive_service)
             if not audio_text:
                 audio_text = "음성 스크립트 없음"
@@ -178,11 +189,11 @@ class AiPipelineService(BaseService):
             phase1_success = True
             if phase1_task:
                 phase1_success = self._execute_single_task(
-                    phase1_task, audio_text, pdf_text, target_folder_id, base_name, cell_update_callback
+                    phase1_task, audio_text, pdf_text, target_folder_id, base_name, cell_update_callback, cancel_checker
                 )
             else:
                 # 큐에 교정이 없는 경우, 드라이브에 최종교정본.txt가 있는지 선행 검사
-                corrected_text = self.get_text_from_drive(target_folder_id, f"{base_name}_최종교정본.txt", drive_service)
+                corrected_text = self.get_text_from_drive(target_folder_id, f"{base_name}_{FileSuffix.TRANSCRIPT_CORRECTED}.txt", drive_service)
                 if not corrected_text and audio_text == "음성 스크립트 없음":
                     phase1_success = False
 
@@ -200,7 +211,7 @@ class AiPipelineService(BaseService):
                         futures = [
                             executor.submit(
                                 self._execute_single_task,
-                                t, audio_text, pdf_text, target_folder_id, base_name, cell_update_callback
+                                t, audio_text, pdf_text, target_folder_id, base_name, cell_update_callback, cancel_checker
                             )
                             for t in phase2_tasks
                         ]
@@ -227,9 +238,14 @@ class AiPipelineService(BaseService):
         pdf_text: str,
         target_folder_id: str,
         base_name: str,
-        cell_update_callback: Optional[Callable[[int, int, str], None]] = None
+        cell_update_callback: Optional[Callable[[int, int, str], None]] = None,
+        cancel_checker: Optional[Callable[[], bool]] = None
     ) -> bool:
         """단일 AI 태스크(교정, 요약, Anki)를 실행하고 구글 드라이브에 결과물을 저장합니다."""
+        if cancel_checker and cancel_checker():
+            self._log(f"⚠️ [AI 작업 취소됨] {base_name} - {task['task_type']}")
+            return False
+
         def update_cell(row: int, col: int, status: str):
             if cell_update_callback:
                 cell_update_callback(row, col, status)
@@ -249,17 +265,17 @@ class AiPipelineService(BaseService):
                     update_cell(row, col, f"START::{key}::{mod}")
 
                 result = self.llm_service.correct_script_with_gemini(
-                    audio_text, pdf_text, model_name, on_start_callback=on_start
+                    audio_text, pdf_text, model_name, on_start_callback=on_start, cancel_checker=cancel_checker
                 )
                 if result:
-                    corrected_text = result.text if hasattr(result, 'text') else str(result)
+                    corrected_text = getattr(result, 'text', str(result))
                     self.upload_text_to_drive(
-                        target_folder_id, f"{base_name}_최종교정본.txt", corrected_text, drive_service
+                        target_folder_id, f"{base_name}_{FileSuffix.TRANSCRIPT_CORRECTED}.txt", corrected_text, drive_service
                     )
 
             elif task_type == "요약":
                 corrected_text = self.get_text_from_drive(
-                    target_folder_id, f"{base_name}_최종교정본.txt", drive_service
+                    target_folder_id, f"{base_name}_{FileSuffix.TRANSCRIPT_CORRECTED}.txt", drive_service
                 )
                 src_text = corrected_text if corrected_text else audio_text
 
@@ -267,12 +283,12 @@ class AiPipelineService(BaseService):
                     update_cell(row, col, f"START::{key}::{mod}")
 
                 result = self.llm_service.key_summary_with_gemini(
-                    src_text, pdf_text, model_name, on_start_callback=on_start
+                    src_text, pdf_text, model_name, on_start_callback=on_start, cancel_checker=cancel_checker
                 )
                 if result:
-                    summary_text = result.text if hasattr(result, 'text') else str(result)
+                    summary_text = getattr(result, 'text', str(result))
                     self.upload_text_to_drive(
-                        target_folder_id, f"{base_name}_요약본.txt", summary_text, drive_service
+                        target_folder_id, f"{base_name}_{FileSuffix.SUMMARY_TXT}.txt", summary_text, drive_service
                     )
 
                     try:
@@ -287,7 +303,7 @@ class AiPipelineService(BaseService):
 
             elif task_type == "Anki":
                 corrected_text = self.get_text_from_drive(
-                    target_folder_id, f"{base_name}_최종교정본.txt", drive_service
+                    target_folder_id, f"{base_name}_{FileSuffix.TRANSCRIPT_CORRECTED}.txt", drive_service
                 )
                 src_text = corrected_text if corrected_text else audio_text
 
@@ -295,10 +311,10 @@ class AiPipelineService(BaseService):
                     update_cell(row, col, f"START::{key}::{mod}")
 
                 result = self.llm_service.generate_anki_csv_text(
-                    src_text, pdf_text, model_name, on_start_callback=on_start
+                    src_text, pdf_text, model_name, on_start_callback=on_start, cancel_checker=cancel_checker
                 )
                 if result:
-                    csv_text = result.text if hasattr(result, 'text') else str(result)
+                    csv_text = getattr(result, 'text', str(result))
                     csv_text = csv_text.replace("```csv\n", "").replace("```", "").strip()
 
                     with tempfile.TemporaryDirectory() as tmpdir:

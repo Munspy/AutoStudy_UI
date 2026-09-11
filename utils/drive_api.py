@@ -14,9 +14,10 @@ import io
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Optional, Dict, Any, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
+
 from utils.config import Config
 
 PathLike = Union[str, Path]
@@ -185,7 +186,7 @@ def temp_download_from_drive(
 @contextmanager
 def in_memory_download_from_drive(
     file_id: str, 
-    mime_type: str = None, 
+    mime_type: str | None = None, 
     *,
     drive_service: Any
 ):
@@ -239,7 +240,7 @@ def in_memory_download_from_drive(
 
 def get_all_drive_files(
     root_folder_id: str, 
-    name_filter: str = None, 
+    name_filter: str | None = None, 
     *,
     drive_service: Any
 ) -> list:
@@ -382,7 +383,7 @@ def find_drive_file_id(
 def copy_drive_file(
     file_id: str, 
     target_folder_id: str, 
-    new_name: str = None, 
+    new_name: str | None = None, 
     *,
     drive_service: Any
 ) -> dict:

@@ -1,15 +1,21 @@
-from typing import Optional, Callable
+from typing import Callable, Optional
+
 from base.base_service import BaseService
-from utils.drive_api import get_all_drive_files, move_drive_file
 from utils.auth_util import get_drive_service
 from utils.config import Config
+from utils.drive_api import get_all_drive_files, move_drive_file
+
 
 class FolderManagementService(BaseService):
     """구글 드라이브 내 교시별 전용 폴더 트리 탐색, 생성 및 파일 자동 이동을 전담하는 도메인 서비스."""
 
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
-        super().__init__(logger_callback=logger_callback)
-        self.drive_service = get_drive_service()
+    @property
+    def drive_service(self):
+        from utils.auth_util import get_drive_service
+        return get_drive_service()
+
+    def __init__(self) -> None:
+        super().__init__()
         self.root_folder_id = Config.TARGET_DRIVE_DIR
 
     def _get_file_depth(self, file_id, parents_cache):
@@ -56,14 +62,18 @@ class FolderManagementService(BaseService):
         all_files = get_all_drive_files(self.root_folder_id, drive_service=self.drive_service)
         
         related_files = []
+        import re
         existing_target_folder_id = None
+        
+        # 파일명에서 정확한 단어 경계(word boundary)를 기준으로 lesson_id를 찾기 위한 정규식 패턴
+        pattern = re.compile(rf'(^|[^0-9a-zA-Z]){re.escape(lesson_id)}([^0-9a-zA-Z]|$)')
         
         for f in all_files:
             fname = f.get('name', '')
             fid = f.get('id')
             mimetype = f.get('mimeType')
             
-            if lesson_id in fname:
+            if pattern.search(fname):
                 if mimetype == 'application/vnd.google-apps.folder' and fname == lesson_id:
                     existing_target_folder_id = fid
                 else:
@@ -74,10 +84,10 @@ class FolderManagementService(BaseService):
             if existing_target_folder_id:
                 return existing_target_folder_id
             self._log(f"⚠️ [{lesson_id}] 관련된 파일을 찾을 수 없습니다.")
-            return None
+            return ""
 
         # 2. 깊이 계산 및 최적 부모 찾기
-        parents_cache = {}
+        parents_cache: dict[str, str] = {}
         max_depth = -1
         deepest_parent_id = self.root_folder_id
         

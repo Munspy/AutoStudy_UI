@@ -10,14 +10,14 @@
 """
 
 from datetime import datetime
-from typing import List, Dict, Any, Optional, Callable, Literal
+from typing import Any, Callable, Dict, List, Literal, Optional
 
 from base.base_service import BaseService
 from service.file_naming_service import FileNamingService
-from utils.filename_util import normalize_text
-from utils.drive_api import get_all_drive_files
-from utils.auth_util import get_drive_service
 from utils.config import Config
+from utils.constants import FileSuffix, Extensions
+from utils.drive_api import get_all_drive_files
+from utils.filename_util import normalize_text
 
 # [최적화 1] 매직 스트링 제거를 위한 Literal 타입 정의 (IDE 자동완성 및 타입 체크 지원)
 FileType = Literal[
@@ -36,15 +36,18 @@ class PipelineStatusService(BaseService):
     - 상태 확인을 위한 문자열 파싱은 `FileNamingService`에 위임합니다.
     - 클라우드 파일 검사를 위해 `utils.drive_api`를 통해 Google Drive API와 통신합니다.
     """
+
+    @property
+    def drive_service(self):
+        from utils.auth_util import get_drive_service
+        return get_drive_service()
     
     def __init__(
         # ===========================
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        self, 
-        drive_service: Optional[Any] = None,
-        logger_callback: Optional[Callable[[str], None]] = None
+        self, naming_service, drive_service=None
     ) -> None:
         """PipelineStatusService 인스턴스를 초기화합니다.        Args:
             drive_service (Optional[Any], optional): 인증된 구글 드라이브 API 서비스 리소스 객체. Defaults to None.
@@ -52,10 +55,9 @@ class PipelineStatusService(BaseService):
                 전달하기 위한 콜백 함수. 하위 `FileNamingService`에도 동일하게 주입됩니다. Defaults to None.
         """
         # [최적화 2] BaseService 초기화 누락 수정으로 일관된 로깅 시스템 활성화
-        super().__init__(logger_callback=logger_callback)
-        self.drive_service = drive_service
+        super().__init__()
         # 하위 서비스에도 로깅 콜백 주입
-        self.naming_service = FileNamingService(logger_callback=logger_callback)
+        self.naming_service = naming_service
 
     def check_lesson_file_status(
         # ===========================
@@ -90,35 +92,35 @@ class PipelineStatusService(BaseService):
             
         # 2. 개별 필기본(야붙/줄필기) 존재 여부
         elif file_type == "yaboot": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "야붙필기"))
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.YABOOT + Extensions.PDF))
         elif file_type == "jul": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "줄필기"))
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.JUL + Extensions.PDF))
             
         # 3. Whisper 음성 스크립트 존재 여부 (교정 전/후 모두 인정)
         elif file_type == "script":
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "음성스크립트")) or \
-                   bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "최종교정본"))
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_RAW + Extensions.TXT)) or \
+                   bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_CORRECTED + Extensions.TXT))
                    
         # 4. 원본 오디오 미디어 파일 존재 여부
         elif file_type == "audio":
-            audio_exts = ('.wav', '.m4a', '.mp3', '.mp4', '.aac', '.flac')
+            audio_exts = Extensions.AUDIO
             return any(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, ext) for ext in audio_exts)
             
         # 5. Anki 생성 완료 여부
         elif file_type == "anki": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "통합본.apkg"))
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.ANKI_PACKAGE + Extensions.APKG))
             
         # 6. 스크립트가 병합된 최종 PDF 존재 여부
         elif file_type == "scripted_pdf": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "scripted.pdf"))
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.SCRIPTED + Extensions.PDF))
             
         # 7. LLM 요약본 파일 존재 여부
         elif file_type == "summary_txt": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "요약본"))
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.SUMMARY_TXT + Extensions.TXT))
             
         # 8. LLM 교정본 파일 존재 여부
         elif file_type in ("corrected_txt", "corrected"):
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, "최종교정본"))
+            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_CORRECTED + Extensions.TXT))
             
         return False
 

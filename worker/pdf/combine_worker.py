@@ -1,3 +1,5 @@
+from core.container import AppContainer
+
 """
 PDF 결합(Combine) 관련 워커 모듈입니다.
 
@@ -5,13 +7,14 @@ PDF 결합(Combine) 관련 워커 모듈입니다.
 수행하는 워커 클래스들을 포함합니다. 백그라운드 스레드에서 무거운 PDF
 처리 작업을 실행하여 메인 UI 스레드의 응답성을 유지합니다.
 """
-from base.base_worker import BaseWorker
-from service.pdf_analysis_service import PdfAnalysisService
 import tempfile
 from pathlib import Path
-from utils.drive_api import upload_to_drive
+
+from base.base_worker import BaseWorker
 from utils.auth_util import get_drive_service
 from utils.config import Config
+from utils.drive_api import upload_to_drive
+
 
 class PdfMatchListWorker(BaseWorker):
     """지정된 폴더에서 병합할 PDF 파일 그룹을 탐색하는 워커 클래스.
@@ -42,7 +45,7 @@ class PdfMatchListWorker(BaseWorker):
         # 작업 취소 여부를 확인합니다.
         if self.is_cancelled(): return None
         # 분석 서비스를 통해 매칭된 파일 그룹을 반환합니다.
-        return PdfAnalysisService(logger_callback=self.log_signal.emit).get_matched_file_groups(self.folder_path)
+        return AppContainer.get_instance().pdf_analysis.get_matched_file_groups(self.folder_path)
 
 class PdfInspectionWorker(BaseWorker):
     """선택한 PDF 파일들의 상세 정보(페이지 수 등)를 분석하는 워커 클래스.
@@ -79,15 +82,15 @@ class PdfInspectionWorker(BaseWorker):
         # 작업 취소 여부를 확인합니다.
         if self.is_cancelled(): return None
         
-        # 분석 서비스를 초기화하고 취소 콜백을 등록합니다.
-        service = PdfAnalysisService(logger_callback=self.log_signal.emit)
-        service.is_cancelled = self.is_cancelled 
+        # 분석 서비스를 초기화합니다.
+        service = AppContainer.get_instance().pdf_analysis
         
         # 매칭 데이터를 생성하여 반환합니다.
         return service.generate_matching_data(
             self.folder_path, 
             self.selected_keys, 
-            self.matched_groups
+            self.matched_groups,
+            cancel_checker=self.is_cancelled
         )
 
 class PdfCombineSaveWorker(BaseWorker):
@@ -125,15 +128,14 @@ class PdfCombineSaveWorker(BaseWorker):
         # 작업 취소 여부를 확인합니다.
         if self.is_cancelled(): return None
         
-        # 조작 서비스를 초기화하고 취소 콜백을 등록합니다.
-        service = PdfAnalysisService(logger_callback=self.log_signal.emit)
-        service.is_cancelled = self.is_cancelled
+        # 분석 서비스를 초기화합니다.
+        service = AppContainer.get_instance().pdf_analysis
 
         if self.is_drive:
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 # 1. 임시 폴더에 로컬 저장
-                saved_files = service.execute_merge(self.base_data, temp_dir)
+                saved_files = service.execute_merge(self.base_data, temp_dir, cancel_checker=self.is_cancelled)
 
                 if self.is_cancelled(): return None
 

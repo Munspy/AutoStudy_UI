@@ -3,40 +3,36 @@
 UI(RawDataEditorUi)와 연동되어 구글 드라이브 검색, 파일 다운로드, 
 텍스트 파싱, PyMuPDF를 활용한 PDF 페이지 고속 렌더링 등을 제어합니다.
 """
-import io
-import re
-import os
+from typing import Dict
+
 import pymupdf
-from typing import Any, Optional, Dict
-from PyQt6.QtCore import pyqtSignal, QObject
+from PyQt6.QtCore import QObject, pyqtSignal
 
 from base.base_controller import BaseController
 from utils.auth_util import get_drive_service
 from utils.config import Config
-from worker.raw_data_worker import RawDataLoadWorker, RawDataApplyWorker
+# Moved from inline
+from utils.text_util import parse_slide_text
+from worker.raw_data_worker import RawDataApplyWorker, RawDataLoadWorker
 
-class RawDataEditorControllerSignals(QObject):
-    """컨트롤러에서 UI로 보내는 시그널 정의."""
-    log_signal = pyqtSignal(str)
+
+class RawDataEditorController(BaseController):
+
+    # 고유 시그널 정의
     pdf_page_rendered = pyqtSignal(bytes, int, int) # image_bytes, current, total
     text_loaded = pyqtSignal(str)
     loading_started = pyqtSignal()
     loading_finished = pyqtSignal()
     apply_started = pyqtSignal()
-    apply_finished = pyqtSignal(bool) # 성공 여부 반환
-    
+    apply_finished = pyqtSignal(bool)
 
-class RawDataEditorController(BaseController):
     """Raw Data 에디터 작업을 관리하는 컨트롤러 클래스."""
     
     def __init__(self, task_manager=None):
         super().__init__(task_manager)
         
-        # 시그널 객체 초기화
-        self.signals = RawDataEditorControllerSignals()
-        
         # 내부 상태
-        self.drive_service = get_drive_service()
+        pass # drive_service removed
         self.pdf_doc = None
         self.text_dict: Dict[int, str] = {}
         self.original_text_dict: Dict[int, str] = {}
@@ -47,29 +43,19 @@ class RawDataEditorController(BaseController):
         self.text_file_parent_id = None
         self.text_file_name = None
 
-    # 시그널 프록시
-    @property
-    def log_signal(self): return self.signals.log_signal
-    @property
-    def pdf_page_rendered(self): return self.signals.pdf_page_rendered
-    @property
-    def text_loaded(self): return self.signals.text_loaded
-    @property
-    def loading_started(self): return self.signals.loading_started
-    @property
-    def loading_finished(self): return self.signals.loading_finished
-    @property
-    def apply_started(self): return self.signals.apply_started
-    @property
-    def apply_finished(self): return self.signals.apply_finished
-
     def log(self, message: str):
         self.log_signal.emit(message)
 
     def search_and_load(self, date_str: str, period_str: str):
         self.loading_started.emit()
         
-        worker = RawDataLoadWorker(date_str, period_str, self.drive_service)
+        # [BUG-FIX] task_manager가 None인 경우 AttributeError 방지
+        if not self.task_manager:
+            self.log("❌ 오류: TaskManager가 연결되지 않았습니다.")
+            self.loading_finished.emit()
+            return
+
+        worker = RawDataLoadWorker(date_str, period_str)
         worker.log_signal.connect(self.log)
         worker.finished_signal.connect(self._on_load_finished)
         worker.error_signal.connect(self._on_load_error)
@@ -108,7 +94,6 @@ class RawDataEditorController(BaseController):
         self.loading_finished.emit()
 
     def _parse_text_content(self, text: str):
-        from utils.text_util import parse_slide_text
         self.text_dict = parse_slide_text(text)
         self.original_text_dict = self.text_dict.copy()
             
@@ -147,17 +132,32 @@ class RawDataEditorController(BaseController):
             self.log("❌ 오류: 업로드할 원본 텍스트 파일 정보가 없습니다.")
             self.apply_finished.emit(False)
             return
+        
+        # [BUG-FIX] task_manager가 None인 경우 AttributeError 방지
+        if not self.task_manager:
+            self.log("❌ 오류: TaskManager가 연결되지 않았습니다.")
+            self.apply_finished.emit(False)
+            return
             
         self.log("🚀 전체 텍스트 조합 및 구글 드라이브 업로드 준비 중...")
         self.apply_started.emit()
         
+        # [BUG-FIX] self.drive_service → 제거
+        # RawDataApplyWorker는 내부 @property drive_service를 통해 독립적으로 인증하므로
+        # 외부에서 drive_service를 전달할 필요가 없음 (self.drive_service는 이 컨트롤러에 없음)
         worker = RawDataApplyWorker(
             self.text_dict, self.total_pages, 
             self.text_file_id, self.text_file_name, 
-            self.text_file_parent_id, self.drive_service
+            self.text_file_parent_id
         )
         worker.log_signal.connect(self.log)
-        worker.finished_signal.connect(lambda res: self.apply_finished.emit(True))
+        
+        def _on_apply_success(res):
+            if isinstance(res, str):
+                self.text_file_id = res
+            self.apply_finished.emit(True)
+            
+        worker.finished_signal.connect(_on_apply_success)
         worker.error_signal.connect(self._on_apply_error)
         
         self.task_manager.add_task(worker)
@@ -165,3 +165,4 @@ class RawDataEditorController(BaseController):
     def _on_apply_error(self, error_msg: str):
         self.log(f"❌ 최종 반영 중 오류 발생: {error_msg}")
         self.apply_finished.emit(False)
+

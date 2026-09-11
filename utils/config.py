@@ -15,7 +15,8 @@ API와 통신할 때 필요한 주요 설정값과 상수들을 제공합니다.
 import os
 import re
 from pathlib import Path
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
+
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -90,20 +91,14 @@ class Config:
     _nanum_regular = BASE_DIR / "NanumGothic.ttf"
     _nanum_bold = BASE_DIR / "NanumGothicBold.ttf"
 
-    # 요약 파트 폰트 (나눔고딕 및 볼드)
-    SUMMARY_FONT_PATH: str = os.getenv(
-        "SUMMARY_FONT_PATH", 
+    # 공통 폰트 (나눔고딕 및 볼드)
+    FONT_PATH: str = os.getenv(
+        "FONT_PATH", 
         str(_nanum_regular) if _nanum_regular.exists() else ""
     )
-    SUMMARY_BOLD_FONT_PATH: str = os.getenv(
-        "SUMMARY_BOLD_FONT_PATH",
-        str(_nanum_bold) if _nanum_bold.exists() else SUMMARY_FONT_PATH
-    )
-
-    # 슬라이드 스크립트 파트 폰트 (xhtml2pdf 기본 폰트)
-    SCRIPT_FONT_PATH: str = os.getenv(
-        "SCRIPT_FONT_PATH", 
-        ""
+    BOLD_FONT_PATH: str = os.getenv(
+        "BOLD_FONT_PATH",
+        str(_nanum_bold) if _nanum_bold.exists() else FONT_PATH
     )
 
     GEMINI_KEYS: List[str] = [
@@ -122,14 +117,14 @@ class Config:
     GEMINI_MODELS: List[str] = [
         "gemini-3-flash-preview", 
         "gemini-3.5-flash", 
-        "gemini-3.6-flash", 
-        "gemini-3.7-flash",
+        "gemini-3.6-flash",
+        "gemini-3.7-flash", 
         "gemini-3.8-flash"
     ]
 
     TASK_ALLOWED_MODELS: Dict[str, List[str]] = {
-        "교정": ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"],
-        "요약": ["gemini-3-flash-preview"],
+        "교정":  ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"],
+        "요약":  ["gemini-3-flash-preview"],
         "Anki": ["gemini-3.5-flash", "gemini-3.6-flash", "gemini-3.7-flash", "gemini-3.8-flash"]
     }
 

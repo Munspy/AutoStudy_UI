@@ -1,7 +1,9 @@
 # worker/whisper_worker.py
 import time
+
 from base.base_worker import BaseWorker
-from service.whisper_service import WhisperService
+from core.container import AppContainer
+
 
 class WhisperScannerWorker(BaseWorker):
     """드라이브를 스캔하여 전사가 필요한 오디오 파일만 필터링하는 워커"""
@@ -17,7 +19,7 @@ class WhisperScannerWorker(BaseWorker):
         # [서비스 초기화 및 파일 필터링]
         # ===========================
         # 서비스 객체 호출 (로깅 콜백 전달)
-        whisper_service = WhisperService(logger_callback=self.log_signal.emit)
+        whisper_service = AppContainer.get_instance().whisper
         incomplete_audio_files = whisper_service.get_pending_audio_files()
         
         # 취소 여부 확인

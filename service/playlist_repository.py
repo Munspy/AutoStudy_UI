@@ -11,9 +11,10 @@ Whisper AI 기반 음성 변환을 위해 원본 미디어를 유튜브에서 �
 import csv
 import threading
 from pathlib import Path
-from typing import List, Dict, Optional, Callable
+from typing import Callable, Dict, List, Optional
 
 from base.base_service import BaseService
+
 
 class PlaylistRepository(BaseService):
     """재생목록 메타데이터(CSV)의 저장, 조회, 수정, 삭제(CRUD) 등 데이터 영속성(Persistence) 관리만을 전담하는 저장소 클래스.
@@ -31,8 +32,7 @@ class PlaylistRepository(BaseService):
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
         self, 
-        csv_file_path: str = "playlists.csv",
-        logger_callback: Optional[Callable[[str], None]] = None
+        csv_file_path: str = "playlists.csv"
     ) -> None:
         """PlaylistRepository 인스턴스를 초기화하고 스레드 락 및 데이터베이스 파일을 준비합니다.        Args:
             csv_file_path (str, optional): 재생목록 데이터를 영속화할 로컬 CSV 파일의 경로. 기본값은 "playlists.csv"입니다.
@@ -40,7 +40,7 @@ class PlaylistRepository(BaseService):
                 메인 UI 스레드로 안전하게 전달하기 위한 콜백 함수. Defaults to None.
         """
         # [최적화 2] BaseService 초기화로 로깅 시스템 활성화
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
         
         # [최적화 3] pathlib을 도입하여 객체 지향적이고 안전한 파일 경로 제어
         self.csv_file: Path = Path(csv_file_path)

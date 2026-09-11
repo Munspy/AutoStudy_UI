@@ -7,16 +7,17 @@ Classes:
     KeyBadge: API 키와 모델의 사용 및 쿨타임 상태를 보여주는 커스텀 뱃지 위젯.
     GeminiProcessingUi: Gemini 파이프라인 처리를 제어하는 메인 탭 UI.
 """
-from PyQt6.QtWidgets import QTableWidget, QCheckBox, QHeaderView
 import sys
-from PyQt6.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView)
-from PyQt6.QtCore import Qt, QTimer, QDate
-from PyQt6.QtGui import QPainter, QColor, QFont, QPen, QBrush
+
+from PyQt6.QtCore import QDate, Qt, QTimer
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PyQt6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QHeaderView,
+                             QLabel, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout, QWidget)
 
 from base.base_ui import BaseUI
-from base.base_ui_components import LoadingButton, CardWidget, StyledTableWidget, StyledCheckBox, StyledDateEdit
-
+from base.base_ui_components import (CardWidget, LoadingButton, StyledCheckBox,
+                                     StyledDateEdit, StyledTableWidget)
 from controller.gemini_processing_controller import GeminiProcessingController
 from service.api_key_tracker import api_mgr
 from utils.config import Config
@@ -150,7 +151,7 @@ class GeminiProcessingUi(BaseUI):
         self.init_ui()
 
         self.status_timer = QTimer(self)
-        self.status_timer.setInterval(100)
+        self.status_timer.setInterval(500)
         self.status_timer.timeout.connect(self.update_token_status_ui)
         self.status_timer.start()
 

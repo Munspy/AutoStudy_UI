@@ -13,6 +13,7 @@
 
 from PyQt6.QtCore import QThread, pyqtSignal
 
+
 class BaseWorker(QThread):
     """모든 백그라운드 스레드의 뼈대가 되는 기본 워커 클래스입니다.
     

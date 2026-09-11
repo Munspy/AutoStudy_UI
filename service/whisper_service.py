@@ -7,13 +7,15 @@ Google Drive와 연동하여 아직 텍스트로 변환(Transcription)되지 않
 어떤 파일을 처리해야 할지 결정하는 작업 큐(Queue) 생성의 전처리 역할을 수행합니다.
 """
 import os
-from typing import List, Set, Optional, Callable, Any
+from typing import Any, Callable, List, Optional, Set
 
+from base.base_service import BaseService
 from utils.auth_util import get_drive_service
+from utils.config import Config
+from utils.constants import FileSuffix, Extensions
 from utils.drive_api import get_all_drive_files
 from utils.filename_util import normalize_text
-from base.base_service import BaseService
-from utils.config import Config
+
 
 class WhisperService(BaseService):
     """Whisper 전사가 필요한 미처리 오디오 파일을 탐색하고 필터링하는 서비스 클래스.
@@ -25,18 +27,22 @@ class WhisperService(BaseService):
     - 구글 드라이브 API 연동을 위해 `utils.auth_util.get_drive_service` 및 `utils.drive_api.get_all_drive_files`를 사용합니다.[cite: 1]
     - 이 서비스의 결과물은 Controller나 Whisper를 구동하는 하위 Worker 계층으로 전달됩니다.
     """
+
+    @property
+    def drive_service(self):
+        from utils.auth_util import get_drive_service
+        return get_drive_service()
     
     # [최적화 1] 매직 스트링 상수화 및 중복 제거
     AUDIO_EXTENSIONS = ('.wav', '.m4a', '.mp3', '.mp4', '.aac', '.flac')
-    INDICATOR_EXTENSIONS = ('_음성스크립트.txt', '_최종교정본.txt', '_요약본.txt', '_scripted.pdf')
+    INDICATOR_EXTENSIONS = (f'_{FileSuffix.TRANSCRIPT_RAW}.txt', f'_{FileSuffix.TRANSCRIPT_CORRECTED}.txt', f'_{FileSuffix.SUMMARY_TXT}.txt', f'_{FileSuffix.SCRIPTED}{Extensions.PDF}')
     
     # ===========================
     # [초기화 및 설정]
     # ===========================
     def __init__(
         self, 
-        drive_service: Optional[Any] = None, 
-        logger_callback: Optional[Callable[[str], None]] = None
+        drive_service: Optional[Any] = None
     ) -> None:
         """WhisperService 인스턴스를 초기화하고 드라이브 API 통신 환경을 설정합니다.
 
@@ -46,9 +52,9 @@ class WhisperService(BaseService):
             logger_callback (Optional[Callable[[str], None]], optional): 비동기 스레드 환경에서 
                 발생하는 스캔 진행 상태 로그를 UI로 안전하게 전달하기 위한 콜백 함수. Defaults to None.
         """
-        super().__init__(logger_callback=logger_callback)
+        super().__init__()
         # [최적화 3] 의존성 주입(DI) 허용으로 유연성 및 테스트 용이성 확보
-        self.drive_service = drive_service or get_drive_service()
+
         self.target_folder_id: str = Config.TARGET_DRIVE_DIR
 
     # ===========================

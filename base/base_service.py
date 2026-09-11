@@ -8,21 +8,23 @@
     BaseService: 콜백 기반의 유연한 로깅을 지원하는 서비스 기반 클래스.
 """
 
+from core.logger import GlobalLogger
+
 class BaseService:
-    """콜백 기반의 커스텀 로깅을 지원하는 서비스 기반 클래스입니다.
+    """콜백 기반의 커스텀 로깅을 대체한 중앙 이벤트 버스(GlobalLogger) 기반 서비스 부모 클래스.
     
     비즈니스 로직(Service)에서 발생하는 로그를 직접 `print` 하지 않고,
-    생성 시 주입받은 콜백 함수를 통해 외부(예: UI, 컨트롤러)로 전달할 수 있게 합니다.
+    `GlobalLogger`를 통해 외부(예: UI, 메인 윈도우)로 방송(Publish)합니다.
 
     Attributes:
-        logger_callback (callable, optional): 로그 메시지(str)를 인자로 받아 처리하는 함수.
+        logger_callback (callable, optional): 과거 버전 호환성을 위해 남겨둔 인자. 더 이상 사용되지 않습니다.
     """
 
-    def __init__(self, logger_callback: callable = None):
+    def __init__(self, logger_callback=None, **kwargs):
         """BaseService 인스턴스를 초기화합니다.
 
         Args:
-            logger_callback (callable, optional): 로그를 출력할 때 호출할 콜백 함수. Defaults to None.
+            logger_callback (callable, optional): 과거 호환용 (무시됨).
         
         Returns:
             None
@@ -30,15 +32,22 @@ class BaseService:
         # ===========================
         # [초기화 및 속성 설정]
         # ===========================
-        # 👈 객체를 만들 때 미리 콜백을 장착해 둡니다.
-        # 외부로 로그를 전달할 콜백 함수 저장
-        self.logger_callback = logger_callback
+        # 👈 DI 도입 전 레거시 코드와의 호환성을 위해 파라미터는 받지만 사용하지 않음
+        pass
+
+
+    @property
+    def app(self):
+        """자식 서비스들이 DI 컨테이너(AppContainer)의 다른 서비스에 접근하기 위한 글로벌 단축키입니다.
+        예: self.app.naming_service
+        """
+        from core.container import AppContainer
+        return AppContainer.get_instance()
 
     def _log(self, msg: str):
         """내부 서비스 로직 중 발생하는 메시지를 로깅합니다.
 
-        콜백이 등록되어 있다면 콜백을 호출하고, 그렇지 않다면 콘솔에 출력합니다.
-        서비스 수행 과정이나 상태를 외부 UI로 알리기 위해 내부적으로 호출됩니다.
+        GlobalLogger를 통해 중앙 UI로 즉시 메시지를 방송합니다.
 
         Args:
             msg (str): 출력할 로그 메시지.
@@ -49,10 +58,4 @@ class BaseService:
         # ===========================
         # [로그 출력 처리]
         # ===========================
-        # 👈 매번 인자로 안 받고, 내부에 저장된 콜백을 알아서 씁니다.
-        # 콜백이 존재하면 콜백 함수를 통해 로그 메시지 전달
-        if self.logger_callback:
-            self.logger_callback(msg)
-        # 콜백이 없으면 기본 콘솔에 출력
-        else:
-            print(msg)
+        GlobalLogger.info(msg)

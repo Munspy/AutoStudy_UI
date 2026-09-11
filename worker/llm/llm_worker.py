@@ -1,15 +1,16 @@
+from core.container import AppContainer
+
 """
 LLM 백그라운드 작업 처리를 위한 워커 모듈입니다.
 
 PyQt의 BaseWorker(QThread)를 상속받아, 비즈니스 로직(Service)의 실행을 백그라운드 스레드에 
 위임하고 그 결과를 UI 시그널(cell_update_signal, progress_signal, log_signal 등)로 중계합니다.
 """
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from PyQt6.QtCore import pyqtSignal
+
 from base.base_worker import BaseWorker
-from service.drive_sync_service import DriveSyncService
-from service.ai_pipeline_service import AiPipelineService
 
 
 class LLMScanWorker(BaseWorker):
@@ -34,7 +35,7 @@ class LLMScanWorker(BaseWorker):
     def do_work(self) -> Optional[List[Dict[str, Any]]]:
         """구글 드라이브를 스캔하여 미완료 AI 파이프라인 작업 목록을 수집합니다."""
         self.log_signal.emit("구글 드라이브에서 실제 데이터를 스캔하는 중입니다. 잠시만 기다려주세요...")
-        sync_service = DriveSyncService(logger_callback=self.log_signal.emit)
+        sync_service = AppContainer.get_instance().drive_sync
 
         # 1. 대상 날짜 필터를 적용하여 구글 드라이브 파일 목록 수집
         name_filter = self.target_mmdd if (self.is_force_rerun and self.target_mmdd) else None
@@ -100,7 +101,7 @@ class LLMTaskWorker(BaseWorker):
             return
 
         base_name = self.task_queue[0]['base_name']
-        pipeline_service = AiPipelineService(logger_callback=self.log_signal.emit)
+        pipeline_service = AppContainer.get_instance().ai_pipeline
 
         pipeline_service.run_pipeline_for_group(
             base_name=base_name,

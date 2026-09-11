@@ -10,8 +10,11 @@ LLM(Gemini) 분석을 통해 추출된 학습 데이터(CSV 형태의 문자열)
 import hashlib
 from pathlib import Path
 from typing import Dict, List, Optional
+
 import genanki
+
 from base.base_service import BaseService
+
 
 class AnkiGenerationService(BaseService):
     """LLM이 생성한 CSV 텍스트 데이터를 파싱하여 Anki 덱으로 패키징하는 서비스 클래스.

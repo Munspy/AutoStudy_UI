@@ -14,11 +14,10 @@
     PyQt6.QtWidgets, PyQt6.QtCore, PyQt6.QtGui 등 다양한 PyQt 모듈을 통해 UI 렌더링.
 """
 
-from PyQt6.QtWidgets import (
-    QFrame, QWidget, QPushButton, QLabel, QLineEdit, QVBoxLayout, QHBoxLayout
-)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QColor, QPixmap
+from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit,
+                             QPushButton, QVBoxLayout, QWidget)
 
 # ==========================================
 # UI 스타일 테마 상수 (중앙 관리)
@@ -35,6 +34,12 @@ COLORS = {
     "text_sub": "#64748B",          # 서브 텍스트
     "drop_bg": "#F8FAFC",           # 드래그 구역 배경
     "drop_border": "#CBD5E1",        # 드래그 구역 테두리
+
+    # 추가된 폼 요소 전용 헥스 색상
+    "border_input": "#D1D1CE",      # 텍스트 입력창 테두리
+    "background_input": "#FFFFFF",  # 텍스트 입력창 배경
+    "background_alt": "#F7F7F5",    # 대체 배경색
+    "border_alt": "#BCBCB8",        # 대체 테두리색
 
     "important": "#D70044",
     "whisper": "#BE80FF",
@@ -68,6 +73,7 @@ COLORS = {
 # ==========================================
 
 from PyQt6.QtCore import QTimer
+
 
 def _get_base_color(color_val):
     if isinstance(color_val, dict):
@@ -108,7 +114,6 @@ class LoadingButton(QPushButton):
         self.apply_style()
 
     def apply_style(self):
-        from PyQt6.QtGui import QColor
         color_val = COLORS.get(self.btn_type, COLORS["primary"])
         bg = _get_base_color(color_val)
         hover, disabled = _calculate_ui_colors(bg)
@@ -292,7 +297,9 @@ def create_pdf_thumbnail_frame(image_data, label_text, width, height, is_empty=F
 # ==========================================
 # 7. 리스트 및 테이블 뷰 (StyledListWidget, StyledTableWidget)
 # ==========================================
-from PyQt6.QtWidgets import QListWidget, QTableWidget, QCheckBox, QComboBox, QDateEdit, QScrollArea, QScrollArea
+from PyQt6.QtWidgets import (QCheckBox, QComboBox, QDateEdit, QListWidget,
+                             QScrollArea, QTableWidget)
+
 
 class StyledListWidget(QListWidget):
     def __init__(self, parent=None):
@@ -398,6 +405,7 @@ class PreviewScrollArea(QScrollArea):
                 
     def add_page(self, pixmap, border_color=None, top_text=None, bottom_text=None):
         from PyQt6.QtWidgets import QFrame, QLabel, QVBoxLayout
+
         # ===========================
         # [페이지 프레임 및 레이아웃 설정]
         # ===========================
@@ -448,3 +456,69 @@ class PreviewScrollArea(QScrollArea):
             layout.addWidget(bl)
             
         self.container_layout.addWidget(page_frame)
+
+# ==========================================
+# 10. 유틸리티 UI 함수
+# ==========================================
+from PyQt6.QtWidgets import QMessageBox
+
+
+def prompt_delete_original_helper(parent_widget, file_paths_or_ids: list, is_drive: bool, log_callback=None) -> bool:
+    """분할/병합 작업 완료 후 원본 파일을 휴지통(또는 삭제)으로 보낼지 묻고 처리하는 공통 헬퍼입니다.
+
+    Args:
+        parent_widget (QWidget): QMessageBox의 부모가 될 위젯.
+        file_paths_or_ids (list): 삭제할 원본 로컬 파일 경로들의 리스트, 혹은 드라이브 파일 ID들의 리스트.
+        is_drive (bool): 드라이브 파일 여부. True이면 드라이브 휴지통으로 이동하며,
+            False이면 로컬 파일 시스템에서 즉각 영구 삭제합니다.
+        log_callback (Callable): 결과를 로깅할 콜백 함수 (예: self.emit_log).
+
+    Returns:
+        bool: 사용자가 삭제에 동의(Yes)하여 로직을 수행했다면 True, 아니면 False 반환.
+    """
+    if not file_paths_or_ids:
+        return False
+        
+    location = "드라이브" if is_drive else "로컬"
+    file_list_str = "\n".join(file_paths_or_ids)
+    
+    reply = QMessageBox.question(
+        parent_widget, "원본 파일 삭제",
+        f"원본 {location} 파일을 삭제하시겠습니까?\n\n{file_list_str}\n\n"
+        + ("(드라이브 휴지통으로 이동합니다)" if is_drive else "(이 작업은 되돌릴 수 없습니다)"),
+        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+    )
+    
+    def _log(msg):
+        if log_callback:
+            log_callback(msg)
+
+    if reply == QMessageBox.StandardButton.Yes:
+        if is_drive:
+            from utils.auth_util import get_drive_service
+            from utils.drive_api import delete_drive_file
+            drive_svc = get_drive_service()
+            for f_id in file_paths_or_ids:
+                if not f_id: continue
+                try:
+                    ok = delete_drive_file(f_id, drive_service=drive_svc)
+                    if ok:
+                        _log(f"🗑️ 드라이브 파일 휴지통 이동 완료: {f_id}")
+                    else:
+                        _log(f"⚠️ 드라이브 파일 삭제 실패: {f_id}")
+                except Exception as e:
+                    _log(f"⚠️ 드라이브 파일 삭제 오류: {e}")
+        else:
+            import os
+            for f_path in file_paths_or_ids:
+                if not f_path: continue
+                try:
+                    if os.path.exists(f_path):
+                        os.remove(f_path)
+                        _log(f"🗑️ 로컬 파일 삭제 완료: {f_path}")
+                    else:
+                        _log(f"⚠️ 원본 파일을 찾을 수 없습니다: {f_path}")
+                except Exception as e:
+                    _log(f"⚠️ 로컬 파일 삭제 오류: {e}")
+        return True
+    return False

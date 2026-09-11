@@ -1,32 +1,110 @@
 import os
-import re
-import unicodedata
-import pymupdf
 import tempfile
-from typing import Optional, Callable
+import unicodedata
+from typing import Callable, Optional
+
+import pymupdf
 
 from base.base_service import BaseService
 from service.pdf_render_service import PdfRenderService
-from service.youtube_playlist_service import YoutubePlaylistService
 from service.timetable_service import TimetableService
+from service.youtube_playlist_service import YoutubePlaylistService
 from utils.config import Config
+from utils.constants import FileSuffix, Extensions
 from utils.drive_api import in_memory_download_from_drive, upload_to_drive
 from utils.text_util import parse_slide_text
 
-MAC_FONT_PATH = Config.SUMMARY_FONT_PATH
+MAC_FONT_PATH = Config.FONT_PATH
 
 class SummaryPdfService(BaseService):
     """요약본과 원본 슬라이드 및 스크립트를 결합한 _scripted.pdf 생성을 전담하는 서비스."""
 
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
-        super().__init__(logger_callback=logger_callback)
-        self.playlist_cache = {}
-        self.pdf_renderer = PdfRenderService(logger_callback=logger_callback)
-        self.yt_service = YoutubePlaylistService(logger_callback=logger_callback)
-        self.timetable_service = TimetableService(logger_callback=logger_callback)
+    def __init__(self, pdf_renderer, yt_service, timetable_service) -> None:
+        super().__init__()
+        self.playlist_cache: dict[str, dict] = {}
+        self.pdf_renderer = pdf_renderer
+        self.yt_service = yt_service
+        self.timetable_service = timetable_service
 
+    def create_summary_cover_pdf(self, base_name: str, summary_text: str, temp_orig_pdf_path: str, drive_service=None) -> pymupdf.Document:
+        self._log(f"   ➔ 📝 요약본 텍스트 포함: 커버 및 요약본 렌더링 진행...")
 
+        # 2. 메타데이터 조회: timetable 우선, 유튜브 폴백
+        tt_info = self.timetable_service.find_timetable_info_for_lesson(base_name, drive_service=drive_service)
+        tt_prof = tt_info.get("professor", "").strip() if tt_info else ""
+        tt_lec = tt_info.get("lecture_name", "").strip() if tt_info else ""
+        tt_subj = tt_info.get("subject", "").strip() if tt_info else ""
 
+        if tt_prof and tt_lec:
+            if tt_subj:
+                display_title = f"[{tt_subj}] {tt_prof} 교수 - {tt_lec} ({base_name})"
+            else:
+                display_title = f"{base_name}_{tt_prof}_{tt_lec}"
+            self._log(f"   ➔ 📊 timetable 메타데이터 적용: {display_title}")
+        else:
+            # 유튜브 메타데이터 폴백 (최신 통합 서비스 활용)
+            yt_info = self.yt_service.find_youtube_info_for_lesson(base_name)
+            yt_prof = yt_info.get("professor", "-")
+            yt_lec = yt_info.get("lecture_name", f"강의_{base_name}")
+            
+            if yt_prof != "-" or yt_lec != f"강의_{base_name}":
+                display_title = f"{base_name}_{yt_prof}_{yt_lec}"
+                self._log(f"   ➔ 📺 유튜브 폴백 적용: {display_title}")
+            else:
+                display_title = f"{base_name} - 강의 정보를 찾을 수 없습니다"
+                self._log("   ➔ ⚠️ 타임테이블 및 유튜브 매칭 실패.")
+
+        video_title = unicodedata.normalize('NFC', display_title)
+
+        # HTML/PDF 변환 (pdf_render_service 통합 유틸 재사용)
+        css_content = self.pdf_renderer._get_css_template(
+            margin="40pt 55pt 40pt 40pt",
+            font_path=Config.FONT_PATH,
+            bold_font_path=Config.BOLD_FONT_PATH,
+            font_family_name="NanumSummaryFont"
+        )
+        summary_doc = self.pdf_renderer.create_pdf_from_markdown(
+            md_text=str(summary_text),
+            custom_css=css_content,
+            body_prefix='<pdf:spacer height="160pt" />'
+        )
+
+        # 요약본 커버에 원본 1페이지 썸네일 합성
+        orig_doc = pymupdf.open(temp_orig_pdf_path)
+        first_page = summary_doc[0]
+        
+        a4_width = 595.0
+        max_thumb_width = a4_width / 3.0
+        max_thumb_height = 140.0
+        
+        orig_rect = orig_doc[0].rect
+        scale_w = max_thumb_width / orig_rect.width
+        scale_h = max_thumb_height / orig_rect.height
+        scale = min(scale_w, scale_h)
+        
+        thumb_width = orig_rect.width * scale
+        thumb_height = orig_rect.height * scale
+        
+        thumb_rect = pymupdf.Rect(40, 40, 40 + thumb_width, 40 + thumb_height)
+        first_page.show_pdf_page(thumb_rect, orig_doc, 0)
+        orig_doc.close()
+
+        title_font_path = Config.BOLD_FONT_PATH or MAC_FONT_PATH
+        first_page.insert_font(fontname="ko", fontfile=title_font_path)
+        
+        # 타이틀 텍스트 박스 높이는 고정(140)하여 제목이 잘리지 않도록 보장
+        text_rect = pymupdf.Rect(40 + thumb_width + 20, 40, a4_width - 40, 40 + max_thumb_height)
+        
+        first_page.insert_textbox(
+            text_rect, 
+            video_title, 
+            fontname="ko", 
+            fontsize=20, 
+            color=(0, 0, 0),
+            align=0
+        )
+        
+        return summary_doc
 
     def generate_and_upload_scripted_pdf(
         self, 
@@ -85,72 +163,11 @@ class SummaryPdfService(BaseService):
             has_summary = bool(summary_text and str(summary_text).strip())
 
             if has_summary:
-                self._log(f"   ➔ 📝 요약본 텍스트 포함: 커버 및 요약본 렌더링 진행...")
-
-                # 2. 메타데이터 조회: timetable 우선, 유튜브 폴백
-                tt_info = self.timetable_service.find_timetable_info_for_lesson(base_name, drive_service=drive_service)
-                tt_prof = tt_info.get("professor", "").strip() if tt_info else ""
-                tt_lec = tt_info.get("lecture_name", "").strip() if tt_info else ""
-                tt_subj = tt_info.get("subject", "").strip() if tt_info else ""
-
-                if tt_prof and tt_lec:
-                    if tt_subj:
-                        display_title = f"[{tt_subj}] {tt_prof} 교수 - {tt_lec} ({base_name})"
-                    else:
-                        display_title = f"{base_name}_{tt_prof}_{tt_lec}"
-                    self._log(f"   ➔ 📊 timetable 메타데이터 적용: {display_title}")
-                else:
-                    # 유튜브 메타데이터 폴백 (최신 통합 서비스 활용)
-                    yt_info = self.yt_service.find_youtube_info_for_lesson(base_name)
-                    yt_prof = yt_info.get("professor", "-")
-                    yt_lec = yt_info.get("lecture_name", f"강의_{base_name}")
-                    
-                    if yt_prof != "-" or yt_lec != f"강의_{base_name}":
-                        display_title = f"{base_name}_{yt_prof}_{yt_lec}"
-                        self._log(f"   ➔ 📺 유튜브 폴백 적용: {display_title}")
-                    else:
-                        display_title = f"{base_name} - 강의 정보를 찾을 수 없습니다"
-                        self._log("   ➔ ⚠️ 타임테이블 및 유튜브 매칭 실패.")
-
-                video_title = unicodedata.normalize('NFC', display_title)
-
-                # HTML/PDF 변환 (pdf_render_service 통합 유틸 재사용)
-                css_content = self.pdf_renderer._get_css_template(
-                    margin="40pt",
-                    font_path=Config.SUMMARY_FONT_PATH,
-                    bold_font_path=Config.SUMMARY_BOLD_FONT_PATH,
-                    font_family_name="NanumSummaryFont"
-                )
-                summary_doc = self.pdf_renderer.create_pdf_from_markdown(
-                    md_text=str(summary_text),
-                    custom_css=css_content,
-                    body_prefix='<pdf:spacer height="160pt" />'
-                )
-
-                # 요약본 커버에 원본 1페이지 썸네일 합성
-                orig_doc = pymupdf.open(temp_orig_pdf_path)
-                first_page = summary_doc[0]
-                
-                a4_width = 595.0
-                thumb_width = a4_width / 3.0
-                orig_rect = orig_doc[0].rect
-                thumb_height = (orig_rect.height / orig_rect.width) * thumb_width
-                
-                thumb_rect = pymupdf.Rect(40, 40, 40 + thumb_width, 40 + thumb_height)
-                first_page.show_pdf_page(thumb_rect, orig_doc, 0)
-                orig_doc.close()
-
-                title_font_path = Config.SUMMARY_BOLD_FONT_PATH or MAC_FONT_PATH
-                first_page.insert_font(fontname="ko", fontfile=title_font_path)
-                text_rect = pymupdf.Rect(40 + thumb_width + 20, 40, a4_width - 40, 40 + thumb_height)
-                
-                first_page.insert_textbox(
-                    text_rect, 
-                    video_title, 
-                    fontname="ko", 
-                    fontsize=20, 
-                    color=(0, 0, 0),
-                    align=0
+                summary_doc = self.create_summary_cover_pdf(
+                    base_name=base_name,
+                    summary_text=summary_text,
+                    temp_orig_pdf_path=temp_orig_pdf_path,
+                    drive_service=drive_service
                 )
 
                 # 요약본 PDF(summary_doc) 뒤에 슬라이드-스크립트 PDF(slides_doc) 병합
@@ -167,7 +184,7 @@ class SummaryPdfService(BaseService):
                 self._log(f"   ➔ ℹ️ 요약본 텍스트 제외: 슬라이드-스크립트만으로 _scripted.pdf를 생성합니다.")
                 temp_pdf_path = slides_pdf_path
 
-            upload_name = f"{base_name}_scripted.pdf"
+            upload_name = f"{base_name}_{FileSuffix.SCRIPTED}{Extensions.PDF}"
 
             # 기존에 생성되어 있던 동일 교시(base_name)의 _scripted.pdf 파일 삭제
             for fname, fid in list(files_in_dir.items()):

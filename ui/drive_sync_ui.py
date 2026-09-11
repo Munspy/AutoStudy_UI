@@ -8,18 +8,21 @@
 Classes:
     DriveSyncUi: 동기화 상태 테이블과 제어 버튼을 포함하는 메인 탭 UI 클래스.
 """
-from PyQt6.QtWidgets import QTableWidget, QHeaderView
 import os
-from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
-                             QTableWidgetItem, QLabel, QHeaderView,
-                             QAbstractSpinBox, QFileDialog)
-from PyQt6.QtCore import Qt, QDate
+
+from PyQt6.QtCore import QDate, Qt
+from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QHBoxLayout,
+                             QHeaderView, QLabel, QPushButton, QTableWidget,
+                             QTableWidgetItem, QVBoxLayout, QWidget)
 
 from base.base_ui import BaseUI
-from base.base_ui_components import (LoadingButton, StyledButton, CardWidget, 
-                                     StyledTableWidget, StyledCheckBox, StyledComboBox, 
-                                     StyledDateEdit, StatusBadge)
-from controller.drive_sync_controller import DriveSyncController  # 👈 이제 Thread가 아닌 Func만 바라봄
+from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StatusBadge,
+                                     StyledButton, StyledCheckBox,
+                                     StyledComboBox, StyledDateEdit,
+                                     StyledTableWidget)
+from controller.drive_sync_controller import \
+    DriveSyncController  # 👈 이제 Thread가 아닌 Func만 바라봄
+
 
 class DriveSyncUi(BaseUI):
     """로컬과 구글 드라이브의 동기화 상태를 모니터링하고 제어하는 메인 화면 클래스.
@@ -130,7 +133,7 @@ class DriveSyncUi(BaseUI):
 
         # 다음 구조물 전의 Seperator
         separator = QLabel("  |  ")
-        separator.setStyleSheet("color: #D1D1CE; font-weight: normal; font-size: 16px;")
+        separator.setStyleSheet("color: " + COLORS["border_input"] + "; font-weight: normal; font-size: 16px;")
         filter_layout.addWidget(separator)
 
         # 3. 세번째 구조물: "날짜 범위:"
@@ -315,8 +318,8 @@ class DriveSyncUi(BaseUI):
         actions_layout.addWidget(btn_dl_anki)
         
         # 👈 컨트롤러 호출로 변경
-        btn_dl_summary.clicked.connect(self.controller.download_summary)
-        btn_dl_anki.clicked.connect(self.controller.download_anki)
+        btn_dl_summary.clicked.connect(self.download_summary)
+        btn_dl_anki.clicked.connect(self.download_anki)
 
         layout.addLayout(actions_layout)
 
@@ -334,6 +337,34 @@ class DriveSyncUi(BaseUI):
                 if lesson_item and lesson_item.text().strip():
                     checked_lessons.append(lesson_item.text().strip())
         return checked_lessons
+
+    def download_summary(self):
+        checked_lessons = self.get_checked_lessons()
+        if not checked_lessons:
+            self.emit_log("⚠️ [오류] 요약본을 다운로드할 수업이 선택되지 않았습니다.")
+            return
+
+        sorted_checked = sorted(checked_lessons)
+        default_filename = f"요약본합본_{sorted_checked[0]}.pdf" if len(sorted_checked) == 1 else f"요약본합본_{sorted_checked[0]}_{sorted_checked[-1]}.pdf"
+        output_path, _ = QFileDialog.getSaveFileName(self, "요약본 PDF 저장 위치 선택", os.path.join(self.local_download_path, default_filename), "PDF Files (*.pdf)")
+        if not output_path:
+            self.emit_log("ℹ️ 요약본 다운로드가 취소되었습니다.")
+            return
+        self.controller.download_summary(checked_lessons, output_path)
+
+    def download_anki(self):
+        checked_lessons = self.get_checked_lessons()
+        if not checked_lessons:
+            self.emit_log("⚠️ [오류] Anki 덱을 다운로드할 수업이 선택되지 않았습니다.")
+            return
+
+        sorted_checked = sorted(checked_lessons)
+        default_filename = f"안키합본_{sorted_checked[0]}.apkg" if len(sorted_checked) == 1 else f"안키합본_{sorted_checked[0]}_{sorted_checked[-1]}.apkg"
+        output_path, _ = QFileDialog.getSaveFileName(self, "Anki 합본 저장 위치 선택", os.path.join(self.local_download_path, default_filename), "Anki Deck (*.apkg)")
+        if not output_path:
+            self.emit_log("ℹ️ Anki 다운로드가 취소되었습니다.")
+            return
+        self.controller.download_anki(checked_lessons, output_path)
 
     def download_script_merged(self):
         """체크된 수업들의 _scripted.pdf 파일 합본 다운로드를 시작합니다."""

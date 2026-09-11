@@ -13,6 +13,7 @@
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
+
 class BaseTaskManager(QObject):
     """여러 스레드(QThread)의 대기열을 관리하고 동시 실행 수를 제한하는 중앙 관리자입니다.
     
@@ -178,7 +179,7 @@ class BaseTaskManager(QObject):
         """대기 중인 모든 작업을 취소하고 큐를 비웁니다.
 
         사용자가 전체 작업을 취소하거나 대기열을 강제로 비워야 할 때 호출됩니다.
-        단, 현재 실행 중(active)인 작업은 강제로 종료하지 않고 스스로 끝나도록 둡니다.
+        현재 실행 중(active)인 작업도 중지(stop) 신호를 보내어 신속히 종료되도록 합니다.
 
         Args:
             None
@@ -187,11 +188,14 @@ class BaseTaskManager(QObject):
             None
         """
         # ===========================
-        # [큐 초기화]
+        # [큐 초기화 및 활성 작업 중지]
         # ===========================
-        # 모든 채널의 대기열 비우기
         for channel in self.channels.values():
+            # 대기열 비우기
             channel["pending"].clear()
+            # 실행 중인 작업 취소 플래그 설정
+            for worker in channel["active"]:
+                worker.stop()
             
         # 카운터 초기화
         self._reset_counters()

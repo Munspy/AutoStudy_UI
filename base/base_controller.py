@@ -13,6 +13,7 @@
 
 from PyQt6.QtCore import QObject, pyqtSignal
 
+
 class BaseController(QObject):
     """UI와 Worker 사이에서 신호를 중계하고 스레드의 생명 주기를 관리하는 중앙 통제실(Base Controller)입니다.
     

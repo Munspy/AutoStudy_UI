@@ -10,20 +10,20 @@
 시각적으로 렌더링되도록 중개 역할을 수행합니다.
 """
 
-import re
-from typing import List, Tuple, Dict, Any, Optional, Callable
-from utils.auth_util import get_drive_service
-from utils.drive_api import get_all_drive_files
-from utils.file_util import list_local_files
-from utils.filename_util import normalize_text
-from utils.config import Config
-from base.base_service import BaseService
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+from base.base_service import BaseService
 # 분리된 도메인 서비스 임포트
 from service.file_naming_service import FileNamingService
 from service.pipeline_status_service import PipelineStatusService
-from service.youtube_playlist_service import YoutubePlaylistService
 from service.timetable_service import TimetableService
+from service.youtube_playlist_service import YoutubePlaylistService
+from utils.auth_util import get_drive_service
+from utils.config import Config
+from utils.drive_api import get_all_drive_files
+from utils.file_util import list_local_files
+from utils.filename_util import normalize_text
+
 
 class DriveSyncService(BaseService):
     """드라이브 및 로컬 폴더의 파일을 스캔하여 각 수업 교시별 동기화 상태를 판별하는 단일 책임 서비스.
@@ -32,20 +32,23 @@ class DriveSyncService(BaseService):
     도메인 로직 처리(`FileNamingService`, `PipelineStatusService`, `YoutubePlaylistService`, `TimetableService`)에 대한 의존성을 묶어 
     Controller가 복잡한 상태 취합 로직에 관여하지 않도록 캡슐화(Encapsulation)합니다.
     """
+
+    @property
+    def drive_service(self):
+        from utils.auth_util import get_drive_service
+        return get_drive_service()
     
-    def __init__(self, logger_callback: Optional[Callable[[str], None]] = None) -> None:
+    def __init__(self, naming_service, pipeline_service, yt_service, timetable_service) -> None:
         """DriveSyncService를 초기화하고 필요한 의존성 객체들을 주입받아 생성합니다."""
-        super().__init__(logger_callback=logger_callback)
-        
-        self.drive_service = get_drive_service()
+        super().__init__()
         # self.target_folder_id: str = "1LGpUait4f5AxSnb5zhmPIMYAE96ipJue"
         self.target_folder_id: str = Config.TARGET_DRIVE_DIR
         
         # 도메인 서비스 인스턴스화
-        self.naming_service = FileNamingService()
-        self.pipeline_service = PipelineStatusService(self.drive_service)
-        self.yt_service = YoutubePlaylistService(logger_callback=self._log)
-        self.timetable_service = TimetableService(logger_callback=self._log)
+        self.naming_service = naming_service
+        self.pipeline_service = pipeline_service
+        self.yt_service = yt_service
+        self.timetable_service = timetable_service
         
         # 시험 기준 카테고리 캐시
         self._exam_categories_cache: Optional[List[Tuple[str, str]]] = None

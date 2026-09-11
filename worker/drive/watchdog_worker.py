@@ -7,10 +7,13 @@ UI나 컨트롤러로 시그널을 전달하는 감시 스레드를 포함합니
 # Threads/watchdog_thread.py
 import os
 import time
+
 from PyQt6.QtCore import pyqtSignal
-from base.base_worker import BaseWorker
-from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+from watchdog.observers import Observer
+
+from base.base_worker import BaseWorker
+
 
 class StudyFileEventHandler(FileSystemEventHandler):
     """실제 파일 시스템 이벤트를 감지하는 핸들러.

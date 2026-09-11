@@ -1,9 +1,12 @@
 import os
+
 import pymupdf
 from PyQt6.QtCore import pyqtSignal
+
 from base.base_worker import BaseWorker
 from utils.auth_util import get_drive_service
 from utils.drive_api import download_from_drive
+
 
 class PdfPreviewPrepareWorker(BaseWorker):
     """PDF 미리보기를 위한 준비 워커 클래스입니다."""
@@ -138,4 +141,28 @@ class PdfBatchPreviewPrepareWorker(BaseWorker):
             except Exception as e:
                 self.error_signal.emit(f"PDF 열기 실패: {e}")
                 
+        return None
+
+class PdfMergePreviewRenderWorker(BaseWorker):
+    """PDF Merge 탭용 비동기 부분 페이지 렌더링 워커 클래스입니다."""
+    page_rendered = pyqtSignal(str, int, bytes)
+
+    def __init__(self, item_text, local_path, start_page, end_page):
+        super().__init__()
+        self.item_text = item_text
+        self.local_path = local_path
+        self.start_page = start_page
+        self.end_page = end_page
+
+    def do_work(self):
+        try:
+            with pymupdf.open(self.local_path) as doc:
+                for i in range(self.start_page, self.end_page):
+                    if self.is_cancelled():
+                        break
+                    page = doc.load_page(i)
+                    pix = page.get_pixmap(matrix=pymupdf.Matrix(0.3, 0.3))
+                    self.page_rendered.emit(self.item_text, i, pix.tobytes("png"))
+        except Exception as e:
+            self.error_signal.emit(f"미리보기 렌더링 실패 ({self.item_text}, {self.start_page}~{self.end_page}): {str(e)}")
         return None

@@ -1,5 +1,6 @@
-import httplib2
 import google_auth_httplib2
+import httplib2
+
 """Google API 인증 및 서비스 객체 생성 유틸리티 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 파이프라인 중 **Utils(유틸리티) 계층**에 속합니다.
@@ -13,8 +14,9 @@ Google API(예: 드라이브 파일 동기화, 유튜브 메타데이터 접근 
 """
 
 import threading
-from google.oauth2.credentials import Credentials
+
 from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
@@ -105,7 +107,7 @@ def get_credentials():
                 str(CREDENTIALS_PATH), 
                 Config.GOOGLE_API_SCOPES
             )
-            _creds_instance = flow.run_local_server(port=0, timeout_seconds=30)
+            _creds_instance = flow.run_local_server(port=0, timeout_seconds=60, open_browser=False)
             
         # 5. 갱신되거나 새로 발급받은 토큰을 안전하게 파일로 저장
         try:
