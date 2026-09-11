@@ -1,3 +1,4 @@
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from core.container import AppContainer
 
@@ -38,14 +39,14 @@ class DriveSyncWorker(BaseWorker):
         # [서비스 초기화]
         # ===========================
         # 1. 서비스 초기화 (인증 및 타겟 폴더 획득은 서비스 내부에서 처리)
-        self.log_signal.emit("구글 드라이브 인증 및 폴더 정보를 가져오는 중입니다...")
+        GlobalLogger.info("구글 드라이브 인증 및 폴더 정보를 가져오는 중입니다...")
         sync_service = AppContainer.get_instance().drive_sync
 
         # ===========================
         # [파일 스캔 및 취소 확인]
         # ===========================
         # 2. 파일 전체 스캔
-        self.log_signal.emit("로컬 및 드라이브의 파일 목록을 스캔하고 있습니다...")
+        GlobalLogger.info("로컬 및 드라이브의 파일 목록을 스캔하고 있습니다...")
         
         target_folder = sync_service.target_folder_id
         if self.search_mode == "EXAM" and self.filter_value:
@@ -66,7 +67,7 @@ class DriveSyncWorker(BaseWorker):
         # [교시 데이터 추출]
         # ===========================
         # 3. 고유 교시(Lesson ID) 추출
-        self.log_signal.emit("파일 데이터 분석 및 수업 교시를 추출하는 중...")
+        GlobalLogger.info("파일 데이터 분석 및 수업 교시를 추출하는 중...")
         # 시험 기준 검색 시 해당 드라이브 폴더의 파일들만 기준으로 교시 추출
         if self.search_mode == "EXAM":
             source_filenames = drive_filenames
@@ -91,11 +92,11 @@ class DriveSyncWorker(BaseWorker):
         for index, lesson_id in enumerate(sorted_lessons):
             # 🛑 루프 중간 취소 요청 확인
             if self.is_cancelled():
-                self.log_signal.emit("작업이 사용자에 의해 중단되었습니다.")
+                GlobalLogger.info("작업이 사용자에 의해 중단되었습니다.")
                 break
                 
             # 📈 진행률 및 로그 업데이트
-            self.log_signal.emit(f"[{index + 1}/{total_lessons}] 교시 데이터({lesson_id}) 상태 판별 중...")
+            GlobalLogger.info(f"[{index + 1}/{total_lessons}] 교시 데이터({lesson_id}) 상태 판별 중...")
             progress = int(((index + 1) / total_lessons) * 100)
             self.progress_signal.emit(progress, "상태 판별 중...")
 
@@ -106,7 +107,7 @@ class DriveSyncWorker(BaseWorker):
 
         # 취소되지 않았다면 완료 메시지를 출력합니다.
         if not self.is_cancelled():
-            self.log_signal.emit("✅ 모든 데이터 분석이 완료되었습니다.")
+            GlobalLogger.info("✅ 모든 데이터 분석이 완료되었습니다.")
             
         return table_data
 

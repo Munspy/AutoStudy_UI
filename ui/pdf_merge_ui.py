@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QFrame,
                              QHBoxLayout, QLabel, QLineEdit, QListWidgetItem,
                              QScrollArea, QVBoxLayout, QWidget)
 
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StyledButton,
                                      StyledCheckBox, StyledDateEdit,
@@ -31,11 +32,10 @@ class PdfMergeUi(BaseUI):
     global_progress_signal = pyqtSignal(int, str)
     global_loading_signal = pyqtSignal(bool)
 
-    def __init__(self, task_manager=None):
-        super().__init__(task_manager=task_manager)
-        self.controller = PdfMergeController(task_manager=self.task_manager)
+    def __init__(self):
+        super().__init__()
+        self.controller = PdfMergeController()
         
-        self.controller.log_signal.connect(self.log_signal.emit)
         self.controller.progress_signal.connect(self.global_progress_signal.emit)
         self.controller.error_signal.connect(self.show_error)
         self.controller.loading_signal.connect(self.global_loading_signal.emit)

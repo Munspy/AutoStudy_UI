@@ -5,6 +5,7 @@ UI(Tab8YoutubePlaylist) 및 Service 레이어와 연동하여 재생목록의 �
 """
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 from service.playlist_repository import PlaylistRepository
 from worker.youtube.youtube_worker import (PlaylistFetchWorker,
@@ -44,9 +45,9 @@ class YoutubePlaylistController(BaseController):
     checker_completed = pyqtSignal(list)
     upload_completed = pyqtSignal()
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         # 컨트롤러의 초기화 및 상위 BaseController 설정
-        super().__init__(task_manager)
+        super().__init__()
 
     # ===========================
     # [워커 실행 메서드]

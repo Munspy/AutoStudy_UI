@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 
 
@@ -34,7 +35,7 @@ class LLMScanWorker(BaseWorker):
 
     def do_work(self) -> Optional[List[Dict[str, Any]]]:
         """구글 드라이브를 스캔하여 미완료 AI 파이프라인 작업 목록을 수집합니다."""
-        self.log_signal.emit("구글 드라이브에서 실제 데이터를 스캔하는 중입니다. 잠시만 기다려주세요...")
+        GlobalLogger.info("구글 드라이브에서 실제 데이터를 스캔하는 중입니다. 잠시만 기다려주세요...")
         sync_service = AppContainer.get_instance().drive_sync
 
         # 1. 대상 날짜 필터를 적용하여 구글 드라이브 파일 목록 수집
@@ -55,7 +56,7 @@ class LLMScanWorker(BaseWorker):
         # 3. 각 교시별로 1단계(플래그 추출) 및 3단계(LLM UI 가공) 수행
         for i, lesson_id in enumerate(sorted_lessons):
             if self.is_cancelled():
-                self.log_signal.emit("스캔 작업이 사용자에 의해 중단되었습니다.")
+                GlobalLogger.info("스캔 작업이 사용자에 의해 중단되었습니다.")
                 break
 
             # 1단계: 순수 존재 유무 데이터 수집

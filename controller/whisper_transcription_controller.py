@@ -6,6 +6,7 @@ UI(Tab6WhisperTranscription)와 연동되어 음성 파일 탐색과
 # controller/whisper_transcription_controller.py
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 from worker.transcript.whisper_worker import (WhisperExecutionWorker,
                                               WhisperScannerWorker)
@@ -29,9 +30,9 @@ class WhisperTranscriptionController(BaseController):
     scan_completed = pyqtSignal(list)
     execution_completed = pyqtSignal()  # 결과 데이터가 필요하다면 pyqtSignal(타입)으로 수정 가능
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         # 상속받은 컨트롤러 초기화 로직 실행
-        super().__init__(task_manager)
+        super().__init__()
 
     # ===========================
     # [워커 관리]

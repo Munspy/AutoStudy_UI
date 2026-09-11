@@ -1,4 +1,5 @@
 # 서비스들을 전역으로 관리하는 컨테이너 (지연 초기화 지원)
+from core.task_manager import TaskManager
 from service.file_naming_service import FileNamingService
 from service.folder_management_service import FolderManagementService
 from service.llm_service import LlmService
@@ -98,3 +99,7 @@ class AppContainer:
 
     @property
     def drive_sync(self): return self._get_or_create('drive_sync', lambda: DriveSyncService(naming_service=self.file_naming, pipeline_service=self.pipeline_status, yt_service=self.youtube_media, timetable_service=self.timetable))
+
+    # 5. Core Infrastructure
+    @property
+    def task_manager(self): return self._get_or_create('task_manager', lambda: TaskManager(max_concurrent_tasks=5, llm_max_tasks=5))

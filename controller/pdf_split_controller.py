@@ -10,6 +10,7 @@ import tempfile
 
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 # Moved from inline
 from worker.pdf import (PdfFileListWorker, PdfPreviewPrepareWorker,
@@ -37,10 +38,10 @@ class PdfSplitController(BaseController):
     page_rendered = pyqtSignal(int, bytes)
     split_completed = pyqtSignal(str)
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         self.temp_dir = None
         # BaseController 상속 초기화
-        super().__init__(task_manager)
+        super().__init__()
         # 파일 분할 전 임시로 사용할 디렉토리 생성
         self.temp_dir = tempfile.mkdtemp()
 

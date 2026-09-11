@@ -8,6 +8,7 @@ import zipfile
 
 import genanki
 
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from core.container import AppContainer
 from utils.auth_util import get_drive_service
@@ -44,14 +45,14 @@ class AnkiDeckMergeWorker(BaseWorker):
             self.error_signal.emit("선택된 수업이 없습니다.")
             return None
 
-        self.log_signal.emit(f"🚀 총 {len(self.checked_lessons)}개 선택된 수업의 Anki 덱 병합 작업을 시작합니다...")
+        GlobalLogger.info(f"🚀 총 {len(self.checked_lessons)}개 선택된 수업의 Anki 덱 병합 작업을 시작합니다...")
         
 
         sync_service = AppContainer.get_instance().drive_sync
         drive_service = get_drive_service()
         root_id = Config.TARGET_DRIVE_DIR
 
-        self.log_signal.emit("☁️ 구글 드라이브 파일 목록을 조회하는 중...")
+        GlobalLogger.info("☁️ 구글 드라이브 파일 목록을 조회하는 중...")
         drive_files, _, _ = sync_service.fetch_all_files("")
         
         if self.is_cancelled():
@@ -73,14 +74,14 @@ class AnkiDeckMergeWorker(BaseWorker):
         try:
             for lesson in sorted_lessons:
                 if self.is_cancelled():
-                    self.log_signal.emit("Anki 병합 작업이 취소되었습니다.")
+                    GlobalLogger.info("Anki 병합 작업이 취소되었습니다.")
                     break
                     
-                self.log_signal.emit(f"[{lesson}] 데이터 탐색 중...")
+                GlobalLogger.info(f"[{lesson}] 데이터 탐색 중...")
                 
                 apkg_file = next((f for f in drive_files if f['name'].startswith(lesson) and f['name'].endswith('_통합본.apkg')), None)
                 if not apkg_file:
-                    self.log_signal.emit(f"   ⚠️ [{lesson}] '_통합본.apkg' 파일을 찾을 수 없습니다. 건너뜁니다.")
+                    GlobalLogger.info(f"   ⚠️ [{lesson}] '_통합본.apkg' 파일을 찾을 수 없습니다. 건너뜁니다.")
                     continue
 
                 # 폴더 계층 구조 추출
@@ -92,7 +93,7 @@ class AnkiDeckMergeWorker(BaseWorker):
                 
                 folder_prefix = "::".join(folder_path_parts) if folder_path_parts else "기본"
 
-                self.log_signal.emit(f"   ➔ [{lesson}] 다운로드 및 데이터베이스 파싱 중 (경로: {folder_prefix})...")
+                GlobalLogger.info(f"   ➔ [{lesson}] 다운로드 및 데이터베이스 파싱 중 (경로: {folder_prefix})...")
                 
                 # 메모리에 다운로드 후 임시 파일로 저장 (sqlite3 및 zipfile 처리를 위해)
                 with in_memory_download_from_drive(apkg_file['id'], drive_service=drive_service) as io_stream:
@@ -112,7 +113,7 @@ class AnkiDeckMergeWorker(BaseWorker):
 
                     db_path = os.path.join(extract_dir, 'collection.anki2')
                     if not os.path.exists(db_path):
-                        self.log_signal.emit(f"   ❌ [{lesson}] 올바른 apkg 형식이 아닙니다 (DB 없음).")
+                        GlobalLogger.info(f"   ❌ [{lesson}] 올바른 apkg 형식이 아닙니다 (DB 없음).")
                         continue
 
                     # 미디어 매핑 (파일 이름 '0', '1' -> 실제 파일명)
@@ -217,7 +218,7 @@ class AnkiDeckMergeWorker(BaseWorker):
                     conn.close()
 
                 except Exception as e:
-                    self.log_signal.emit(f"   ❌ [{lesson}] 파싱 실패: {e}")
+                    GlobalLogger.info(f"   ❌ [{lesson}] 파싱 실패: {e}")
                 finally:
                     if os.path.exists(temp_apkg_path):
                         os.unlink(temp_apkg_path)
@@ -228,7 +229,7 @@ class AnkiDeckMergeWorker(BaseWorker):
                 return None
 
             if master_decks:
-                self.log_signal.emit(f"💾 패키징 중... (총 {len(master_decks)}개의 덱 병합)")
+                GlobalLogger.info(f"💾 패키징 중... (총 {len(master_decks)}개의 덱 병합)")
                 package = genanki.Package(list(master_decks.values()))
                 
                 # 중복 미디어 파일 제거

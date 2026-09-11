@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QHBoxLayout,
                              QScrollArea, QSizePolicy, QStackedWidget,
                              QTextEdit, QVBoxLayout, QWidget)
 
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StyledButton,
                                      StyledCheckBox, StyledDateEdit,
@@ -17,13 +18,12 @@ from controller.transcript_merge_split_controller import (
 
 class TranscriptMergeSplitUi(BaseUI):
 
-    def __init__(self, task_manager=None):
-        super().__init__(task_manager=task_manager)
-        self.controller = TranscriptController(task_manager=self.task_manager)
+    def __init__(self):
+        super().__init__()
+        self.controller = TranscriptController()
         self.controller.view = self
         
         # 기본 시그널 연결
-        self.controller.log_signal.connect(self.log_signal.emit)
         self.controller.error_signal.connect(self.show_error)
         self.controller.loading_signal.connect(self.set_loading_state)
         self.controller.search_completed.connect(self._on_search_finished)
@@ -259,7 +259,7 @@ class TranscriptMergeSplitUi(BaseUI):
             end_date = self.end_date.date().toString("yyyy-MM-dd")
             
             self.search_btn.start_loading("조회 중")
-            self.log_signal.emit(f"☁️ 구글 드라이브 검색 요청: {start_date} ~ {end_date}")
+            GlobalLogger.info(f"☁️ 구글 드라이브 검색 요청: {start_date} ~ {end_date}")
             
             # 워커 실행
             self.controller.execute_drive_search(start_date, end_date)
@@ -278,7 +278,7 @@ class TranscriptMergeSplitUi(BaseUI):
 
     def _on_search_finished(self, files):
         for f in files: self.file_list.addItem(f)
-        self.log_signal.emit(f"☁️ 총 {len(files)}개의 드라이브 파일을 성공적으로 불러왔습니다.")
+        GlobalLogger.info(f"☁️ 총 {len(files)}개의 드라이브 파일을 성공적으로 불러왔습니다.")
         self.search_btn.stop_loading()
 
     def on_file_selection_changed(self):
@@ -391,14 +391,14 @@ class TranscriptMergeSplitUi(BaseUI):
             QMessageBox.warning(self, "경고", "저장할 파일명을 모두 입력해주세요.")
             return
 
-        self.log_signal.emit(f"[{filename}] 분할 저장을 시작합니다...")
+        GlobalLogger.info(f"[{filename}] 분할 저장을 시작합니다...")
         
         # 워커 실행
         self.controller.execute_split_save(folder_path, filename, text_content, name1, name2, is_drive)
 
     def _on_split_save_finished(self, msg):
         QMessageBox.information(self, "완료", msg)
-        self.log_signal.emit("✅ 분할 작업 및 저장이 완료되었습니다.")
+        GlobalLogger.info("✅ 분할 작업 및 저장이 완료되었습니다.")
         
         selected_items = self.file_list.selectedItems()
         if selected_items:
@@ -419,7 +419,7 @@ class TranscriptMergeSplitUi(BaseUI):
                 parent_widget=self,
                 file_paths_or_ids=paths_or_ids,
                 is_drive=is_drive,
-                log_callback=self.emit_log
+                log_callback=GlobalLogger.info
             )
 
         self.populate_file_list()
@@ -437,7 +437,7 @@ class TranscriptMergeSplitUi(BaseUI):
             QMessageBox.warning(self, "경고", "병합 저장할 파일명을 입력해주세요.")
             return
             
-        self.log_signal.emit(f"{files_to_merge} 파일 병합을 시작합니다...")
+        GlobalLogger.info(f"{files_to_merge} 파일 병합을 시작합니다...")
         
         # 워커 실행
         self.controller.execute_merge_save(folder_path, files_to_merge, merged_content, custom_name, is_drive)
@@ -445,7 +445,7 @@ class TranscriptMergeSplitUi(BaseUI):
     def _on_merge_save_finished(self, res):
         msg, new_filename = res
         QMessageBox.information(self, "완료", msg)
-        self.log_signal.emit(f"✅ 병합 작업 및 저장이 완료되었습니다: {new_filename}")
+        GlobalLogger.info(f"✅ 병합 작업 및 저장이 완료되었습니다: {new_filename}")
         
         selected_items = self.file_list.selectedItems()
         if selected_items:
@@ -466,7 +466,7 @@ class TranscriptMergeSplitUi(BaseUI):
                 parent_widget=self,
                 file_paths_or_ids=paths_or_ids,
                 is_drive=is_drive,
-                log_callback=self.emit_log
+                log_callback=GlobalLogger.info
             )
             
         self.populate_file_list()

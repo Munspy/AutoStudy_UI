@@ -1,3 +1,4 @@
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from core.container import AppContainer
 from utils.auth_util import get_drive_service
@@ -21,7 +22,7 @@ class PlaylistFetchWorker(BaseWorker):
         # ===========================
         # [드라이브 상태 조회]
         # ===========================
-        self.log_signal.emit("구글 계정 연동 확인 및 드라이브 상태를 조회합니다...")
+        GlobalLogger.info("구글 계정 연동 확인 및 드라이브 상태를 조회합니다...")
         if self.is_cancelled(): return
         # 드라이브 내에 이미 존재하는 접두사(prefix) 목록을 조회합니다.
         existing_prefixes = self.yt_service.get_existing_prefixes_in_drive(get_drive_service(), drive_folder_id)
@@ -30,7 +31,7 @@ class PlaylistFetchWorker(BaseWorker):
         # [재생목록 영상 조회]
         # ===========================
         if self.is_cancelled(): return
-        self.log_signal.emit("공식 YouTube API를 통해 영상 목록과 길이를 일괄 조회합니다 🚀")
+        GlobalLogger.info("공식 YouTube API를 통해 영상 목록과 길이를 일괄 조회합니다 🚀")
         # 비디오 목록을 가져와서 반환합니다.
         videos = self.yt_service.fetch_playlist_videos(
             self.playlist_id, 
@@ -63,7 +64,7 @@ class YoutubeUploadWorker(BaseWorker):
             if self.is_cancelled(): break
             
             prefix = item['prefix']
-            self.log_signal.emit(f"📥 다운로드 및 드라이브 업로드 중 ({idx+1}/{total_videos}): {prefix}")
+            GlobalLogger.info(f"📥 다운로드 및 드라이브 업로드 중 ({idx+1}/{total_videos}): {prefix}")
             self.progress_signal.emit(int((idx / total_videos) * 100), "")
             
             # ===========================
@@ -77,10 +78,10 @@ class YoutubeUploadWorker(BaseWorker):
                     drive_folder_id=drive_folder_id,
                     cancel_checker=self.is_cancelled
                 )
-                self.log_signal.emit(f"✅ 업로드 완료: {prefix}.wav")
+                GlobalLogger.info(f"✅ 업로드 완료: {prefix}.wav")
             except Exception as e:
                 # 예외 발생 시 로그 시그널 방출
-                self.log_signal.emit(f"❌ {str(e)}")
+                GlobalLogger.info(f"❌ {str(e)}")
                 
         # 모든 작업이 완료되면 진행도를 100%로 설정합니다.
         self.progress_signal.emit(100, "")
@@ -101,7 +102,7 @@ class PlaylistUpdateCheckerWorker(BaseWorker):
         # ===========================
         # [업데이트 상태 확인]
         # ===========================
-        self.log_signal.emit(f"유튜브 서버에 접속하여 {len(self.playlists)}개 재생목록의 업데이트 날짜를 확인합니다...")
+        GlobalLogger.info(f"유튜브 서버에 접속하여 {len(self.playlists)}개 재생목록의 업데이트 날짜를 확인합니다...")
         if self.is_cancelled(): return
         
         # 유튜브 서비스 모듈을 통해 업데이트 여부를 체크합니다.

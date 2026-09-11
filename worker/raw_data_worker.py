@@ -3,6 +3,8 @@ from utils.constants import FileSuffix, Extensions
 import os
 import tempfile
 
+from core.logger import GlobalLogger
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from utils.config import Config
 from utils.drive_api import (delete_drive_file, get_all_drive_files,
@@ -27,7 +29,7 @@ class RawDataLoadWorker(BaseWorker):
         target_folder = Config.TARGET_DRIVE_DIR
         query = f"{self.date_str}_{self.period_str}"
         
-        self.log_signal.emit(f"🔍 '{query}' 관련 파일을 구글 드라이브에서 검색합니다...")
+        GlobalLogger.info(f"🔍 '{query}' 관련 파일을 구글 드라이브에서 검색합니다...")
         
         # 1. 파일 검색
         files = get_all_drive_files(target_folder, name_filter=query, drive_service=self.drive_service)
@@ -49,7 +51,7 @@ class RawDataLoadWorker(BaseWorker):
             # [BUG-FIX] f'...' 리터럴이 문자열 안에 들어가는 오용 수정 → 올바른 f-string으로 통합
             raise Exception(f"일치하는 원본 PDF 또는 _{FileSuffix.TRANSCRIPT_CORRECTED}.txt 파일을 찾지 못했습니다.")
             
-        self.log_signal.emit(f"📥 다운로드 시작: {pdf_file['name']}, {text_file['name']}")
+        GlobalLogger.info(f"📥 다운로드 시작: {pdf_file['name']}, {text_file['name']}")
         
         # 2. PDF 파일 인메모리 다운로드
         pdf_bytes = b""
@@ -99,7 +101,7 @@ class RawDataApplyWorker(BaseWorker):
                 temp_path = f.name
                 
             # 3. 새 파일 업로드 먼저 수행 (실패 시 원본 보존을 위해)
-            self.log_signal.emit(f"☁️ 수정본을 드라이브로 업로드합니다...")
+            GlobalLogger.info(f"☁️ 수정본을 드라이브로 업로드합니다...")
             uploaded_file = upload_to_drive(
                 local_file_path=temp_path,
                 target_folder_id=self.text_file_parent_id,
@@ -109,10 +111,10 @@ class RawDataApplyWorker(BaseWorker):
             )
             
             # 4. 기존 원본 파일 휴지통으로 이동 (업로드 성공 시에만)
-            self.log_signal.emit(f"🗑️ 기존 파일({self.text_file_name})을 휴지통으로 이동합니다...")
+            GlobalLogger.info(f"🗑️ 기존 파일({self.text_file_name})을 휴지통으로 이동합니다...")
             delete_drive_file(self.text_file_id, drive_service=self.drive_service)
             
-            self.log_signal.emit("✅ 성공: 모든 변경사항이 구글 드라이브에 최종 반영되었습니다!")
+            GlobalLogger.info("✅ 성공: 모든 변경사항이 구글 드라이브에 최종 반영되었습니다!")
             return uploaded_file.get('id') if uploaded_file else True
             
         finally:

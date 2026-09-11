@@ -12,13 +12,14 @@
 """
 
 from PyQt6.QtCore import QThread, pyqtSignal
+from core.logger import GlobalLogger
 
 
 class BaseWorker(QThread):
     """모든 백그라운드 스레드의 뼈대가 되는 기본 워커 클래스입니다.
     
     UI 프리징(멈춤 현상)을 방지하기 위해 무거운 작업을 별도 스레드로 분리합니다.
-    BaseController 및 BaseTaskManager와 통신하기 위한 4개의 '표준 안테나(시그널)'를 제공하며,
+    BaseController 및 TaskManager와 통신하기 위한 4개의 '표준 안테나(시그널)'를 제공하며,
     강제 종료(stop) 플래그와 안전한 예외 처리 구조를 포함합니다.
 
     Attributes:
@@ -33,7 +34,7 @@ class BaseWorker(QThread):
     finished_signal = pyqtSignal(object)   # 작업 성공 시 최종 결과물 전달
     error_signal = pyqtSignal(str)         # 에러 발생 시 예외 메시지 텍스트 전달
     progress_signal = pyqtSignal(int, str) # 진행률(0~100) 및 현재 상태 메시지
-    log_signal = pyqtSignal(str)           # 실시간 작업 로그 텍스트
+    # log_signal = pyqtSignal(str)  # Moved to GlobalLogger           # 실시간 작업 로그 텍스트
 
     def __init__(self, parent=None):
         """BaseWorker 인스턴스를 초기화합니다.
@@ -89,7 +90,7 @@ class BaseWorker(QThread):
         
         [설계 가이드]
         이 안에서 `BaseService` 객체를 생성할 때, 
-        `service = MyService(logger_callback=self.log_signal.emit)` 처럼
+        `service = MyService(logger_callback=GlobalLogger.info)` 처럼
         워커의 시그널 발사 메서드 자체를 콜백으로 전달하면 로깅이 완벽하게 연결됩니다.
 
         Args:

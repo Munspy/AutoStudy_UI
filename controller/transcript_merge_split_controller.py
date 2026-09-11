@@ -6,6 +6,7 @@ UI(Tab5TranscriptMergeSplit)와 연동하여 로컬 및 구글 드라이브 상�
 
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 from core.container import AppContainer
 from utils.file_util import list_local_files
@@ -36,9 +37,9 @@ class TranscriptController(BaseController):
     split_save_completed = pyqtSignal(str)
     merge_save_completed = pyqtSignal(tuple)
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         # BaseController 초기화
-        super().__init__(task_manager)
+        super().__init__()
         # 구글 드라이브 검색 결과를 캐싱할 딕셔너리
         self.drive_files_cache = {}
 

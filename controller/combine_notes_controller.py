@@ -6,6 +6,7 @@
 """
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 from worker.pdf import (PdfCombineSaveWorker, PdfInspectionWorker,
                         PdfMatchListWorker)
@@ -34,9 +35,9 @@ class CombineNotesController(BaseController):
     # 병합 작업 완료 시그널
     merge_completed = pyqtSignal(list)
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         # 부모 클래스의 초기화 메서드 호출하여 task_manager 연동
-        super().__init__(task_manager)
+        super().__init__()
 
     # ===========================
     # [워커 실행 메서드]

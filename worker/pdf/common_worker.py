@@ -1,5 +1,6 @@
 import os
 
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from core.container import AppContainer
 from utils.auth_util import get_drive_service
@@ -53,13 +54,13 @@ class PdfFileListWorker(BaseWorker):
             for f in sorted(files):
                 item_text = f"📄 {f}"
                 file_paths[item_text] = os.path.join(self.target_dir, f)
-            self.log_signal.emit(f"✅ 로컬 폴더에서 {len(files)}개의 PDF를 불러왔습니다.")
+            GlobalLogger.info(f"✅ 로컬 폴더에서 {len(files)}개의 PDF를 불러왔습니다.")
             
         # ===========================
         # [구글 드라이브 파일 목록 조회]
         # ===========================
         else:
-            self.log_signal.emit("🔄 구글 드라이브에서 조건에 맞는 PDF 파일을 조회 중입니다...")
+            GlobalLogger.info("🔄 구글 드라이브에서 조건에 맞는 PDF 파일을 조회 중입니다...")
             drive_service = get_drive_service()
             try:
                 folder_id = Config.TARGET_DRIVE_DIR
@@ -80,6 +81,6 @@ class PdfFileListWorker(BaseWorker):
                 item_text = f"☁️ {f['name']}"
                 file_paths[item_text] = f['id']
 
-            self.log_signal.emit(f"✅ 구글 드라이브에서 {len(filtered_pdfs)}개의 PDF를 불러왔습니다.")
+            GlobalLogger.info(f"✅ 구글 드라이브에서 {len(filtered_pdfs)}개의 PDF를 불러왔습니다.")
         
         return file_paths

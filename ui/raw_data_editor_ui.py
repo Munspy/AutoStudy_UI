@@ -9,6 +9,7 @@ from PyQt6.QtGui import QImage, QPixmap
 from PyQt6.QtWidgets import (QAbstractSpinBox, QHBoxLayout, QLabel, QSplitter,
                              QTextEdit, QVBoxLayout, QWidget)
 
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (CardWidget, LabeledInput, LoadingButton,
                                      SearchLineEdit, StyledButton,
@@ -42,13 +43,12 @@ class ResizablePixmapLabel(QLabel):
 class RawDataEditorUi(BaseUI):
     """raw data 직접수정을 위한 UI 클래스."""
     
-    def __init__(self, task_manager=None, parent=None):
-        super().__init__(task_manager=task_manager)
+    def __init__(self=None, parent=None):
+        super().__init__()
         
-        self.controller = RawDataEditorController(task_manager=self.task_manager)
+        self.controller = RawDataEditorController()
         
         # 컨트롤러 시그널 연결
-        self.controller.log_signal.connect(self.emit_log)
         self.controller.pdf_page_rendered.connect(self.update_pdf_viewer)
         self.controller.text_loaded.connect(self.update_text_editor)
         self.controller.loading_started.connect(lambda: self.btn_search.start_loading())
@@ -187,7 +187,7 @@ class RawDataEditorUi(BaseUI):
         date_str = self.input_date.date().toString("MMdd")
         period_str = self.input_period.text().strip()
         if not date_str or not period_str:
-            self.emit_log("날짜와 교시를 모두 입력해주세요.")
+            GlobalLogger.info("날짜와 교시를 모두 입력해주세요.")
             return
             
         self.controller.search_and_load(date_str, period_str)
@@ -233,17 +233,17 @@ class RawDataEditorUi(BaseUI):
         text = self.text_edit.toPlainText()
         self.controller.save_current_page_text(text)
         if not silent:
-            self.emit_log("현재 페이지 변경사항이 임시 저장되었습니다.")
+            GlobalLogger.info("현재 페이지 변경사항이 임시 저장되었습니다.")
 
     def on_discard(self):
         """가장 처음 드라이브에서 가져왔던 원본 텍스트 상태로 복구합니다."""
         self.controller.reload_current_page_text()
-        self.emit_log("가장 처음 다운로드 받은 원본 상태로 복구되었습니다.")
+        GlobalLogger.info("가장 처음 다운로드 받은 원본 상태로 복구되었습니다.")
 
     def on_apply(self):
         """모든 변경사항을 하나로 합쳐 드라이브에 업로드합니다."""
         if not self.controller.pdf_doc:
-            self.emit_log("먼저 파일을 불러오세요.")
+            GlobalLogger.info("먼저 파일을 불러오세요.")
             return
             
         # 현재 화면에 수정 중인 사항도 저장

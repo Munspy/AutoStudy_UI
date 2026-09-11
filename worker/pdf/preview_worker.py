@@ -3,6 +3,7 @@ import os
 import pymupdf
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from utils.auth_util import get_drive_service
 from utils.drive_api import download_from_drive
@@ -34,7 +35,7 @@ class PdfPreviewPrepareWorker(BaseWorker):
             drive_service = get_drive_service()
             temp_path = os.path.join(self.temp_dir, f"{self.path_or_id}.pdf")
             if not os.path.exists(temp_path):
-                self.log_signal.emit(f"🔄 구글 드라이브에서 PDF 파일 다운로드 중...")
+                GlobalLogger.info(f"🔄 구글 드라이브에서 PDF 파일 다운로드 중...")
                 download_from_drive(self.path_or_id, temp_path, drive_service=drive_service)
             local_path = temp_path
         else:

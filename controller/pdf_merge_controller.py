@@ -5,6 +5,7 @@ UI(Tab3PdfMerge)와 연동하여 병합할 PDF 파일 목록 조회,
 """
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 # Moved from inline
 from worker.pdf import (PdfBatchPreviewPrepareWorker, PdfFileListWorker,
@@ -34,9 +35,9 @@ class PdfMergeController(BaseController):
     preview_finished = pyqtSignal(object)
     page_rendered = pyqtSignal(str, int, bytes)
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         # BaseController를 통한 컨트롤러 초기화
-        super().__init__(task_manager)
+        super().__init__()
 
     # ===========================
     # [파일 목록 조회]

@@ -1,6 +1,7 @@
 import os
 from datetime import datetime
 
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from core.container import AppContainer
 from utils.auth_util import get_drive_service
@@ -125,7 +126,7 @@ class TranscriptSplitSaveWorker(BaseWorker):
         # [드라이브 업로드 처리]
         # ===========================
         if self.is_drive:
-            self.log_signal.emit("☁️ 드라이브 자동 업로드를 진행합니다...")
+            GlobalLogger.info("☁️ 드라이브 자동 업로드를 진행합니다...")
             drive_service = get_drive_service()
             target_folder_id = Config.TARGET_DRIVE_DIR
             for path in saved_paths:
@@ -165,7 +166,7 @@ class TranscriptMergeSaveWorker(BaseWorker):
         # [드라이브 업로드 처리]
         # ===========================
         if self.is_drive:
-            self.log_signal.emit("☁️ 드라이브 자동 업로드를 진행합니다...")
+            GlobalLogger.info("☁️ 드라이브 자동 업로드를 진행합니다...")
             drive_service = get_drive_service()
             upload_to_drive(save_path, Config.TARGET_DRIVE_DIR, mime_type='text/plain', drive_service=drive_service)
             msg += "\n\n(드라이브 업로드도 완료되었습니다!)"

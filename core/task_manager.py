@@ -1,11 +1,11 @@
-"""기본 작업 관리자(Base Task Manager) 모듈입니다.
+"""글로벌 작업 관리자(Task Manager) 모듈입니다.
 
 이 모듈은 다수의 백그라운드 스레드(작업)가 동시에 실행될 때 발생하는 
 시스템 과부하나 API 호출 제한(Rate Limit)을 방지하기 위해 큐(Queue) 기반으로
-작업을 스케줄링하는 `BaseTaskManager` 클래스를 제공합니다.
+작업을 스케줄링하는 `TaskManager` 클래스를 제공합니다.
 
 주요 클래스:
-    BaseTaskManager: 채널별로 스레드 큐를 관리하고 동시 실행 수를 제어하는 매니저.
+    TaskManager: 채널별로 스레드 큐를 관리하고 동시 실행 수를 제어하는 매니저.
 
 의존성:
     PyQt6.QtCore: QObject 및 pyqtSignal을 통한 이벤트 기반 큐 관리.
@@ -14,7 +14,7 @@
 from PyQt6.QtCore import QObject, pyqtSignal
 
 
-class BaseTaskManager(QObject):
+class TaskManager(QObject):
     """여러 스레드(QThread)의 대기열을 관리하고 동시 실행 수를 제한하는 중앙 관리자입니다.
     
     무분별한 스레드 생성을 막고, 지정된 최대 동시 실행 수(`max_concurrent_tasks`) 내에서

@@ -1,6 +1,7 @@
 # worker/whisper_worker.py
 import time
 
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from core.container import AppContainer
 
@@ -13,7 +14,7 @@ class WhisperScannerWorker(BaseWorker):
 
     def do_work(self):
         """드라이브 스캔 및 보류 중인 오디오 파일 탐색 작업을 실행합니다."""
-        self.log_signal.emit("🔄 구글 드라이브 스캔을 시작합니다...")
+        GlobalLogger.info("🔄 구글 드라이브 스캔을 시작합니다...")
         
         # ===========================
         # [서비스 초기화 및 파일 필터링]
@@ -50,7 +51,7 @@ class WhisperExecutionWorker(BaseWorker):
         if total_files == 0:
             return completed_files
 
-        self.log_signal.emit(f"🖥️ Mac mini({self.mac_mini_ip}) 연결을 시도합니다...")
+        GlobalLogger.info(f"🖥️ Mac mini({self.mac_mini_ip}) 연결을 시도합니다...")
         time.sleep(1) # 연결 지연 시뮬레이션
         
         # ===========================
@@ -58,10 +59,10 @@ class WhisperExecutionWorker(BaseWorker):
         # ===========================
         for i, filepath in enumerate(self.file_paths):
             if self.is_cancelled():
-                self.log_signal.emit("⚠️ 작업이 사용자에 의해 취소되었습니다.")
+                GlobalLogger.info("⚠️ 작업이 사용자에 의해 취소되었습니다.")
                 break
                 
-            self.log_signal.emit(f"📥 [{i+1}/{total_files}] 파일 전송 및 전사 요청: {filepath}")
+            GlobalLogger.info(f"📥 [{i+1}/{total_files}] 파일 전송 및 전사 요청: {filepath}")
             
             # 통신 및 전사 진행률 시뮬레이션
             for step in range(1, 11):
@@ -77,12 +78,12 @@ class WhisperExecutionWorker(BaseWorker):
             # 취소되지 않았다면 완료 처리
             if not self.is_cancelled():
                 completed_files.append(filepath)
-                self.log_signal.emit(f"✅ [{i+1}/{total_files}] 전사 완료: {filepath}")
+                GlobalLogger.info(f"✅ [{i+1}/{total_files}] 전사 완료: {filepath}")
             
         # ===========================
         # [최종 마무리]
         # ===========================
         if not self.is_cancelled():
-            self.log_signal.emit("🎉 모든 Whisper 전사 작업이 완료되었습니다.")
+            GlobalLogger.info("🎉 모든 Whisper 전사 작업이 완료되었습니다.")
             
         return completed_files

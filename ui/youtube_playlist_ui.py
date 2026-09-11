@@ -4,6 +4,7 @@ from PyQt6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QInputDialog,
                              QLabel, QMessageBox, QPushButton, QTableWidget,
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StatusBadge,
                                      StyledButton, StyledCheckBox,
@@ -88,16 +89,15 @@ class PlaylistManagerDialog(QDialog):
 class YoutubePlaylistUi(BaseUI):
     global_progress_signal = pyqtSignal(int, str)
 
-    def __init__(self, task_manager=None):
-        super().__init__(task_manager=task_manager)
-        self.controller = YoutubePlaylistController(task_manager=self.task_manager)
+    def __init__(self):
+        super().__init__()
+        self.controller = YoutubePlaylistController()
         self.controller.ui = self
         self.controller.fetch_completed.connect(self.populate_table)
         self.controller.checker_completed.connect(self.on_checker_finished)
         self.controller.upload_completed.connect(self.on_upload_finished)
         self.controller.error_signal.connect(self.on_upload_error)
         self.controller.progress_signal.connect(self.global_progress_signal.emit)
-        self.controller.log_signal.connect(self.emit_log)
 
         self.videos_data = [] 
         self.init_ui()
@@ -227,7 +227,7 @@ class YoutubePlaylistUi(BaseUI):
         self._init_combo_box_from_csv()
 
     def emit_log(self, message):
-        self.log_signal.emit(message)
+        GlobalLogger.info(message)
 
     def _init_combo_box_from_csv(self):
         """앱 시작 시 유튜브 API 호출 없이 로컬 CSV에서만 재생목록 목록을 채웁니다."""
@@ -276,7 +276,7 @@ class YoutubePlaylistUi(BaseUI):
         self.playlist_combo.blockSignals(False)
         
         if sorted_playlists:
-            self.emit_log("업데이트 날짜 확인 완료. '데이터 새로고침' 버튼을 눌러 영상 목록을 불러오세요.")
+            GlobalLogger.info("업데이트 날짜 확인 완료. '데이터 새로고침' 버튼을 눌러 영상 목록을 불러오세요.")
             self.playlist_combo.setCurrentIndex(0)
 
     def add_playlist_dialog(self):
@@ -311,7 +311,7 @@ class YoutubePlaylistUi(BaseUI):
                 QMessageBox.warning(self, "오류", "유효한 YouTube 재생목록 URL이 아닙니다.")
                 return
             
-            self.emit_log("재생목록 기본 이름을 유튜브에서 조회 중입니다...")
+            GlobalLogger.info("재생목록 기본 이름을 유튜브에서 조회 중입니다...")
             default_name = get_playlist_title(text)
             
             # 2nd Dialog: Name input
@@ -337,13 +337,13 @@ class YoutubePlaylistUi(BaseUI):
             if name_dialog.exec() == QDialog.DialogCode.Accepted and name_input.text().strip():
                 name = name_input.text().strip()
                 add_playlist_to_csv(name, text, playlist_id)
-                self.emit_log(f"새로운 재생목록 '{name}' 추가 완료.")
+                GlobalLogger.info(f"새로운 재생목록 '{name}' 추가 완료.")
                 self.refresh_combo_box()
 
     def load_playlist_data(self):
         playlist_id = self.playlist_combo.currentData()
         if not playlist_id:
-            self.emit_log("선택된 재생목록이 없습니다.")
+            GlobalLogger.info("선택된 재생목록이 없습니다.")
             return
 
         self.table.setRowCount(0)
@@ -444,7 +444,7 @@ class YoutubePlaylistUi(BaseUI):
         self.table.setUpdatesEnabled(True)
         self.table.setSortingEnabled(True)
         
-        self.emit_log(f"총 {len(videos)}개의 영상을 성공적으로 불러왔습니다.")
+        GlobalLogger.info(f"총 {len(videos)}개의 영상을 성공적으로 불러왔습니다.")
 
     def execute_upload(self):
         target_videos = []
@@ -455,18 +455,18 @@ class YoutubePlaylistUi(BaseUI):
             if item and item.checkState() == Qt.CheckState.Checked:
                 vid_info = self.videos_data[row]
                 if not vid_info["prefix"]:
-                    self.emit_log(f"경고: '{vid_info['title']}'은(는) 유효한 prefix 포맷이 아니어서 제외됩니다.")
+                    GlobalLogger.info(f"경고: '{vid_info['title']}'은(는) 유효한 prefix 포맷이 아니어서 제외됩니다.")
                     continue
                     
                 url = f"https://www.youtube.com/watch?v={vid_info['vid']}&list={playlist_id}"
                 target_videos.append({"url": url, "prefix": vid_info["prefix"]})
                 
         if not target_videos:
-            self.emit_log("업로드 가능한 영상이 선택되지 않았습니다.")
+            GlobalLogger.info("업로드 가능한 영상이 선택되지 않았습니다.")
             return
 
         self.upload_btn.start_loading("업로드 중")
-        self.emit_log(f"총 {len(target_videos)}개의 영상 추출 및 업로드를 시작합니다...")
+        GlobalLogger.info(f"총 {len(target_videos)}개의 영상 추출 및 업로드를 시작합니다...")
         self.global_progress_signal.emit(0, "준비 중...")
         
         self.controller.start_upload_videos(target_videos)
@@ -474,11 +474,11 @@ class YoutubePlaylistUi(BaseUI):
     def on_upload_error(self, title_or_msg, err_msg=None):
         if err_msg is None:
             err_msg = str(title_or_msg)
-        self.emit_log(f"업로드 오류: {err_msg}")
+        GlobalLogger.info(f"업로드 오류: {err_msg}")
         self.upload_btn.stop_loading()
 
     def on_upload_finished(self):
-        self.emit_log("🎉 모든 업로드 작업이 완료되었습니다! '영상 새로고침'을 눌러 상태를 확인하세요.")
+        GlobalLogger.info("🎉 모든 업로드 작업이 완료되었습니다! '영상 새로고침'을 눌러 상태를 확인하세요.")
         self.upload_btn.stop_loading()
 
     def create_badge(self, text):

@@ -1,3 +1,4 @@
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from core.container import AppContainer
 from utils.auth_util import get_drive_service
@@ -37,7 +38,7 @@ class PdfSplitWorker(BaseWorker):
         Returns:
             str 또는 None: 성공 시 메시지, 실패 또는 취소 시 None.
         """
-        self.log_signal.emit("🚀 PDF 분할 작업을 백그라운드에서 시작합니다...")
+        GlobalLogger.info("🚀 PDF 분할 작업을 백그라운드에서 시작합니다...")
         
         # ===========================
         # [서비스 초기화 및 취소 확인]
@@ -59,9 +60,9 @@ class PdfSplitWorker(BaseWorker):
                 parents = file_info.get('parents', [])
                 if parents:
                     drive_folder_id = parents[0]
-                    self.log_signal.emit("☁️ 원본 파일이 위치한 드라이브 폴더에 저장합니다.")
+                    GlobalLogger.info("☁️ 원본 파일이 위치한 드라이브 폴더에 저장합니다.")
             except Exception as e:
-                self.log_signal.emit(f"⚠️ 원본 파일의 위치를 가져오지 못했습니다. 기본 폴더에 저장합니다. ({e})")
+                GlobalLogger.info(f"⚠️ 원본 파일의 위치를 가져오지 못했습니다. 기본 폴더에 저장합니다. ({e})")
 
         # ===========================
         # [PDF 분할 및 저장]

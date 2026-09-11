@@ -6,6 +6,7 @@
 # func/func1_drive_sync.py
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 # Moved from inline
 from worker.drive import (AnkiDeckMergeWorker, DriveSyncWorker,
@@ -32,9 +33,9 @@ class DriveSyncController(BaseController):
     sync_finished = pyqtSignal()
     categories_loaded = pyqtSignal(list)
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         # BaseController의 초기화 메서드를 통해 기본 설정 적용
-        super().__init__(task_manager)
+        super().__init__()
 
     # ===========================
     # [시험 기준 폴더 목록 조회]
@@ -65,11 +66,11 @@ class DriveSyncController(BaseController):
     # ===========================
     def execute_local_tasks(self):
         # 로컬 작업 실행 요청을 로그로 출력
-        self.log_signal.emit("작업 실행: 누락 로컬 작업을 모두 실행합니다.")
+        GlobalLogger.info("작업 실행: 누락 로컬 작업을 모두 실행합니다.")
 
     def execute_whisper_transcription(self):
         # Whisper 음성 전사 작업 실행 요청을 로그로 출력
-        self.log_signal.emit("작업 실행: Whisper AI 기반 음성 스크립트 전사를 시작합니다.")
+        GlobalLogger.info("작업 실행: Whisper AI 기반 음성 스크립트 전사를 시작합니다.")
 
     def start_download_script_merged(self, checked_lessons: list, output_path: str):
         """체크된 수업들에 대해 구글 드라이브에서 _scripted.pdf를 다운로드하고, 목차가 포함된 합본 PDF를 생성하는 워커를 실행합니다."""
@@ -78,17 +79,17 @@ class DriveSyncController(BaseController):
             return
 
         worker = ScriptedPdfMergeWorker(checked_lessons=checked_lessons, output_path=output_path)
-        worker.finished_signal.connect(lambda msg: self.log_signal.emit(f"✅ {msg}"))
+        worker.finished_signal.connect(lambda msg: GlobalLogger.info(f"✅ {msg}"))
         self.start_worker(worker)
 
     def download_summary(self, checked_lessons: list[str], output_path: str):
-        self.log_signal.emit(f"🚀 요약본 합본 다운로드 작업을 시작합니다... (선택된 수업: {len(checked_lessons)}개)")
+        GlobalLogger.info(f"🚀 요약본 합본 다운로드 작업을 시작합니다... (선택된 수업: {len(checked_lessons)}개)")
         worker = SummaryPdfDownloadWorker(checked_lessons=checked_lessons, output_path=output_path)
-        worker.finished_signal.connect(lambda msg: self.log_signal.emit(f"✅ {msg}"))
+        worker.finished_signal.connect(lambda msg: GlobalLogger.info(f"✅ {msg}"))
         self.start_worker(worker)
 
     def download_anki(self, checked_lessons: list[str], output_path: str):
-        self.log_signal.emit(f"🚀 Anki 덱 합본 다운로드 작업을 시작합니다... (선택된 수업: {len(checked_lessons)}개)")
+        GlobalLogger.info(f"🚀 Anki 덱 합본 다운로드 작업을 시작합니다... (선택된 수업: {len(checked_lessons)}개)")
         worker = AnkiDeckMergeWorker(checked_lessons=checked_lessons, output_path=output_path)
-        worker.finished_signal.connect(lambda msg: self.log_signal.emit(f"✅ {msg}"))
+        worker.finished_signal.connect(lambda msg: GlobalLogger.info(f"✅ {msg}"))
         self.start_worker(worker)

@@ -12,6 +12,7 @@
 """
 
 from PyQt6.QtCore import QObject, pyqtSignal
+from core.logger import GlobalLogger
 
 
 class BaseController(QObject):
@@ -21,39 +22,32 @@ class BaseController(QObject):
     단일 작업과 글로벌 대기열을 이용한 배치 작업을 모두 지원합니다.
 
     Attributes:
-        log_signal (pyqtSignal): 실시간 로그 텍스트를 전달하는 시그널 (str).
         error_signal (pyqtSignal): 에러 팝업을 띄우기 위한 제목과 내용을 전달하는 시그널 (str, str).
         progress_signal (pyqtSignal): 진행률(0~100) 및 상태 메시지를 전달하는 시그널 (int, str).
         loading_signal (pyqtSignal): UI 화면 차단/활성화 및 커서 상태 제어를 위한 시그널 (bool).
         worker (BaseWorker, optional): 현재 실행 중인 단일 작업 워커 인스턴스.
-        task_manager (BaseTaskManager, optional): 다중/배치 작업을 큐로 관리하는 글로벌 매니저 인스턴스.
+        task_manager (TaskManager, optional): 다중/배치 작업을 큐로 관리하는 글로벌 매니저 인스턴스.
 
     Inherits:
         QObject: Qt의 이벤트 루프와 시그널/슬롯 시스템을 사용하기 위해 상속.
 
     Collaborating Classes:
         BaseWorker: 실제 백그라운드 작업을 수행하며, 이 컨트롤러로 상태 시그널을 보냄.
-        BaseTaskManager: 배치 작업 시 워커들을 큐에 등록하고 스케줄링.
+        TaskManager: 배치 작업 시 워커들을 큐에 등록하고 스케줄링.
     """
     # 📡 UI로 쏴줄 4개의 공통 중계 안테나 (BaseWorker의 시그널과 매칭됨)
-    log_signal = pyqtSignal(str)              # 실시간 로그 텍스트
     error_signal = pyqtSignal(str, str)       # 에러 팝업용 (제목, 에러 내용)
     progress_signal = pyqtSignal(int, str)    # 진행률(0~100) 및 상태 메시지
     loading_signal = pyqtSignal(bool)         # UI 화면 차단/활성화 및 커서 모래시계 제어용
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         """컨트롤러를 초기화하고 필요한 시그널을 연결합니다.
 
-        Args:
-            task_manager (BaseTaskManager, optional): main에서 생성한 글로벌 BaseTaskManager 객체.
-                다중 스레드(Batch) 작업 시 큐(Queue) 관리를 위해 주입받습니다. Defaults to None.
-        
         Returns:
             None
         
         Note:
-            컨트롤러 생성 시점에 `task_manager`가 제공되면, 전체 대기열 진행 상태를 
-            현재 컨트롤러의 진행률 시그널에 자동으로 연결합니다.
+            전체 대기열 진행 상태를 현재 컨트롤러의 진행률 시그널에 자동으로 연결합니다.
         """
         # ===========================
         # [초기화 및 속성 설정]
@@ -63,16 +57,13 @@ class BaseController(QObject):
         # 단일 작업용 변수
         self.worker = None 
         
-        # 다중/병렬 작업용 글로벌 매니저 장착
-        self.task_manager = task_manager
-        
         # ===========================
         # [작업 관리자 연동]
         # ===========================
-        # 글로벌 매니저가 장착되었다면, 전체 대기열 진행 상태를 이 컨트롤러의 진행률 안테나로 연결
-        if self.task_manager:
-            self.task_manager.queue_progress_signal.connect(self._on_queue_progress)
-            self.task_manager.queue_finished_signal.connect(self._on_queue_finished)
+        from core.container import AppContainer
+        task_manager = AppContainer.get_instance().task_manager
+        task_manager.queue_progress_signal.connect(self._on_queue_progress)
+        task_manager.queue_finished_signal.connect(self._on_queue_finished)
 
     # ==========================================
     # [모드 1] 단일 작업 전용 (기존 작업 취소 후 1개만 실행)
@@ -104,7 +95,6 @@ class BaseController(QObject):
         # [시그널 연결 및 실행]
         # ===========================
         # BaseWorker 상속 객체임을 확신하므로 hasattr 검사 없이 다이렉트 연결
-        self.worker.log_signal.connect(self.log_signal.emit)
         self.worker.progress_signal.connect(self.progress_signal.emit)
         self.worker.error_signal.connect(self._on_worker_error)
         self.worker.finished_signal.connect(self._on_worker_finished)
@@ -176,10 +166,8 @@ class BaseController(QObject):
         # ===========================
         # [배치 작업 검증]
         # ===========================
-        # 글로벌 매니저 존재 여부 확인
-        if not self.task_manager:
-            self.error_signal.emit("시스템 오류", "글로벌 TaskManager가 연결되지 않았습니다.")
-            return
+        from core.container import AppContainer
+        task_manager = AppContainer.get_instance().task_manager
 
         # 리스트 비어있는지 검증
         if not worker_list:
@@ -193,11 +181,10 @@ class BaseController(QObject):
         # ===========================
         for w in worker_list:
             # 개별 워커의 로그와 에러는 현재 컨트롤러의 안테나를 타도록 연결
-            w.log_signal.connect(self.log_signal.emit)
             w.error_signal.connect(lambda msg: self.error_signal.emit("배치 작업 오류", msg))
             
             # 워커를 글로벌 큐에 던짐 (이후의 스케줄링과 시작은 매니저가 알아서 함)
-            self.task_manager.add_task(w, channel=channel)
+            task_manager.add_task(w, channel=channel)
 
     def _on_queue_progress(self, completed: int, total: int):
         """큐의 전체 진행률을 계산하여 UI 시그널로 전달합니다.

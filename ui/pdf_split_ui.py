@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QHBoxLayout,
                              QLabel, QLineEdit, QListWidgetItem, QMessageBox,
                              QVBoxLayout, QWidget)
 
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton,
                                      PreviewScrollArea, StyledButton,
@@ -16,16 +17,15 @@ from controller.pdf_split_controller import PdfSplitController
 
 
 class PdfSplitUi(BaseUI):
-    def __init__(self, task_manager=None):
-        super().__init__(task_manager=task_manager)
-        self.controller = PdfSplitController(task_manager=self.task_manager)
+    def __init__(self):
+        super().__init__()
+        self.controller = PdfSplitController()
         
         self.controller.file_list_ready.connect(self.on_file_list_ready)
         self.controller.preview_ready.connect(self.on_preview_ready)
         self.controller.page_rendered.connect(self.on_page_rendered)
         self.controller.split_completed.connect(self.on_split_completed)
         self.controller.error_signal.connect(self.show_error)
-        self.controller.log_signal.connect(self.emit_log)
         
         self.file_paths = {}
         self.local_path = None
@@ -330,7 +330,7 @@ class PdfSplitUi(BaseUI):
             parent_widget=self,
             file_paths_or_ids=[self._selected_path_or_id],
             is_drive=self._selected_is_drive,
-            log_callback=self.emit_log
+            log_callback=GlobalLogger.info
         )
         self._selected_path_or_id = None
         self._selected_is_drive = False

@@ -13,6 +13,7 @@
 """
 
 from PyQt6.QtCore import QSettings, Qt, pyqtSignal
+from core.logger import GlobalLogger
 from PyQt6.QtWidgets import QMessageBox, QWidget
 
 
@@ -24,21 +25,19 @@ class BaseUI(QWidget):
 
     Attributes:
         log_signal (pyqtSignal): 로그 메시지(str)를 메인 윈도우로 전달하기 위한 시그널.
-        task_manager (BaseTaskManager, optional): 앱 전역에서 큐 기반 작업 관리를 수행하는 글로벌 매니저 객체.
+        task_manager (TaskManager, optional): 앱 전역에서 큐 기반 작업 관리를 수행하는 글로벌 매니저 객체.
         settings (QSettings): 로컬 설정값 저장 및 조회를 위한 객체 ("MyAutoStudy", "DriveSyncPipeline" 사용).
 
     Inherits:
         QWidget: PyQt의 기본 화면 위젯을 상속.
     """
     # 1. 모든 탭 공통 시그널
-    log_signal = pyqtSignal(str)
+    # log_signal = pyqtSignal(str) # Removed
     
-    def __init__(self, task_manager=None, parent=None):
+    def __init__(self, parent=None):
         """BaseUI 인스턴스를 초기화하고 공통 설정 객체를 준비합니다.
 
         Args:
-            task_manager (BaseTaskManager, optional): main에서 주입해주는 글로벌 태스크 매니저. 
-                이후 Controller 등으로 넘겨주기 위해 들고 있습니다. Defaults to None.
             parent (QWidget, optional): 상위 부모 위젯. Defaults to None.
         
         Returns:
@@ -49,9 +48,6 @@ class BaseUI(QWidget):
         # ===========================
         # 부모 클래스 초기화
         super().__init__(parent)
-
-        # main.py에서 단일 gloabl task manger을 생성하여 내려줌. 다시 받아서 controller로 내려주면 됨
-        self.task_manager = task_manager
         
         # ===========================
         # [공통 설정 객체 초기화]
@@ -60,19 +56,6 @@ class BaseUI(QWidget):
         self.settings = QSettings("MyAutoStudy", "DriveSyncPipeline")
 
     # --- [공통 메서드 1: 로그 발행] ---
-    def emit_log(self, message: str):
-        """로그 메시지를 상위(MainUI 등)로 전달하는 시그널을 방출합니다.
-
-        개별 탭의 UI 로직이나 워커에서 발생한 문자열 형태의 로그를 중앙 로그 패널에 
-        출력하기 위해 호출됩니다.
-
-        Args:
-            message (str): 출력할 로그 내용.
-
-        Returns:
-            None
-        """
-        self.log_signal.emit(message)
 
     # --- [공통 메서드 2: 설정 쉽게 저장/불러오기] ---
     def load_setting(self, key: str, default_value=""):

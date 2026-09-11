@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QHBoxLayout,
                              QHeaderView, QLabel, QPushButton, QTableWidget,
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StatusBadge,
                                      StyledButton, StyledCheckBox,
@@ -34,13 +35,13 @@ class DriveSyncUi(BaseUI):
         local_download_path (str): 로컬 검색의 기준이 되는 다운로드 폴더 경로.
         controller (DriveSyncController): 동기화 작업을 처리할 컨트롤러 인스턴스.
     """
-    def __init__(self, task_manager=None):             # 처음 생성될 때의 초기값. UI다 보니 따로 변수를 받지는 않음
+    def __init__(self):             # 처음 생성될 때의 초기값. UI다 보니 따로 변수를 받지는 않음
         """DriveSyncUi 인스턴스를 초기화합니다.
         
         Args:
             task_manager (optional): 백그라운드 작업을 관리하는 태스크 매니저. 기본값은 None.
         """
-        super().__init__(task_manager=task_manager)        
+        super().__init__()        
         default_path = os.path.expanduser("~/Downloads")
             # 로컬 검색의 기본값은 Downloads 폴더, 윈도우에서는 카카오톡 폴더를 주로 쓸 것으로 보임
         self.local_download_path = self.load_setting("local_download_path", default_path)
@@ -48,12 +49,11 @@ class DriveSyncUi(BaseUI):
             # 아니면 default_path를 사용 (BaseUI 메서드 활용)
         
         # 👈 UI를 위한 컨트롤러 생성 및 시그널 연결
-        self.controller = DriveSyncController(task_manager=self.task_manager)
+        self.controller = DriveSyncController()
         self.controller.sync_completed.connect(self.update_table)
         self.controller.error_signal.connect(self.show_error)
         self.controller.sync_finished.connect(self.reset_search_btn)
         self.controller.categories_loaded.connect(self.populate_exam_categories)
-        self.controller.log_signal.connect(self.emit_log)
         
         self.init_ui()      # __init__가 자동 실행되고 이어서 실행되는 기본 UI
 
@@ -341,28 +341,28 @@ class DriveSyncUi(BaseUI):
     def download_summary(self):
         checked_lessons = self.get_checked_lessons()
         if not checked_lessons:
-            self.emit_log("⚠️ [오류] 요약본을 다운로드할 수업이 선택되지 않았습니다.")
+            GlobalLogger.info("⚠️ [오류] 요약본을 다운로드할 수업이 선택되지 않았습니다.")
             return
 
         sorted_checked = sorted(checked_lessons)
         default_filename = f"요약본합본_{sorted_checked[0]}.pdf" if len(sorted_checked) == 1 else f"요약본합본_{sorted_checked[0]}_{sorted_checked[-1]}.pdf"
         output_path, _ = QFileDialog.getSaveFileName(self, "요약본 PDF 저장 위치 선택", os.path.join(self.local_download_path, default_filename), "PDF Files (*.pdf)")
         if not output_path:
-            self.emit_log("ℹ️ 요약본 다운로드가 취소되었습니다.")
+            GlobalLogger.info("ℹ️ 요약본 다운로드가 취소되었습니다.")
             return
         self.controller.download_summary(checked_lessons, output_path)
 
     def download_anki(self):
         checked_lessons = self.get_checked_lessons()
         if not checked_lessons:
-            self.emit_log("⚠️ [오류] Anki 덱을 다운로드할 수업이 선택되지 않았습니다.")
+            GlobalLogger.info("⚠️ [오류] Anki 덱을 다운로드할 수업이 선택되지 않았습니다.")
             return
 
         sorted_checked = sorted(checked_lessons)
         default_filename = f"안키합본_{sorted_checked[0]}.apkg" if len(sorted_checked) == 1 else f"안키합본_{sorted_checked[0]}_{sorted_checked[-1]}.apkg"
         output_path, _ = QFileDialog.getSaveFileName(self, "Anki 합본 저장 위치 선택", os.path.join(self.local_download_path, default_filename), "Anki Deck (*.apkg)")
         if not output_path:
-            self.emit_log("ℹ️ Anki 다운로드가 취소되었습니다.")
+            GlobalLogger.info("ℹ️ Anki 다운로드가 취소되었습니다.")
             return
         self.controller.download_anki(checked_lessons, output_path)
 
@@ -370,7 +370,7 @@ class DriveSyncUi(BaseUI):
         """체크된 수업들의 _scripted.pdf 파일 합본 다운로드를 시작합니다."""
         checked_lessons = self.get_checked_lessons()
         if not checked_lessons:
-            self.emit_log("⚠️ [오류] 스크립트 합본을 다운로드할 수업이 선택되지 않았습니다. 테이블에서 체크박스를 선택해주세요.")
+            GlobalLogger.info("⚠️ [오류] 스크립트 합본을 다운로드할 수업이 선택되지 않았습니다. 테이블에서 체크박스를 선택해주세요.")
             return
 
         sorted_checked = sorted(checked_lessons)
@@ -386,15 +386,15 @@ class DriveSyncUi(BaseUI):
             "PDF Files (*.pdf)"
         )
         if not output_path:
-            self.emit_log("ℹ️ 스크립트 합본 다운로드가 취소되었습니다.")
+            GlobalLogger.info("ℹ️ 스크립트 합본 다운로드가 취소되었습니다.")
             return
 
-        self.emit_log(f"💾 총 {len(checked_lessons)}개 수업에 대한 스크립트 합본 다운로드를 요청합니다. (저장 위치: {output_path})")
+        GlobalLogger.info(f"💾 총 {len(checked_lessons)}개 수업에 대한 스크립트 합본 다운로드를 요청합니다. (저장 위치: {output_path})")
         self.controller.start_download_script_merged(checked_lessons=checked_lessons, output_path=output_path)
 
     def refresh_exam_categories(self, force_refresh: bool = False):
         """구글 드라이브에서 시험 기준(과목/차수) 폴더 목록을 비동기 조회합니다."""
-        self.emit_log("구글 드라이브에서 시험 기준 폴더 목록을 조회합니다...")
+        GlobalLogger.info("구글 드라이브에서 시험 기준 폴더 목록을 조회합니다...")
         self.controller.start_fetch_categories(force_refresh=force_refresh)
 
     def populate_exam_categories(self, categories):
@@ -414,14 +414,14 @@ class DriveSyncUi(BaseUI):
         self.exam_combo.blockSignals(False)
         self.toggle_date_inputs(self.exam_combo.currentText())
         if categories:
-            self.emit_log(f"총 {len(categories)}개의 시험 기준(과목/차수) 폴더를 불러왔습니다.")
+            GlobalLogger.info(f"총 {len(categories)}개의 시험 기준(과목/차수) 폴더를 불러왔습니다.")
 
     def set_local_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "로컬 검색 폴더 선택", self.local_download_path)
         if folder:
             self.local_download_path = folder
             self.save_setting("local_download_path", folder)  # BaseUI의 save_setting 헬퍼 활용
-            self.emit_log(f"설정 완료: 검색 폴더가 [{folder}] (으)로 변경되었습니다.")
+            GlobalLogger.info(f"설정 완료: 검색 폴더가 [{folder}] (으)로 변경되었습니다.")
 
     def toggle_date_inputs(self, text):
         is_disabled = (text != "사용 안함")
@@ -442,11 +442,11 @@ class DriveSyncUi(BaseUI):
             
             search_mode = "DATE"
             filter_value = (start, end)
-            self.emit_log(f"기간 [{display_start} ~ {display_end}] 기준으로 구글 드라이브 동기화 조회를 시작합니다...")
+            GlobalLogger.info(f"기간 [{display_start} ~ {display_end}] 기준으로 구글 드라이브 동기화 조회를 시작합니다...")
         else:
             search_mode = "EXAM"
             filter_value = selected_folder_id
-            self.emit_log(f"시험 기준 [{current_exam}] (으)로 해당 폴더의 최신 상태를 불러옵니다...")
+            GlobalLogger.info(f"시험 기준 [{current_exam}] (으)로 해당 폴더의 최신 상태를 불러옵니다...")
 
         # 👈 매니저(Controller)야, 스레드 띄워서 일 좀 처리해 줘!
         self.controller.execute_sync(search_mode, filter_value, self.local_download_path)
@@ -455,7 +455,7 @@ class DriveSyncUi(BaseUI):
         self.search_btn.stop_loading()
 
     def handle_worker_error(self, err):
-        self.emit_log(f"[오류 발생] {err}")
+        GlobalLogger.info(f"[오류 발생] {err}")
 
     def toggle_all_rows_smart(self):
         total = self.table.rowCount()
@@ -535,7 +535,7 @@ class DriveSyncUi(BaseUI):
         return container
 
     def update_table(self, data_list):
-        self.emit_log(f"총 {len(data_list)}건의 강의 데이터를 성공적으로 불러왔습니다.")
+        GlobalLogger.info(f"총 {len(data_list)}건의 강의 데이터를 성공적으로 불러왔습니다.")
         
         self.table.setSortingEnabled(False)
         self.table.setUpdatesEnabled(False)

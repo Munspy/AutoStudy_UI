@@ -8,6 +8,7 @@ from typing import Dict
 import pymupdf
 from PyQt6.QtCore import QObject, pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 from utils.auth_util import get_drive_service
 from utils.config import Config
@@ -28,8 +29,8 @@ class RawDataEditorController(BaseController):
 
     """Raw Data 에디터 작업을 관리하는 컨트롤러 클래스."""
     
-    def __init__(self, task_manager=None):
-        super().__init__(task_manager)
+    def __init__(self):
+        super().__init__()
         
         # 내부 상태
         pass # drive_service removed
@@ -44,23 +45,18 @@ class RawDataEditorController(BaseController):
         self.text_file_name = None
 
     def log(self, message: str):
-        self.log_signal.emit(message)
+        GlobalLogger.info(message)
 
     def search_and_load(self, date_str: str, period_str: str):
         self.loading_started.emit()
         
-        # [BUG-FIX] task_manager가 None인 경우 AttributeError 방지
-        if not self.task_manager:
-            self.log("❌ 오류: TaskManager가 연결되지 않았습니다.")
-            self.loading_finished.emit()
-            return
+        from core.container import AppContainer
 
         worker = RawDataLoadWorker(date_str, period_str)
-        worker.log_signal.connect(self.log)
         worker.finished_signal.connect(self._on_load_finished)
         worker.error_signal.connect(self._on_load_error)
         
-        self.task_manager.add_task(worker)
+        AppContainer.get_instance().task_manager.add_task(worker)
 
     def _on_load_finished(self, result: dict):
         try:
@@ -133,11 +129,7 @@ class RawDataEditorController(BaseController):
             self.apply_finished.emit(False)
             return
         
-        # [BUG-FIX] task_manager가 None인 경우 AttributeError 방지
-        if not self.task_manager:
-            self.log("❌ 오류: TaskManager가 연결되지 않았습니다.")
-            self.apply_finished.emit(False)
-            return
+        from core.container import AppContainer
             
         self.log("🚀 전체 텍스트 조합 및 구글 드라이브 업로드 준비 중...")
         self.apply_started.emit()
@@ -150,7 +142,6 @@ class RawDataEditorController(BaseController):
             self.text_file_id, self.text_file_name, 
             self.text_file_parent_id
         )
-        worker.log_signal.connect(self.log)
         
         def _on_apply_success(res):
             if isinstance(res, str):
@@ -160,7 +151,7 @@ class RawDataEditorController(BaseController):
         worker.finished_signal.connect(_on_apply_success)
         worker.error_signal.connect(self._on_apply_error)
         
-        self.task_manager.add_task(worker)
+        AppContainer.get_instance().task_manager.add_task(worker)
 
     def _on_apply_error(self, error_msg: str):
         self.log(f"❌ 최종 반영 중 오류 발생: {error_msg}")

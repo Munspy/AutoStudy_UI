@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QHeaderView,
                              QLabel, QTableWidget, QTableWidgetItem,
                              QVBoxLayout, QWidget)
 
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (CardWidget, LoadingButton, StyledCheckBox,
                                      StyledDateEdit, StyledTableWidget)
@@ -129,20 +130,19 @@ class GeminiProcessingUi(BaseUI):
         badge_widgets (dict): API 키와 모델 조합에 따른 상태 뱃지 위젯 매핑.
     """
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         """GeminiProcessingUi 인스턴스를 초기화합니다.
         
         Args:
             task_manager (optional): 백그라운드 작업을 관리하는 태스크 매니저. 기본값은 None.
         """
-        super().__init__(task_manager=task_manager)
-        self.controller = GeminiProcessingController(task_manager=self.task_manager)
+        super().__init__()
+        self.controller = GeminiProcessingController()
         self.controller.ui = self
         self.controller.scan_completed.connect(self.handle_scan_result)
         self.controller.cell_update_signal.connect(self.update_task_cell)
         self.controller.error_signal.connect(self.handle_scan_error)
         self.controller.loading_signal.connect(self.handle_loading_state)
-        self.controller.log_signal.connect(self.emit_log)
 
         self.api_keys = [f"KEY_{i+1}" for i in range(len(Config.GEMINI_KEYS))]
         self.models = Config.GEMINI_MODELS
@@ -296,9 +296,9 @@ class GeminiProcessingUi(BaseUI):
     def scan_tasks(self):
         if self.force_rerun_cb.isChecked():
             target_date = self.date_picker.date().toString("yyyy-MM-dd")
-            self.emit_log(f"[강제 재실행 모드] {target_date} 기준으로 완료 여부와 무관하게 모든 파일을 조회합니다.")
+            GlobalLogger.info(f"[강제 재실행 모드] {target_date} 기준으로 완료 여부와 무관하게 모든 파일을 조회합니다.")
         else:
-            self.emit_log("작업 대기열을 스캔했습니다.")
+            GlobalLogger.info("작업 대기열을 스캔했습니다.")
             
         self.populate_real_data()
 
@@ -338,7 +338,7 @@ class GeminiProcessingUi(BaseUI):
     # [추후 활성화] 실제 데이터를 백엔드(func7)에 요청하고 테이블 갱신
     # ---------------------------------------------------------
     def populate_real_data(self):
-        self.emit_log("구글 드라이브에서 실제 데이터를 스캔하는 중입니다. 잠시만 기다려주세요...")
+        GlobalLogger.info("구글 드라이브에서 실제 데이터를 스캔하는 중입니다. 잠시만 기다려주세요...")
         self.scan_btn.start_loading("조회 중")
                 
         is_force_rerun = self.force_rerun_cb.isChecked()
@@ -354,13 +354,13 @@ class GeminiProcessingUi(BaseUI):
         
         if is_force_rerun:
             target_mmdd = self.date_picker.date().toString("MMdd")
-            self.emit_log(f"[{target_mmdd}] 일자 드라이브 데이터 스캔 완료! (총 {len(real_data)}건 조회됨)")
+            GlobalLogger.info(f"[{target_mmdd}] 일자 드라이브 데이터 스캔 완료! (총 {len(real_data)}건 조회됨)")
         else:
-            self.emit_log(f"미완료 드라이브 데이터 전체 스캔 완료! (총 {len(real_data)}건 조회됨)")
+            GlobalLogger.info(f"미완료 드라이브 데이터 전체 스캔 완료! (총 {len(real_data)}건 조회됨)")
 
     def handle_scan_error(self, title: str, err_msg: str):
         self.scan_btn.stop_loading()
-        self.emit_log(f"데이터 스캔 중 오류 발생 ({title}): {err_msg}")
+        GlobalLogger.info(f"데이터 스캔 중 오류 발생 ({title}): {err_msg}")
 
     def create_check_label(self, is_exist, color="#1890FF"):
         """체크박스 대신 표시할 라벨 생성"""
@@ -468,7 +468,7 @@ class GeminiProcessingUi(BaseUI):
                 if row_cb: row_cb.setChecked(is_checked)
 
     def execute_auto_run(self):
-        self.emit_log("선택된 작업을 시작합니다. (상태는 api_manager에 의해 제어됩니다)")
+        GlobalLogger.info("선택된 작업을 시작합니다. (상태는 api_manager에 의해 제어됩니다)")
         
         # 작업별 허용 모델 정의 (요약: 3-flash-preview 고정, 교정/Anki: 3.5 -> 3.6 -> 3.7 우선순위)
         allowed_models = Config.TASK_ALLOWED_MODELS
@@ -521,7 +521,7 @@ class GeminiProcessingUi(BaseUI):
             self.auto_run_btn.start_loading("작업 진행 중")
             self.controller.start_tasks(task_queue)
         else:
-            self.emit_log("실행할 작업이 선택되지 않았습니다.")
+            GlobalLogger.info("실행할 작업이 선택되지 않았습니다.")
 
     def handle_loading_state(self, is_loading):
         if not is_loading:
@@ -550,10 +550,10 @@ class GeminiProcessingUi(BaseUI):
                 layout.addWidget(lbl)
                 self.table.setCellWidget(row, col, container)
         else:
-            self.emit_log(f"[{row}행 {col}열] 작업 실패")
+            GlobalLogger.info(f"[{row}행 {col}열] 작업 실패")
 
     def emit_log(self, message):
-        self.log_signal.emit(message)
+        GlobalLogger.info(message)
         print(message)
 
 if __name__ == "__main__":

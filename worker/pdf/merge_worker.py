@@ -7,6 +7,7 @@ PDF 병합(Merge) 관련 워커 모듈입니다.
 `PdfMergeWorker` 클래스를 제공합니다. 구글 드라이브와 로컬 경로로
 병합된 PDF를 저장하는 기능과 연동됩니다.
 """
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 
 
@@ -31,7 +32,7 @@ class PdfMergeWorker(BaseWorker):
         Returns:
             str or None: 성공 시 결과 메시지. 실패 시 None.
         """
-        self.log_signal.emit("🚀 PDF 병합 작업을 백그라운드에서 시작합니다...")
+        GlobalLogger.info("🚀 PDF 병합 작업을 백그라운드에서 시작합니다...")
         
         # ===========================
         # [서비스 초기화 및 작업 데이터 설정]

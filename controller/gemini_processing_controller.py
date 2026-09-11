@@ -5,6 +5,7 @@ UI(Tab7GeminiProcessing)와 연동하여 LLM 스캔 및 단위 작업(Task) 워�
 """
 from PyQt6.QtCore import pyqtSignal
 
+from core.logger import GlobalLogger
 from base.base_controller import BaseController
 from worker.llm.llm_worker import LLMScanWorker, LLMTaskWorker
 
@@ -26,9 +27,9 @@ class GeminiProcessingController(BaseController):
     scan_completed = pyqtSignal(list, bool)
     cell_update_signal = pyqtSignal(int, int, str)
 
-    def __init__(self, task_manager=None):
+    def __init__(self):
         # BaseController의 초기화 로직 실행
-        super().__init__(task_manager)
+        super().__init__()
         # UI 관련 변수 초기화
         self.ui = None
 
@@ -59,10 +60,6 @@ class GeminiProcessingController(BaseController):
     # ===========================
     def start_tasks(self, task_queue: list):
         """전달받은 작업 목록을 base_name(수업 교시)별로 그룹화하여, 각 그룹을 병렬(멀티스레드)로 실행합니다."""
-        if not self.task_manager:
-            self.log_signal.emit("⚠️ TaskManager가 설정되지 않아 다중 작업을 실행할 수 없습니다.")
-            return
-
         # base_name 기준으로 작업 분류
         grouped_tasks: dict[str, list] = {}
         for task in task_queue:
@@ -79,5 +76,5 @@ class GeminiProcessingController(BaseController):
             workers.append(w)
             
         self.start_batch_workers(workers, channel="llm")
-        self.log_signal.emit(f"🚀 총 {len(workers)}개의 교시(병렬 파이프라인)를 백그라운드에서 동시 시작합니다...")
+        GlobalLogger.info(f"🚀 총 {len(workers)}개의 교시(병렬 파이프라인)를 백그라운드에서 동시 시작합니다...")
 

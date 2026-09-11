@@ -10,6 +10,7 @@ PDF 결합(Combine) 관련 워커 모듈입니다.
 import tempfile
 from pathlib import Path
 
+from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 from utils.auth_util import get_drive_service
 from utils.config import Config
@@ -37,7 +38,7 @@ class PdfMatchListWorker(BaseWorker):
         Returns:
             dict or None: 병합 가능한 PDF 파일 그룹 매칭 딕셔너리. 취소 시 None.
         """
-        self.log_signal.emit("🔍 지정된 폴더에서 병합할 PDF 파일 그룹을 탐색합니다...")
+        GlobalLogger.info("🔍 지정된 폴더에서 병합할 PDF 파일 그룹을 탐색합니다...")
         
         # ===========================
         # [PDF 탐색 작업 실행]
@@ -74,7 +75,7 @@ class PdfInspectionWorker(BaseWorker):
         Returns:
             list or None: 병합 매칭 데이터 리스트. 취소 시 None.
         """
-        self.log_signal.emit("🔎 선택한 PDF 파일들의 실제 페이지 수 및 상세 정보를 분석 중입니다...")
+        GlobalLogger.info("🔎 선택한 PDF 파일들의 실제 페이지 수 및 상세 정보를 분석 중입니다...")
         
         # ===========================
         # [PDF 검수 작업 실행]
@@ -120,7 +121,7 @@ class PdfCombineSaveWorker(BaseWorker):
         Returns:
             list or None: 생성된 파일명 목록. 취소 시 None.
         """
-        self.log_signal.emit("🚀 검수 완료된 레시피를 바탕으로 PDF 병합을 시작합니다...")
+        GlobalLogger.info("🚀 검수 완료된 레시피를 바탕으로 PDF 병합을 시작합니다...")
         
         # ===========================
         # [PDF 병합 및 저장 실행]
@@ -149,10 +150,10 @@ class PdfCombineSaveWorker(BaseWorker):
                         mime_type='application/pdf',
                         drive_service=drive_svc
                     )
-                    self.log_signal.emit(f"☁️ 드라이브 업로드 완료: {name}")
+                    GlobalLogger.info(f"☁️ 드라이브 업로드 완료: {name}")
         else:
             # 기존 로컬 저장 동작
             saved_files = service.execute_merge(self.base_data, self.folder_path)
 
-        self.log_signal.emit(f"✅ 성공적으로 {len(saved_files)}개의 파일을 병합 및 처리했습니다.")
+        GlobalLogger.info(f"✅ 성공적으로 {len(saved_files)}개의 파일을 병합 및 처리했습니다.")
         return saved_files

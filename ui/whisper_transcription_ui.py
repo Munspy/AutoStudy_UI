@@ -2,6 +2,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QHBoxLayout, QLabel, QListWidgetItem, QMessageBox,
                              QProgressBar, QVBoxLayout)
 
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (CardWidget, LoadingButton, StyledCheckBox,
                                      StyledListWidget)
@@ -11,9 +12,9 @@ from controller.whisper_transcription_controller import \
 
 class WhisperTranscriptionUi(BaseUI):
 
-    def __init__(self, task_manager=None):
-        super().__init__(task_manager=task_manager)
-        self.controller = WhisperTranscriptionController(task_manager=self.task_manager)
+    def __init__(self):
+        super().__init__()
+        self.controller = WhisperTranscriptionController()
         self.controller.ui = self
         
         # 컨트롤러 시그널 연결 (상행로 복구 및 비동기 콜백 연동)
@@ -21,7 +22,6 @@ class WhisperTranscriptionUi(BaseUI):
         self.controller.execution_completed.connect(self.on_transcription_finished)
         self.controller.progress_signal.connect(self.update_progress)
         self.controller.error_signal.connect(self.show_error)
-        self.controller.log_signal.connect(self.emit_log)
         self.controller.loading_signal.connect(self.set_loading_state)
         
         self.init_ui()
@@ -115,7 +115,7 @@ class WhisperTranscriptionUi(BaseUI):
     # ================= UI 및 로직 헬퍼 함수 =================
 
     def emit_log(self, message):
-        self.log_signal.emit(message)
+        GlobalLogger.info(message)
 
     def check_macmini_connection(self):
         # 실제 연결 체크 로직 백엔드 연결 필요
@@ -131,7 +131,7 @@ class WhisperTranscriptionUi(BaseUI):
         self.scan_btn.start_loading("조회 중")
         self.file_list.blockSignals(True)
         self.file_list.clear()
-        self.emit_log("드라이브 스캔: 전사가 필요한 음성 파일을 조회합니다...")
+        GlobalLogger.info("드라이브 스캔: 전사가 필요한 음성 파일을 조회합니다...")
         self.controller.scan_drive()
 
     def populate_list(self, incomplete_files):
@@ -144,7 +144,7 @@ class WhisperTranscriptionUi(BaseUI):
         self.file_list.blockSignals(False)
         self.update_select_all_ui()
         self.scan_btn.stop_loading()
-        self.emit_log(f"스캔 완료: 총 {len(incomplete_files)}개의 미전사 음성 파일이 발견되었습니다.")
+        GlobalLogger.info(f"스캔 완료: 총 {len(incomplete_files)}개의 미전사 음성 파일이 발견되었습니다.")
 
     def toggle_all_items(self):
         total = self.file_list.count()
@@ -199,7 +199,7 @@ class WhisperTranscriptionUi(BaseUI):
         self.progress_bar.setValue(0)
         
         file_names = [item.text() for item in selected_items]
-        self.emit_log(f"Mac Mini로 작업 전송: {len(file_names)}개 파일의 Whisper 전사를 요청합니다...")
+        GlobalLogger.info(f"Mac Mini로 작업 전송: {len(file_names)}개 파일의 Whisper 전사를 요청합니다...")
         
         self.controller.execute_whisper(file_names)
 
@@ -211,12 +211,12 @@ class WhisperTranscriptionUi(BaseUI):
         self.run_whisper_btn.stop_loading()
         self.scan_btn.setEnabled(True)
         self.progress_bar.setValue(100)
-        self.emit_log("🎉 Whisper 전사 작업이 완료되었습니다!")
+        GlobalLogger.info("🎉 Whisper 전사 작업이 완료되었습니다!")
         # 완료된 후 목록 재갱신
         self.scan_drive_for_audio()
 
     def show_error(self, title: str, message: str):
-        self.emit_log(f"오류 발생: {message}")
+        GlobalLogger.info(f"오류 발생: {message}")
         self.run_whisper_btn.stop_loading()
         if getattr(self.scan_btn, 'is_loading', False):
             self.scan_btn.stop_loading()

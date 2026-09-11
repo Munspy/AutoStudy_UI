@@ -1,13 +1,13 @@
 """이 모듈은 자동화 대시보드(Automation Dashboard)의 메인 엔트리 포인트입니다.
 
 전체 애플리케이션의 메인 윈도우를 정의하고, 여러 하위 UI 모듈들을 탭 형태로 
-통합하여 관리하는 역할을 수행합니다. 내부적으로 단일 `BaseTaskManager`를 
+통합하여 관리하는 역할을 수행합니다. 내부적으로 단일 `TaskManager`를 
 생성하여 모든 탭에서 작업을 공유할 수 있도록 합니다.
 
 Dependencies:
     - PyQt6 (GUI 프레임워크)
     - 각종 ui 모듈 (DriveSyncUi, CombineNotesUi 등)
-    - base.base_task_manager (작업 관리)
+    - core.task_manager (작업 관리)
 """
 import sys
 
@@ -16,7 +16,7 @@ from PyQt6.QtWidgets import (QApplication, QListWidget, QMainWindow,
                              QProgressBar, QSplitter, QStackedWidget,
                              QTextEdit, QVBoxLayout, QWidget)
 
-from base.base_task_manager import BaseTaskManager
+from core.container import AppContainer
 from core.logger import GlobalLogger
 
 # ---------------------------------------------------------
@@ -44,7 +44,7 @@ class AutomationDashboard(QMainWindow):
     로그와 진행률을 보여주는 패널이 존재합니다.
     
     Attributes:
-        global_task_manager (BaseTaskManager): 애플리케이션 전역에서 사용되는 비동기 작업 관리자.
+        global_task_manager (TaskManager): 애플리케이션 전역에서 사용되는 비동기 작업 관리자.
     """
     def __init__(self):
         """AutomationDashboard의 초기화를 수행합니다.
@@ -129,7 +129,7 @@ class AutomationDashboard(QMainWindow):
         # ===========================
         # [4. 글로벌 태스크 매니저 및 탭 초기화]
         # ===========================
-        self.global_task_manager = BaseTaskManager(max_concurrent_tasks=5, llm_max_tasks=5) # C-확장 모듈(PyMuPDF/OpenSSL) 및 LLM 최적 병렬 수
+        self.global_task_manager = AppContainer.get_instance().task_manager # C-확장 모듈(PyMuPDF/OpenSSL) 및 LLM 최적 병렬 수
         self.global_task_manager.queue_progress_signal.connect(self.update_global_progress)
         self.global_task_manager.queue_finished_signal.connect(self.on_queue_finished)
         
@@ -168,48 +168,39 @@ class AutomationDashboard(QMainWindow):
         log_msg 슬롯과 연결합니다. 앱 초기화 시 전체 UI 구성을 완료하기 위해 호출됩니다.
         """
         # 탭 1: 드라이브 동기화 및 요약
-        self.tab1 = DriveSyncUi(self.global_task_manager)
-        self.tab1.log_signal.connect(self.log_msg)
+        self.tab1 = DriveSyncUi()
         self.stacked_widget.addWidget(self.tab1)
         
         # 탭 2: 줄필기 → 야붙필기 변환기
-        self.tab2 = CombineNotesUi(self.global_task_manager)
-        self.tab2.log_signal.connect(self.log_msg)
+        self.tab2 = CombineNotesUi()
         self.stacked_widget.addWidget(self.tab2)
         
         # 탭 3: PDF Merge
-        self.tab3 = PdfMergeUi(self.global_task_manager)
-        self.tab3.log_signal.connect(self.log_msg)
+        self.tab3 = PdfMergeUi()
         self.stacked_widget.addWidget(self.tab3)
         
         # 탭 4: PDF Split
-        self.tab4 = PdfSplitUi(self.global_task_manager)
-        self.tab4.log_signal.connect(self.log_msg)
+        self.tab4 = PdfSplitUi()
         self.stacked_widget.addWidget(self.tab4)
 
         # 탭 5: 전사문 Merge/Split
-        self.tab5 = TranscriptMergeSplitUi(self.global_task_manager)
-        self.tab5.log_signal.connect(self.log_msg)
+        self.tab5 = TranscriptMergeSplitUi()
         self.stacked_widget.addWidget(self.tab5)
 
         # 탭 6: Whisper 기반 음성 전사
-        self.tab6 = WhisperTranscriptionUi(self.global_task_manager)
-        self.tab6.log_signal.connect(self.log_msg)
+        self.tab6 = WhisperTranscriptionUi()
         self.stacked_widget.addWidget(self.tab6)
 
         # 탭 7: Gemini 기반 교정/요약/Anki
-        self.tab7 = GeminiProcessingUi(self.global_task_manager)
-        self.tab7.log_signal.connect(self.log_msg)
+        self.tab7 = GeminiProcessingUi()
         self.stacked_widget.addWidget(self.tab7)
         
         # 탭 8: Youtube 재생목록 관리
-        self.tab8 = YoutubePlaylistUi(self.global_task_manager)
-        self.tab8.log_signal.connect(self.log_msg)
+        self.tab8 = YoutubePlaylistUi()
         self.stacked_widget.addWidget(self.tab8)
 
         # 탭 9: Raw data 직접수정
-        self.tab9 = RawDataEditorUi(self.global_task_manager)
-        self.tab9.log_signal.connect(self.log_msg)
+        self.tab9 = RawDataEditorUi()
         self.stacked_widget.addWidget(self.tab9)
 
 

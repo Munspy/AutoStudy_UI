@@ -21,6 +21,7 @@ from PyQt6.QtWidgets import (QApplication, QDialog, QFileDialog,
                              QVBoxLayout, QWidget)
 
 import utils.pdf_data_util as pdf_data_util
+from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, PreviewScrollArea,
                                      StyledButton, StyledCheckBox,
@@ -250,16 +251,15 @@ class FullScreenEditDialog(QDialog):
 # 기존 메인 탭 UI 개편
 # ==========================================
 class CombineNotesUi(BaseUI):  
-    def __init__(self, task_manager=None):
-        super().__init__(task_manager=task_manager)
-        self.controller = CombineNotesController(task_manager=self.task_manager)
+    def __init__(self):
+        super().__init__()
+        self.controller = CombineNotesController()
         self.controller.ui = self
         
         # 컨트롤러의 비동기 시그널 연결 (레이스 컨디션 해결 및 상행로 연동)
         self.controller.match_list_completed.connect(self.on_matched_groups_ready)
         self.controller.inspection_completed.connect(self.on_inspection_ready)
         self.controller.merge_completed.connect(self.on_merge_ready)
-        self.controller.log_signal.connect(self.emit_log)
         self.controller.error_signal.connect(self.show_error)
         self.controller.loading_signal.connect(self.set_loading_state)
         
@@ -550,8 +550,8 @@ class CombineNotesUi(BaseUI):
                         os.remove(path)
                         deleted += 1
                 except Exception as e:
-                    self.emit_log(f"파일 삭제 실패: {path} — {e}")
-            self.emit_log(f"원본 파일 {deleted}개 삭제 완료.")
+                    GlobalLogger.info(f"파일 삭제 실패: {path} — {e}")
+            GlobalLogger.info(f"원본 파일 {deleted}개 삭제 완료.")
             self.refresh_file_list(self.folder_input.text())
 
     def open_fullscreen_editor(self):
