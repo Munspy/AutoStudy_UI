@@ -5,24 +5,22 @@ from PyQt6.QtWidgets import (QHBoxLayout, QLabel, QListWidgetItem, QMessageBox,
 from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (CardWidget, LoadingButton, StyledCheckBox,
-                                     StyledListWidget)
-from controller.whisper_transcription_controller import \
-    WhisperTranscriptionController
+                                     StyledListWidget, HeaderLabel)
+from viewmodel.whisper_transcription_viewmodel import WhisperTranscriptionViewModel
+    
 
 
 class WhisperTranscriptionUi(BaseUI):
 
-    def __init__(self):
-        super().__init__()
-        self.controller = WhisperTranscriptionController()
-        self.controller.ui = self
-        
+    def __init__(self, parent=None):
+        super().__init__(app_name="WhisperTranscription", parent=parent)
+        self.viewmodel = WhisperTranscriptionViewModel()
+                
         # 컨트롤러 시그널 연결 (상행로 복구 및 비동기 콜백 연동)
-        self.controller.scan_completed.connect(self.populate_list)
-        self.controller.execution_completed.connect(self.on_transcription_finished)
-        self.controller.progress_signal.connect(self.update_progress)
-        self.controller.error_signal.connect(self.show_error)
-        self.controller.loading_signal.connect(self.set_loading_state)
+        self.viewmodel.scan_completed.connect(self.populate_list)
+        self.viewmodel.execution_completed.connect(self.on_transcription_finished)
+        self.viewmodel.progress_changed.connect(self.update_progress)
+        self.viewmodel.error_occurred.connect(self.show_error)
         
         self.init_ui()
         self.check_macmini_connection()
@@ -36,16 +34,20 @@ class WhisperTranscriptionUi(BaseUI):
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
         
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(28, 28, 28, 28)
+        self.main_layout.setSpacing(20)
         
+        self.init_top_panel()
+        self.init_file_selection_area()
+        self.init_bottom_panel()
+
+    def init_top_panel(self):
         # ===========================
         # [상단 헤더 구성]
         # ===========================
-        header_label = QLabel("🎙️ Whisper AI 음성 전사 (Mac Mini 연동)")
-        header_label.setStyleSheet("font-size: 24px; font-weight: 800; color: #111111; padding: 5px 0px 10px 0px;")
-        layout.addWidget(header_label)
+        header_label = HeaderLabel("🎙️ Whisper AI 음성 전사 (Mac Mini 연동)")
+        self.main_layout.addWidget(header_label)
 
         # ===========================
         # [상단 컨트롤 박스 (상태 및 조회)]
@@ -68,8 +70,9 @@ class WhisperTranscriptionUi(BaseUI):
         self.scan_btn.clicked.connect(self.scan_drive_for_audio)
         control_layout.addWidget(self.scan_btn)
         
-        layout.addWidget(control_frame)
+        self.main_layout.addWidget(control_frame)
 
+    def init_file_selection_area(self):
         # ===========================
         # [중앙부 미완료 리스트업]
         # ===========================
@@ -81,13 +84,13 @@ class WhisperTranscriptionUi(BaseUI):
         self.select_all_cb.clicked.connect(self.toggle_all_items)
         mid_bar_layout.addWidget(self.select_all_cb)
         mid_bar_layout.addStretch()
-        layout.addLayout(mid_bar_layout)
+        self.main_layout.addLayout(mid_bar_layout)
         
         # 리스트 (오직 파일 이름으로 리스트업)
         self.file_list = StyledListWidget()
         self.file_list.setAlternatingRowColors(True)
         self.file_list.itemChanged.connect(self.update_select_all_ui)
-        layout.addWidget(self.file_list, stretch=1)
+        self.main_layout.addWidget(self.file_list, stretch=1)
 
         # 진행 상태 바 (다운로드 및 전사 진행사항 확인용)
         self.progress_bar = QProgressBar()
@@ -97,8 +100,9 @@ class WhisperTranscriptionUi(BaseUI):
         """)
         self.progress_bar.setValue(0)
         self.progress_bar.hide()
-        layout.addWidget(self.progress_bar)
+        self.main_layout.addWidget(self.progress_bar)
 
+    def init_bottom_panel(self):
         # ===========================
         # [하단 실행 버튼]
         # ===========================
@@ -110,7 +114,14 @@ class WhisperTranscriptionUi(BaseUI):
         self.run_whisper_btn.clicked.connect(self.execute_transcription)
         bottom_layout.addWidget(self.run_whisper_btn)
         
-        layout.addLayout(bottom_layout)
+        self.main_layout.addLayout(bottom_layout)
+
+        # ===========================
+        # [MVVM 선언형 바인딩 적용]
+        # ===========================
+        self.bind_loading_button(self.run_whisper_btn, self.viewmodel, 'is_loading', '전사 중')
+        self.bind_loading_button(self.scan_btn, self.viewmodel, 'is_loading', '스캔 중')
+        self.bind_enabled(self.file_list, self.viewmodel, 'is_loading', invert=True)
 
     # ================= UI 및 로직 헬퍼 함수 =================
 
@@ -132,9 +143,10 @@ class WhisperTranscriptionUi(BaseUI):
         self.file_list.blockSignals(True)
         self.file_list.clear()
         GlobalLogger.info("드라이브 스캔: 전사가 필요한 음성 파일을 조회합니다...")
-        self.controller.scan_drive()
+        self.viewmodel.scan_drive()
 
-    def populate_list(self, incomplete_files):
+    def populate_list(self):
+        incomplete_files = self.viewmodel.incomplete_files
         for file_name in incomplete_files:
             item = QListWidgetItem(file_name)
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
@@ -201,7 +213,7 @@ class WhisperTranscriptionUi(BaseUI):
         file_names = [item.text() for item in selected_items]
         GlobalLogger.info(f"Mac Mini로 작업 전송: {len(file_names)}개 파일의 Whisper 전사를 요청합니다...")
         
-        self.controller.execute_whisper(file_names)
+        self.viewmodel.execute_whisper(file_names)
 
     def update_progress(self, progress, message=""):
         self.progress_bar.setValue(progress)

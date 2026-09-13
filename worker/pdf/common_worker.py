@@ -1,11 +1,7 @@
 import os
 
-from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
-from core.container import AppContainer
-from utils.auth_util import get_drive_service
-from utils.config import Config
-from utils.drive_api import get_all_drive_files
+from core.config import Config
 from utils.file_util import list_local_files
 
 
@@ -54,14 +50,13 @@ class PdfFileListWorker(BaseWorker):
             for f in sorted(files):
                 item_text = f"📄 {f}"
                 file_paths[item_text] = os.path.join(self.target_dir, f)
-            GlobalLogger.info(f"✅ 로컬 폴더에서 {len(files)}개의 PDF를 불러왔습니다.")
+            self._log(f"✅ 로컬 폴더에서 {len(files)}개의 PDF를 불러왔습니다.")
             
         # ===========================
         # [구글 드라이브 파일 목록 조회]
         # ===========================
         else:
-            GlobalLogger.info("🔄 구글 드라이브에서 조건에 맞는 PDF 파일을 조회 중입니다...")
-            drive_service = get_drive_service()
+            self._log("🔄 구글 드라이브에서 조건에 맞는 PDF 파일을 조회 중입니다...")
             try:
                 folder_id = Config.TARGET_DRIVE_DIR
             except ValueError:
@@ -69,18 +64,17 @@ class PdfFileListWorker(BaseWorker):
                 return file_paths
 
             # 전체 드라이브 파일 가져오기 및 PDF 필터링
-            files = get_all_drive_files(folder_id, drive_service=drive_service)
+            files = self.app.drive_client.get_all_drive_files(folder_id)
             pdf_files = [f for f in files if f.get('name', '').lower().endswith('.pdf')]
 
             # 명명 규칙 서비스로 날짜 범위에 맞게 필터링
-            naming_service = AppContainer.get_instance().file_naming
-            filtered_pdfs = naming_service.filter_files_by_date_range(pdf_files, self.start_str, self.end_str)
+            filtered_pdfs = self.app.file_naming.filter_files_by_date_range(pdf_files, self.start_str, self.end_str)
 
             # 파일 ID 매핑 생성
             for f in sorted(filtered_pdfs, key=lambda x: x['name']):
                 item_text = f"☁️ {f['name']}"
                 file_paths[item_text] = f['id']
 
-            GlobalLogger.info(f"✅ 구글 드라이브에서 {len(filtered_pdfs)}개의 PDF를 불러왔습니다.")
+            self._log(f"✅ 구글 드라이브에서 {len(filtered_pdfs)}개의 PDF를 불러왔습니다.")
         
         return file_paths

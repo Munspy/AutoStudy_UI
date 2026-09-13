@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 """LLM(대규모 언어 모델) 작업 오케스트레이션 및 프롬프트 관리 서비스 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
@@ -14,11 +16,10 @@ import uuid
 from typing import Callable, Dict, Optional
 
 from base.base_service import BaseService
-from service.api_key_tracker import api_mgr
-from utils.config import Config
-from utils.prompts import PROMPT_TRANSCRIPT_CORRECTION, PROMPT_ANKI_GENERATION, PROMPT_SUMMARY_GENERATION
+from core.config import Config
+from core.prompts import PROMPT_TRANSCRIPT_CORRECTION, PROMPT_ANKI_GENERATION, PROMPT_SUMMARY_GENERATION
 # 순수 통신을 담당하는 유틸리티 임포트
-from utils.llm_client import GeminiAPIError, call_gemini_api
+from core.exceptions import GeminiAPIError
 
 
 class LlmService(BaseService):
@@ -30,19 +31,14 @@ class LlmService(BaseService):
 
     의존성:
     - API 키 동시성 제어 및 쿨타임 관리를 위해 `api_mgr(APIManager)`와 통신합니다[cite: 1].
-    - 순수 API 네트워크 통신을 위해 `utils.llm_client.call_gemini_api`를 호출합니다.
+    - 순수 API 네트워크 통신을 위해 `infrastructure.llm_client.GeminiLlmClient`를 호출합니다.
     """
     def __init__(self) -> None:
-        """LlmService 인스턴스를 초기화합니다.
-
-        Args:            logger_callback (Optional[Callable[[str], None]], optional): 비동기 Worker 환경에서 
-                발생하는 상태 로그를 메인 UI 스레드로 안전하게 전달하기 위한 콜백 함수. Defaults to None.
-        """
+        """LlmService 인스턴스를 초기화합니다."""
         # ===========================
         # [메인 비즈니스 로직]
         # ===========================
         # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        # BaseService 초기화 시 콜백을 등록하여 내부에서 self._log()로 일괄 처리
         super().__init__()
         self.active_processes: Dict[str, str] = {}
         self.process_lock = threading.Lock()
@@ -116,7 +112,7 @@ class LlmService(BaseService):
         
         while True:
             try:
-                key_id, api_key, chosen_model = api_mgr.get_available_key(model_name, cancel_checker=cancel_checker)
+                key_id, api_key, chosen_model = self.app.api_mgr.get_available_key(model_name, cancel_checker=cancel_checker)
             except TimeoutError:
                 self._log(f"❌ [AI 팀 - {task_id}] {task_title}: 더 이상 사용 가능한 API Key가 없습니다.")
                 self._update_process_status(task_id, task_name, "ERROR")
@@ -133,11 +129,11 @@ class LlmService(BaseService):
                 if on_start_callback:
                     on_start_callback(key_id, chosen_model)
                 
-                result_text = call_gemini_api(
-                    api_key, 
-                    chosen_model, 
-                    system_instruction, 
-                    user_prompt, 
+                result_text = self.app.llm_client.call_api(
+                    api_key=api_key, 
+                    model_name=chosen_model, 
+                    system_instruction=system_instruction, 
+                    user_prompt=user_prompt, 
                     temperature=0.1, 
                     thinking_level=thinking_level
                 )
@@ -156,7 +152,7 @@ class LlmService(BaseService):
                 error_code = "unknown"
                 self._log(f"⚠️ [AI 팀 - {task_id}] '{key_id}' ({chosen_model}) 예외: {str(e)}. 다른 Key/모델로 재시도합니다...")
             finally:
-                api_mgr.end_task(key_id, chosen_model, error_code)
+                self.app.api_mgr.end_task(key_id, chosen_model, error_code)
 
     # ==========================================
     # 1. 교정본 생성 (준비물: 음성 스크립트 + 강의록)

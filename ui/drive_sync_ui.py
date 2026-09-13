@@ -9,324 +9,227 @@ Classes:
     DriveSyncUi: 동기화 상태 테이블과 제어 버튼을 포함하는 메인 탭 UI 클래스.
 """
 import os
+from core.logger import GlobalLogger
+
 
 from PyQt6.QtCore import QDate, Qt
 from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QHBoxLayout,
                              QHeaderView, QLabel, QPushButton, QTableWidget,
                              QTableWidgetItem, QVBoxLayout, QWidget)
 
-from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StatusBadge,
                                      StyledButton, StyledCheckBox,
                                      StyledComboBox, StyledDateEdit,
-                                     StyledTableWidget)
-from controller.drive_sync_controller import \
-    DriveSyncController  # 👈 이제 Thread가 아닌 Func만 바라봄
+                                     StyledTableWidget, HeaderLabel)
+from viewmodel.drive_sync_viewmodel import DriveSyncViewModel
+
 
 
 class DriveSyncUi(BaseUI):
     """로컬과 구글 드라이브의 동기화 상태를 모니터링하고 제어하는 메인 화면 클래스.
     
     데이터 파이프라인의 상태(필기, 음성 스크립트, 요약본 등)를 테이블로 표시하고,
-    DriveSyncController와 협력하여 백그라운드 동기화 및 파일 다운로드 작업을 수행합니다.
+    DriveSyncViewModel와 협력하여 백그라운드 동기화 및 파일 다운로드 작업을 수행합니다.
     
     Attributes:
         local_download_path (str): 로컬 검색의 기준이 되는 다운로드 폴더 경로.
-        controller (DriveSyncController): 동기화 작업을 처리할 컨트롤러 인스턴스.
+        viewmodel (DriveSyncViewModel): 동기화 작업을 처리할 컨트롤러 인스턴스.
     """
-    def __init__(self):             # 처음 생성될 때의 초기값. UI다 보니 따로 변수를 받지는 않음
-        """DriveSyncUi 인스턴스를 초기화합니다.
+    def __init__(self, parent=None):
+        super().__init__(app_name="DriveSync", parent=parent)        
         
-        Args:
-            task_manager (optional): 백그라운드 작업을 관리하는 태스크 매니저. 기본값은 None.
-        """
-        super().__init__()        
         default_path = os.path.expanduser("~/Downloads")
-            # 로컬 검색의 기본값은 Downloads 폴더, 윈도우에서는 카카오톡 폴더를 주로 쓸 것으로 보임
         self.local_download_path = self.load_setting("local_download_path", default_path)
-            # QSettings을 뒤져서 local_download_path가 있으면 그걸 반환하고
-            # 아니면 default_path를 사용 (BaseUI 메서드 활용)
         
-        # 👈 UI를 위한 컨트롤러 생성 및 시그널 연결
-        self.controller = DriveSyncController()
-        self.controller.sync_completed.connect(self.update_table)
-        self.controller.error_signal.connect(self.show_error)
-        self.controller.sync_finished.connect(self.reset_search_btn)
-        self.controller.categories_loaded.connect(self.populate_exam_categories)
+        self.viewmodel = DriveSyncViewModel()
         
-        self.init_ui()      # __init__가 자동 실행되고 이어서 실행되는 기본 UI
-
-    def init_ui(self):
-        # ===========================
-        # [기본 UI 스타일 설정]
-        # ===========================
-        # QWidget, QLabel, QCheckBox 등에 사용할 기본 색상 및 속성 지정
+        # 1. 변경된 알람(Trigger) 시그널 연결 (파라미터 없음)
+        self.viewmodel.sync_data_changed.connect(self.update_table)
+        self.viewmodel.categories_changed.connect(self.populate_exam_categories)
+        self.viewmodel.error_occurred.connect(self.show_error)
+        
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setStyleSheet("""
-            DriveSyncUi {
-                background-color: #FFFFFF;
-            }
-            QWidget {
-                
-                color: #37352f;
-            }
-            QLabel, QCheckBox {
-                background-color: transparent;
-                border: none;
-            }
+            DriveSyncUi { background-color: #FFFFFF; }
+            QWidget { color: #37352f; }
+            QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
 
         # ===========================
-        # [전체 레이아웃 및 헤더 구성]
+        # [메인 레이아웃 설정]
         # ===========================
-        # 메인 수직 레이아웃 설정 (여백 및 간격)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(28, 28, 28, 28)
+        self.main_layout.setSpacing(20)
 
-        # 제목 레이아웃 추가
-        header_label = QLabel("📚 강의 데이터 파이프라인 상태")
-        header_label.setStyleSheet("""
-            font-size: 24px; font-weight: 800; color: #111111; 
-            padding: 5px 0px 10px 0px; 
-            background: transparent; border: none;
-        """)
-        layout.addWidget(header_label)
+        self.init_top_panel()
+        self.init_action_bar()
+        self.init_table_area()
+        self.init_bottom_panel()
+        
+        self.refresh_exam_categories()
 
-        # ===========================
-        # [상단 필터 영역 (컨트롤 프레임)]
-        # ===========================
-        # 배경이 있는 카드 형태의 위젯으로 필터 영역 구성
+    def init_top_panel(self):
+        """상단 헤더 및 시험/날짜 필터, 로컬 폴더 설정 프레임을 조립합니다."""
+        header_label = HeaderLabel("📚 강의 데이터 파이프라인 상태")
+        self.main_layout.addWidget(header_label)
+
         control_frame = CardWidget()
-
-        # 프레임 위에는 수평 레이아웃(QHBoxLayout)을 배치하여 요소들을 좌에서 우로 정렬
-            # 약간의 마진과 구조물들 사이 간격도 설정
         control_layout = QHBoxLayout(control_frame)
         control_layout.setContentsMargins(20, 16, 20, 16)
         control_layout.setSpacing(15)
 
-        # 1. 첫번째 구조물: "시험 기준:""
+        # 1. 시험 기준 필터
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(QLabel("시험 기준:"))
 
-        # 2. 두번째 구조물: 선택지가 있는 리본박스
         self.exam_combo = StyledComboBox()
         self.exam_combo.addItem("사용 안함", None)
         filter_layout.addWidget(self.exam_combo)
 
-        # 시험 기준 새로고침 버튼
         self.btn_refresh_exam = QPushButton("🔄")
         self.btn_refresh_exam.setCursor(Qt.CursorShape.PointingHandCursor)
         self.btn_refresh_exam.setToolTip("시험 기준 폴더 새로고침")
         self.btn_refresh_exam.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                border-radius: 6px; padding: 6px 8px; color: #555555; font-weight: bold;
-            }
-            QPushButton:hover {
-                background-color: #F7F7F5; border-color: #BCBCB8;
-            }
+            QPushButton { background-color: #FFFFFF; border: 1px solid #D1D1CE; border-radius: 6px; padding: 6px 8px; color: #555555; font-weight: bold; }
+            QPushButton:hover { background-color: #F7F7F5; border-color: #BCBCB8; }
         """)
         self.btn_refresh_exam.clicked.connect(lambda: self.refresh_exam_categories(force_refresh=True))
         filter_layout.addWidget(self.btn_refresh_exam)
 
-        # 다음 구조물 전의 Seperator
         separator = QLabel("  |  ")
-        separator.setStyleSheet("color: " + COLORS["border_input"] + "; font-weight: normal; font-size: 16px;")
+        separator.setStyleSheet(f"color: {COLORS['border_input']}; font-weight: normal; font-size: 16px;")
         filter_layout.addWidget(separator)
 
-        # 3. 세번째 구조물: "날짜 범위:"
+        # 2. 날짜 범위 필터
         self.date_label = QLabel("날짜 범위:")
         filter_layout.addWidget(self.date_label)
 
-        # 4. 네번째 구조물: 날짜 범위 시작 ~ 날짜 범위 끝
-        today = QDate.currentDate()     # 기본값: 오늘
-
-        # 기본값으로 오늘 날짜를 사용
+        today = QDate.currentDate()
         self.start_date = StyledDateEdit()
         self.start_date.setDate(today)
         self.start_date.setDisplayFormat("MM-dd")
         self.start_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.start_date.setCalendarPopup(True)
 
-        # 기본값으로 오늘 날짜를 사용
         self.end_date = StyledDateEdit()
         self.end_date.setDate(today)
         self.end_date.setDisplayFormat("MM-dd")
         self.end_date.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.NoButtons)
         self.end_date.setCalendarPopup(True)
 
-        # 날짜 시작 ~ 날짜 끝
-        # ex. 08-26 ~ 08-26
         filter_layout.addWidget(self.start_date)
         filter_layout.addWidget(QLabel("~"))
         filter_layout.addWidget(self.end_date)
         
-        # 사용자가 '시험 기준' 드롭다운 목록에서 다른 항목을 선택하여 글자가 바뀌는 순간 발생하는 이벤트
-            # self.exam_combo.currentTextChanged
-        # 이벤트가 트리거하는 toggle_date_inputs
-            # .connect(self.toggle_date_inputs)
-                # toggle_date_inputs():
-                # 현재 어떤 과목으로 설정되어 있는지 확인하고 날짜 선택을 활성화/비활성화 결정
-        # 즉 과목을 바꿀 때마다 날짜 선택 허용/제한 토글하는 함수
         self.exam_combo.currentTextChanged.connect(self.toggle_date_inputs)
-        
-        # filter_layout에 차곡차곡 옆으로 쌓아놓은 구조물들을 control_layout에 통채로 오른쪽 정렬로 넣기
         control_layout.addLayout(filter_layout)
-
-        # 가변 여백(스프링) 추가
         control_layout.addStretch()
 
-        # 가변 여백 후 오른쪽으로 정렬된 버튼
+        # 3. 로컬 폴더 설정 버튼
         self.btn_set_folder = QPushButton("📂 LOCAL")
-
-        # 버튼에 커서가 올라가면 모양이 바뀜
         self.btn_set_folder.setCursor(Qt.CursorShape.PointingHandCursor)
-
-        # 버튼의 기본 스타일 + hover 상태(커서가 올라간)에서 색상이 바뀜
         self.btn_set_folder.setStyleSheet("""
-            QPushButton {
-                background-color: #FFFFFF; border: 1px solid #D1D1CE; 
-                border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold;
-            }
+            QPushButton { background-color: #FFFFFF; border: 1px solid #D1D1CE; border-radius: 6px; padding: 6px 12px; color: #555555; font-weight: bold; }
             QPushButton:hover { background-color: #F8F9FA; }
         """)
-
-        # 버튼이 눌리면 set_local_folder가 실행됨
-            # set_local_folder: 로컬 path를 업데이트 하는 코드
-            # 현재 사용하고 있는 'local_download_path' + 'setting의 local_download_path'를 업데이트
         self.btn_set_folder.clicked.connect(self.set_local_folder)
-
-        # 이것저것 설정이 끝난 "btn_set_folder"을 마지막으로 붙이기
         control_layout.addWidget(self.btn_set_folder)
 
-        # control_frame 위에 존재하던 control_layout 설정이 완료됐으니 통채로 슛~~
-        layout.addWidget(control_frame)
-        
-        # --- 중간 액션바 ---
-            # 1. 전체 선택/해제
-            # 2. 데이터 동기화 및 조회
-        
-        # 비슷한 느낌으로 일단 박스 만들고 테두리 살짝 비워주기
+        self.main_layout.addWidget(control_frame)
+
+    def init_action_bar(self):
+        """전체 선택 체크박스와 데이터 조회 버튼 영역을 조립합니다."""
         mid_bar_layout = QHBoxLayout()
         mid_bar_layout.setContentsMargins(5, 5, 5, 5)
 
-        # 1. 전체 선택
         self.select_all_cb = StyledCheckBox("전체 선택")
-        # 클릭되면 '알아서 잘' 전체선택/해제 : toggle_all_rows_smart
         self.select_all_cb.clicked.connect(self.toggle_all_rows_smart)
-
-        # @@@ 1. 전체 선택 / 해제 배치 @@@
         mid_bar_layout.addWidget(self.select_all_cb)
 
-        # @@@ 1과 2 사이의 빈 공간을 채울 가변 박스 배치 @@@
         mid_bar_layout.addStretch()
 
-        # 2. 데이터 동기화 및 조회
         self.search_btn = LoadingButton(" 데이터 동기화 및 조회", "primary")
-        self.search_btn.setCursor(Qt.CursorShape.PointingHandCursor)    # 갖다대면 커서 모양이 바뀜
-        # 기본 양식 + 커서 갖다댔을 때 색상 + 눌렸을 때 대기중인 색상 설정
+        self.search_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.search_btn.setStyleSheet("""
-            QPushButton {
-                background-color: #2383E2; border: none; 
-                border-radius: 8px; padding: 12px 28px; color: white; font-weight: bold; font-size: 15px;
-            }
+            QPushButton { background-color: #2383E2; border: none; border-radius: 8px; padding: 12px 28px; color: white; font-weight: bold; font-size: 15px; }
             QPushButton:hover { background-color: #1A6FB0; }
             QPushButton:disabled { background-color: #A5C9F3; }
         """)
-       
-        # 누르면 execute_search_log 실행 (이제 Func를 부름)
         self.search_btn.clicked.connect(self.execute_search_log)
-
-        # @@@ 2. 데이터 동기화 및 조회 배치 @@@
         mid_bar_layout.addWidget(self.search_btn)
 
-        # 차곡차곡 쌓은 두 액션담당 버튼들을 가운데에 배치!
-        layout.addLayout(mid_bar_layout)
+        self.main_layout.addLayout(mid_bar_layout)
 
-        # --- 테이블 영역 ---
-
-        # 초기 행(Row)은 0개, 열(Column)은 10개인 표 틀 만들기
+    def init_table_area(self):
+        """메인 데이터가 표시되는 테이블 영역을 조립합니다."""
         self.table = StyledTableWidget(0, 10)
-
-        # 각 열의 상단 제목 일괄 등록
         self.table.setHorizontalHeaderLabels([
             "", "수업 교시", "교수", "강의명", "필기", "음성 스크립트", 
             "최종교정본", "요약본", "Anki", "스크립트 합본"
         ])
 
-        # 원래 있는 기능으로 'alternate-background-color' 설정해놨으니 알아서 잘해줌 bb
         self.table.setAlternatingRowColors(True)
-
-        # 대충 가로 사이즈들 지정, '강의명'은 남는 거 채우는 식이라 지정 안되어 있음!
         self.table.setColumnWidth(0, 30)
         self.table.setColumnWidth(1, 80)
         self.table.setColumnWidth(2, 60)
         self.table.setColumnWidth(4, 80)
         self.table.setColumnWidth(5, 180)
-        for i in range(6, 10): self.table.setColumnWidth(i, 90)
+        for i in range(6, 10): 
+            self.table.setColumnWidth(i, 90)
 
-        # 기타 설정들...
-        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)   # '강의명'이 가변적으로 늘어남
-        self.table.verticalHeader().setVisible(False)                                           # 행 번호 (1,2,3...) 숨김
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)                     # 눌러도 수정 안됨
-        self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)                     # 눌러도 선택 안됨(드래그)
-        self.table.setShowGrid(False)                                                           # 선 숨김
-        self.table.setSortingEnabled(True)                                                      # 헤더 선택 시 정렬 가능
-        self.table.horizontalHeader().sectionClicked.connect(self.on_header_clicked)            # 단, on_header_clicked을 통해 0번 열은 통제
-        self.table.sortByColumn(1, Qt.SortOrder.AscendingOrder)                                 # 기본적으로는 날짜_교시 로 정렬
-
-        # 체크박스가 변하면 자동으로 '전체선택'의 모습이 업데이트
-        # self.update_select_all_ui() => '전체선택'의 모습이 업데이트
+        self.table.horizontalHeader().setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        self.table.verticalHeader().setVisible(False)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSelectionMode(QTableWidget.SelectionMode.NoSelection)
+        self.table.setShowGrid(False)
+        self.table.setSortingEnabled(True)
+        self.table.horizontalHeader().sectionClicked.connect(self.on_header_clicked)
+        self.table.sortByColumn(1, Qt.SortOrder.AscendingOrder)
         self.table.itemChanged.connect(self.check_individual_row_state)
 
-        # @@@ 이제 표도 넣었고 마지막으로 ㄱㄱ
-        layout.addWidget(self.table)
+        self.main_layout.addWidget(self.table)
         
-        # --- 하단 액션 버튼 ---
+    def init_bottom_panel(self):
+        """하단 누락 작업 실행 및 다운로드 액션 버튼 영역을 조립합니다."""
         actions_layout = QHBoxLayout()
         actions_layout.setSpacing(12)
         actions_layout.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
-        # 큰 버튼들 모양 지정
-        
         btn_run_local = StyledButton("누락 로컬 작업 실행", "save")
-        
-        
-        btn_run_local.clicked.connect(self.controller.execute_local_tasks)
+        btn_run_local.clicked.connect(self.viewmodel.execute_local_tasks)
         actions_layout.addWidget(btn_run_local)
 
         btn_run_whisper = StyledButton("🎙️ Whisper AI 전사", "whisper")
-        
-        
-        btn_run_whisper.clicked.connect(self.controller.execute_whisper_transcription)
+        btn_run_whisper.clicked.connect(self.viewmodel.execute_whisper_transcription)
         actions_layout.addWidget(btn_run_whisper)
 
         btn_dl_script = StyledButton("💾 스크립트 합본 다운로드", "important")
-        
-        
         btn_dl_script.clicked.connect(self.download_script_merged)
         actions_layout.addWidget(btn_dl_script)
         
         actions_layout.addStretch() 
 
-        # 작은 버튼들 모양 지정
         btn_dl_summary = StyledButton("📝 요약본 다운로드", "trivia")
         btn_dl_anki = StyledButton("🗂️ Anki 다운로드", "trivia")
-        actions_layout.addWidget(btn_dl_summary)
-        actions_layout.addWidget(btn_dl_anki)
-        
-        # 👈 컨트롤러 호출로 변경
         btn_dl_summary.clicked.connect(self.download_summary)
         btn_dl_anki.clicked.connect(self.download_anki)
+        
+        actions_layout.addWidget(btn_dl_summary)
+        actions_layout.addWidget(btn_dl_anki)
 
-        layout.addLayout(actions_layout)
+        self.main_layout.addLayout(actions_layout)
 
-        # 초기 시험 기준 폴더 목록 로드
-        self.refresh_exam_categories()
+        self.binder.bind_loading_button(self.search_btn, self.viewmodel, 'is_loading', '조회 중')
+        self.binder.bind_enabled(self.exam_combo, self.viewmodel, 'is_loading', invert=True)
+        self.binder.bind_enabled(self.start_date, self.viewmodel, 'is_loading', invert=True)
+        self.binder.bind_enabled(self.end_date, self.viewmodel, 'is_loading', invert=True)
+        self.binder.bind_enabled(self.table, self.viewmodel, 'is_loading', invert=True)
 
-    # --- 기능 메서드 ---
+    # ===========================
+    # [기능 메서드]
+    # ===========================
     def get_checked_lessons(self) -> list[str]:
         """테이블에서 선택(체크)된 행들의 수업 교시(Lesson ID) 리스트를 추출합니다."""
         checked_lessons = []
@@ -350,7 +253,7 @@ class DriveSyncUi(BaseUI):
         if not output_path:
             GlobalLogger.info("ℹ️ 요약본 다운로드가 취소되었습니다.")
             return
-        self.controller.download_summary(checked_lessons, output_path)
+        self.viewmodel.download_summary(checked_lessons, output_path)
 
     def download_anki(self):
         checked_lessons = self.get_checked_lessons()
@@ -364,7 +267,7 @@ class DriveSyncUi(BaseUI):
         if not output_path:
             GlobalLogger.info("ℹ️ Anki 다운로드가 취소되었습니다.")
             return
-        self.controller.download_anki(checked_lessons, output_path)
+        self.viewmodel.download_anki(checked_lessons, output_path)
 
     def download_script_merged(self):
         """체크된 수업들의 _scripted.pdf 파일 합본 다운로드를 시작합니다."""
@@ -390,15 +293,18 @@ class DriveSyncUi(BaseUI):
             return
 
         GlobalLogger.info(f"💾 총 {len(checked_lessons)}개 수업에 대한 스크립트 합본 다운로드를 요청합니다. (저장 위치: {output_path})")
-        self.controller.start_download_script_merged(checked_lessons=checked_lessons, output_path=output_path)
+        self.viewmodel.download_script_merged(checked_lessons=checked_lessons, output_path=output_path)
 
     def refresh_exam_categories(self, force_refresh: bool = False):
         """구글 드라이브에서 시험 기준(과목/차수) 폴더 목록을 비동기 조회합니다."""
         GlobalLogger.info("구글 드라이브에서 시험 기준 폴더 목록을 조회합니다...")
-        self.controller.start_fetch_categories(force_refresh=force_refresh)
+        self.viewmodel.fetch_categories(force_refresh=force_refresh)
 
-    def populate_exam_categories(self, categories):
-        """조회된 시험 기준 목록을 콤보박스에 반영합니다."""
+    def populate_exam_categories(self):
+        """뷰모델의 시험 기준 목록을 훔쳐와 콤보박스에 반영합니다."""
+        # 파라미터(categories)가 사라졌습니다! 뷰모델 데이터를 직접 참조합니다.
+        categories = self.viewmodel.categories 
+        
         self.exam_combo.blockSignals(True)
         current_data = self.exam_combo.currentData()
         self.exam_combo.clear()
@@ -413,6 +319,7 @@ class DriveSyncUi(BaseUI):
         self.exam_combo.setCurrentIndex(selected_idx)
         self.exam_combo.blockSignals(False)
         self.toggle_date_inputs(self.exam_combo.currentText())
+        
         if categories:
             GlobalLogger.info(f"총 {len(categories)}개의 시험 기준(과목/차수) 폴더를 불러왔습니다.")
 
@@ -432,7 +339,6 @@ class DriveSyncUi(BaseUI):
         """선택된 시험 기준(또는 날짜 범위)으로 구글 드라이브 동기화 조회를 실행합니다."""
         current_exam = self.exam_combo.currentText()
         selected_folder_id = self.exam_combo.currentData()
-        self.search_btn.start_loading("조회 중")
         
         if current_exam == "사용 안함" or not selected_folder_id:
             start = self.start_date.date().toString("yyyy-MM-dd")
@@ -440,22 +346,17 @@ class DriveSyncUi(BaseUI):
             display_start = self.start_date.date().toString("MM-dd")
             display_end = self.end_date.date().toString("MM-dd")
             
-            search_mode = "DATE"
-            filter_value = (start, end)
+            self.viewmodel.search_mode = "DATE"
+            self.viewmodel.filter_value = (start, end)
             GlobalLogger.info(f"기간 [{display_start} ~ {display_end}] 기준으로 구글 드라이브 동기화 조회를 시작합니다...")
         else:
-            search_mode = "EXAM"
-            filter_value = selected_folder_id
+            self.viewmodel.search_mode = "EXAM"
+            self.viewmodel.filter_value = selected_folder_id
             GlobalLogger.info(f"시험 기준 [{current_exam}] (으)로 해당 폴더의 최신 상태를 불러옵니다...")
 
-        # 👈 매니저(Controller)야, 스레드 띄워서 일 좀 처리해 줘!
-        self.controller.execute_sync(search_mode, filter_value, self.local_download_path)
+        self.viewmodel.local_path = self.local_download_path
+        self.viewmodel.execute_sync()
 
-    def reset_search_btn(self):
-        self.search_btn.stop_loading()
-
-    def handle_worker_error(self, err):
-        GlobalLogger.info(f"[오류 발생] {err}")
 
     def toggle_all_rows_smart(self):
         total = self.table.rowCount()
@@ -534,7 +435,10 @@ class DriveSyncUi(BaseUI):
         layout.addWidget(cb)
         return container
 
-    def update_table(self, data_list):
+    def update_table(self):
+        """뷰모델의 동기화 데이터를 훔쳐와 테이블을 다시 그립니다."""
+        # 파라미터(data_list)가 사라졌습니다! 뷰모델 데이터를 직접 참조합니다.
+        data_list = self.viewmodel.sync_data
         GlobalLogger.info(f"총 {len(data_list)}건의 강의 데이터를 성공적으로 불러왔습니다.")
         
         self.table.setSortingEnabled(False)
@@ -583,6 +487,7 @@ class DriveSyncUi(BaseUI):
         self.table.blockSignals(False)
         self.table.setUpdatesEnabled(True)
         self.table.setSortingEnabled(True)
+
 
     def on_header_clicked(self, logical_index):
         if logical_index == 0:

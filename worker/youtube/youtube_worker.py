@@ -1,8 +1,5 @@
-from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
-from core.container import AppContainer
-from utils.auth_util import get_drive_service
-from utils.config import Config
+from core.config import Config
 
 
 class PlaylistFetchWorker(BaseWorker):
@@ -12,8 +9,6 @@ class PlaylistFetchWorker(BaseWorker):
         """PlaylistFetchWorker 초기화."""
         super().__init__()
         self.playlist_id = playlist_id
-        self.yt_service = AppContainer.get_instance().yt_playlist
-        self.naming_service = AppContainer.get_instance().file_naming
 
     def do_work(self):
         """재생목록 내의 비디오 목록을 가져옵니다."""
@@ -22,21 +17,20 @@ class PlaylistFetchWorker(BaseWorker):
         # ===========================
         # [드라이브 상태 조회]
         # ===========================
-        GlobalLogger.info("구글 계정 연동 확인 및 드라이브 상태를 조회합니다...")
+        self._log("구글 계정 연동 확인 및 드라이브 상태를 조회합니다...")
         if self.is_cancelled(): return
         # 드라이브 내에 이미 존재하는 접두사(prefix) 목록을 조회합니다.
-        existing_prefixes = self.yt_service.get_existing_prefixes_in_drive(get_drive_service(), drive_folder_id)
+        existing_prefixes = self.app.yt_playlist.get_existing_prefixes_in_drive(drive_folder_id)
         
         # ===========================
         # [재생목록 영상 조회]
         # ===========================
         if self.is_cancelled(): return
-        GlobalLogger.info("공식 YouTube API를 통해 영상 목록과 길이를 일괄 조회합니다 🚀")
+        self._log("공식 YouTube API를 통해 영상 목록과 길이를 일괄 조회합니다 🚀")
         # 비디오 목록을 가져와서 반환합니다.
-        videos = self.yt_service.fetch_playlist_videos(
+        videos = self.app.yt_playlist.fetch_playlist_videos(
             self.playlist_id, 
             existing_prefixes, 
-            self.naming_service,
             cancel_checker=self.is_cancelled
         )
         
@@ -50,7 +44,6 @@ class YoutubeUploadWorker(BaseWorker):
         """YoutubeUploadWorker 초기화."""
         super().__init__()
         self.target_videos = target_videos
-        self.media_service = AppContainer.get_instance().youtube_media
 
     def do_work(self):
         """대상 비디오들의 다운로드 및 업로드 작업을 수행합니다."""
@@ -64,7 +57,7 @@ class YoutubeUploadWorker(BaseWorker):
             if self.is_cancelled(): break
             
             prefix = item['prefix']
-            GlobalLogger.info(f"📥 다운로드 및 드라이브 업로드 중 ({idx+1}/{total_videos}): {prefix}")
+            self._log(f"📥 다운로드 및 드라이브 업로드 중 ({idx+1}/{total_videos}): {prefix}")
             self.progress_signal.emit(int((idx / total_videos) * 100), "")
             
             # ===========================
@@ -72,16 +65,16 @@ class YoutubeUploadWorker(BaseWorker):
             # ===========================
             try:
                 # 오디오를 다운로드하여 구글 드라이브에 업로드합니다.
-                self.media_service.download_and_upload_audio(
+                self.app.youtube_media.download_and_upload_audio(
                     url=item['url'],
                     prefix=prefix,
                     drive_folder_id=drive_folder_id,
                     cancel_checker=self.is_cancelled
                 )
-                GlobalLogger.info(f"✅ 업로드 완료: {prefix}.wav")
+                self._log(f"✅ 업로드 완료: {prefix}.wav")
             except Exception as e:
                 # 예외 발생 시 로그 시그널 방출
-                GlobalLogger.info(f"❌ {str(e)}")
+                self._log(f"❌ {str(e)}")
                 
         # 모든 작업이 완료되면 진행도를 100%로 설정합니다.
         self.progress_signal.emit(100, "")
@@ -95,16 +88,15 @@ class PlaylistUpdateCheckerWorker(BaseWorker):
         """PlaylistUpdateCheckerWorker 초기화."""
         super().__init__()
         self.playlists = playlists
-        self.yt_service = AppContainer.get_instance().yt_playlist
 
     def do_work(self):
         """각 재생목록의 최신 업데이트 상태를 확인합니다."""
         # ===========================
         # [업데이트 상태 확인]
         # ===========================
-        GlobalLogger.info(f"유튜브 서버에 접속하여 {len(self.playlists)}개 재생목록의 업데이트 날짜를 확인합니다...")
+        self._log(f"유튜브 서버에 접속하여 {len(self.playlists)}개 재생목록의 업데이트 날짜를 확인합니다...")
         if self.is_cancelled(): return
         
         # 유튜브 서비스 모듈을 통해 업데이트 여부를 체크합니다.
-        updated_playlists = self.yt_service.check_playlists_updates(self.playlists)
+        updated_playlists = self.app.yt_playlist.check_playlists_updates(self.playlists)
         return updated_playlists

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 """PDF 내용 기반 매칭 및 병합 분석 서비스 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
@@ -18,9 +20,7 @@ from typing import Any, Callable, Dict, List, Optional
 import pymupdf
 
 from base.base_service import BaseService
-from service.file_naming_service import FileNamingService
 # 순수 유틸리티 호출 (도메인 무관)
-from service.pdf_ocr_service import PdfOcrService
 from utils.filename_util import normalize_text
 
 
@@ -37,13 +37,12 @@ class PdfAnalysisService(BaseService):
     - 결과물은 Controller로 반환되어 UI의 수동 검수 테이블에 바인딩됩니다.
     """
     
-    def __init__(self, naming_service, ocr_service, sim_threshold: float = 0.8, hash_threshold: int = 12, lookahead: int = 5):
+    def __init__(self, sim_threshold: float = 0.8, hash_threshold: int = 12, lookahead: int = 5):
         """매칭 알고리즘 튜닝 파라미터 및 의존성 서비스를 초기화합니다.
 
         Args:            sim_threshold (float, optional): 두 페이지가 동일하다고 판정할 텍스트 일치율 임계값 (0.0 ~ 1.0). 기본값은 0.8(80%).
             hash_threshold (int, optional): OCR이 실패했을 때 대체제로 사용하는 시각적 해시(pHash)의 최대 허용 차이(Hamming Distance). 값이 작을수록 엄격합니다. 기본값은 12.
             lookahead (int, optional): 현재 페이지가 불일치할 때, 매칭되는 페이지를 찾기 위해 앞/뒤로 탐색할 최대 페이지 수 (Look-ahead Window). 슬라이드 삽입/누락으로 인한 오프셋(Offset)을 교정합니다. 기본값은 5.
-            logger_callback (callable, optional): 로그 메시지를 처리할 콜백 함수.
         """
         # ===========================
         # [메인 비즈니스 로직]
@@ -60,10 +59,8 @@ class PdfAnalysisService(BaseService):
         
         # 도메인 규칙: 줄필기 1페이지를 강제 인식하기 위한 식별자 폰트
         self.indicator_font = "apple"
-        self.naming_service = naming_service
 
         # OCR 서비스 인스턴스화
-        self.ocr_service = ocr_service
         
         # [최적화] 정규식 사전 컴파일 캐싱 (성능 향상)
         # 자동화 파이프라인에서 수백 개의 파일을 스캔할 때 매번 정규식 엔진을 번역하지 않도록 캐싱하여 CPU 부하를 줄입니다.
@@ -120,7 +117,7 @@ class PdfAnalysisService(BaseService):
                 groups[base_name] = {
                     "jul": None, 
                     "yaboot": None, 
-                    "save_name": self.naming_service.extract_save_name(base_name)
+                    "save_name": self.app.file_naming.extract_save_name(base_name)
                 }
                 
             groups[base_name][doc_type] = name_nfc 
@@ -201,7 +198,7 @@ class PdfAnalysisService(BaseService):
                     # [도메인 규칙 1] 1페이지 고유 정책 (야붙 1p 무조건 삽입 + 줄필기 특정 폰트 감지)
                     if total_jul > 0 and total_yaboot > 0:
                         add_item("yaboot_only", None, None, yaboot_path, 0, f"{save_name}\n야붙 1p (무조건 삽입)")
-                        if self.ocr_service.check_font_presence(jul_pdf[0], font_keyword=self.indicator_font):
+                        if self.app.pdf_ocr.check_font_presence(jul_pdf[0], font_keyword=self.indicator_font):
                             add_item("jul_only", jul_path, 0, None, None, f"{save_name}\n줄필기 1p (애플폰트 감지)")
                         i += 1
                         j += 1
@@ -212,9 +209,9 @@ class PdfAnalysisService(BaseService):
                             self._log("작업이 취소되었습니다. 매칭을 중단합니다.")
                             return []
 
-                        text_jul = self.ocr_service.get_filtered_text(jul_pdf[i], self.ignore_fonts)
-                        text_yaboot = self.ocr_service.get_filtered_text(yaboot_pdf[j], self.ignore_fonts)
-                        sim = self.ocr_service.calculate_text_similarity(text_jul, text_yaboot)
+                        text_jul = self.app.pdf_ocr.get_filtered_text(jul_pdf[i], self.ignore_fonts)
+                        text_yaboot = self.app.pdf_ocr.get_filtered_text(yaboot_pdf[j], self.ignore_fonts)
+                        sim = self.app.pdf_ocr.calculate_text_similarity(text_jul, text_yaboot)
 
                         if sim >= self.sim_threshold:
                             add_item("matched", jul_path, i, yaboot_path, j, f"{save_name}\n텍스트 일치율: {sim*100:.1f}%")
@@ -225,8 +222,8 @@ class PdfAnalysisService(BaseService):
                         match_found = False
                         for offset in range(1, self.lookahead + 1):
                             if j + offset < total_yaboot:
-                                future_yaboot_text = self.ocr_service.get_filtered_text(yaboot_pdf[j + offset], self.ignore_fonts)
-                                if self.ocr_service.calculate_text_similarity(text_jul, future_yaboot_text) >= self.sim_threshold:
+                                future_yaboot_text = self.app.pdf_ocr.get_filtered_text(yaboot_pdf[j + offset], self.ignore_fonts)
+                                if self.app.pdf_ocr.calculate_text_similarity(text_jul, future_yaboot_text) >= self.sim_threshold:
                                     for k in range(j, j + offset):
                                         add_item("yaboot_only", None, None, yaboot_path, k, f"{save_name}\n야붙 {k+1}p (기출 추가)")
                                     j += offset
@@ -234,8 +231,8 @@ class PdfAnalysisService(BaseService):
                                     break
                             
                             if i + offset < total_jul:
-                                future_jul_text = self.ocr_service.get_filtered_text(jul_pdf[i + offset], self.ignore_fonts)
-                                if self.ocr_service.calculate_text_similarity(future_jul_text, text_yaboot) >= self.sim_threshold:
+                                future_jul_text = self.app.pdf_ocr.get_filtered_text(jul_pdf[i + offset], self.ignore_fonts)
+                                if self.app.pdf_ocr.calculate_text_similarity(future_jul_text, text_yaboot) >= self.sim_threshold:
                                     for k in range(i, i + offset):
                                         add_item("jul_only", jul_path, k, None, None, f"{save_name}\n줄필기 {k+1}p (내용 유지)")
                                     i += offset
@@ -243,7 +240,7 @@ class PdfAnalysisService(BaseService):
                                     break
 
                         if not match_found:
-                            hash_diff = self.ocr_service.compare_page_hashes(jul_pdf[i], yaboot_pdf[j])
+                            hash_diff = self.app.pdf_ocr.compare_page_hashes(jul_pdf[i], yaboot_pdf[j])
                             if hash_diff <= self.hash_threshold:
                                 add_item("matched", jul_path, i, yaboot_path, j, f"{save_name}\n실루엣 일치! (해시 차이: {hash_diff})")
                                 i += 1

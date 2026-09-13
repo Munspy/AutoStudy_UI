@@ -3,7 +3,7 @@
 이 패키지는 구글 드라이브와 로컬 디렉토리 간의 동기화 및 부가 작업들을 각각의 독립된 워커 클래스 단위로 모듈화하여 제공합니다.
 """
 
-from .anki_worker import AnkiDeckMergeWorker
+from .anki_deck_merge_worker import AnkiDeckMergeWorker
 from .category_worker import ExamCategoryFetchWorker
 from .scripted_pdf_worker import ScriptedPdfMergeWorker
 from .summary_pdf_worker import SummaryPdfDownloadWorker

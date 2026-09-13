@@ -27,3 +27,4 @@ timetable_cache.json
 backup_to_notion.py
 generate_scripted_pdf.py
 service/notion_backup_service.py
+scratch/

@@ -12,7 +12,6 @@ from PyQt6.QtCore import pyqtSignal
 from watchdog.events import FileSystemEventHandler
 from watchdog.observers import Observer
 
-from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 
 

@@ -7,23 +7,18 @@ from PyQt6.QtWidgets import (QDialog, QHBoxLayout, QHeaderView, QInputDialog,
 from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StatusBadge,
-                                     StyledButton, StyledCheckBox,
+                                     StyledButton, StyledCheckBox, HeaderLabel,
                                      StyledComboBox, StyledTableWidget)
 # ---------------------------------------------------------
 # 백엔드 함수 모듈 임포트 (경로 호환성 처리)
 # ---------------------------------------------------------
-from controller.youtube_playlist_controller import (YoutubePlaylistController,
-                                                    add_playlist_to_csv,
-                                                    delete_playlist,
-                                                    get_playlist_title,
-                                                    load_csv_data,
-                                                    parse_playlist_id,
-                                                    rename_playlist)
+from viewmodel.youtube_playlist_viewmodel import YoutubePlaylistViewModel
 
 
 class PlaylistManagerDialog(QDialog):
-    def __init__(self, parent=None):
+    def __init__(self, viewmodel: YoutubePlaylistViewModel, parent=None):
         super().__init__(parent)
+        self.viewmodel = viewmodel
         self.setWindowTitle("재생목록 관리")
         self.resize(340, 150)
         
@@ -58,7 +53,7 @@ class PlaylistManagerDialog(QDialog):
         
     def load_data(self):
         self.combo.clear()
-        playlists = load_csv_data()
+        playlists = self.viewmodel.load_playlists()
         for p in playlists:
             self.combo.addItem(p['name'], p['playlist_id'])
             
@@ -68,7 +63,7 @@ class PlaylistManagerDialog(QDialog):
             return
         new_name, ok = QInputDialog.getText(self, "이름 변경", "새 이름을 입력하세요:", text=self.combo.currentText())
         if ok and new_name.strip():
-            rename_playlist(pid, new_name.strip())
+            self.viewmodel.rename_playlist(pid, new_name.strip())
             self.load_data()
             QMessageBox.information(self, "성공", "이름이 변경되었습니다.")
             
@@ -81,7 +76,7 @@ class PlaylistManagerDialog(QDialog):
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
         )
         if reply == QMessageBox.StandardButton.Yes:
-            delete_playlist(pid)
+            self.viewmodel.delete_playlist(pid)
             self.load_data()
             QMessageBox.information(self, "성공", "삭제되었습니다.")
 
@@ -89,17 +84,15 @@ class PlaylistManagerDialog(QDialog):
 class YoutubePlaylistUi(BaseUI):
     global_progress_signal = pyqtSignal(int, str)
 
-    def __init__(self):
-        super().__init__()
-        self.controller = YoutubePlaylistController()
-        self.controller.ui = self
-        self.controller.fetch_completed.connect(self.populate_table)
-        self.controller.checker_completed.connect(self.on_checker_finished)
-        self.controller.upload_completed.connect(self.on_upload_finished)
-        self.controller.error_signal.connect(self.on_upload_error)
-        self.controller.progress_signal.connect(self.global_progress_signal.emit)
+    def __init__(self, parent=None):
+        super().__init__(app_name="YoutubePlaylist", parent=parent)
+        self.viewmodel = YoutubePlaylistViewModel()
+        self.viewmodel.fetch_completed.connect(self.populate_table)
+        self.viewmodel.checker_completed.connect(self.on_checker_finished)
+        self.viewmodel.upload_completed.connect(self.on_upload_finished)
+        self.viewmodel.error_occurred.connect(self.on_upload_error)
+        self.viewmodel.progress_changed.connect(self.global_progress_signal.emit)
 
-        self.videos_data = [] 
         self.init_ui()
 
     def init_ui(self):
@@ -109,7 +102,6 @@ class YoutubePlaylistUi(BaseUI):
                 background-color: #FFFFFF;
             }
             QWidget {
-                
                 color: #37352f;
             }
             QLabel, QCheckBox {
@@ -118,20 +110,26 @@ class YoutubePlaylistUi(BaseUI):
             }
         """)
         
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(28, 28, 28, 28)
+        self.main_layout.setSpacing(20)
         
+        self.init_top_panel()
+        self.init_table_area()
+        self.init_bottom_panel()
+
+        # ===========================
+        # [초기화 완료 후 목록 로드]
+        # ===========================
+        # 앱 시작 시 유튜브 API 자동 호출 없이, 로컬 CSV 데이터만 읽어서 목록 채움
+        self._init_combo_box_from_csv()
+
+    def init_top_panel(self):
         # ===========================
         # [상단 헤더 구성]
         # ===========================
-        header_label = QLabel("▶️ YouTube 재생목록 관리")
-        header_label.setStyleSheet("""
-            font-size: 24px; font-weight: 800; color: #111111; 
-            padding: 5px 0px 10px 0px; 
-            background: transparent; border: none;
-        """)
-        layout.addWidget(header_label)
+        header_label = HeaderLabel("▶️ YouTube 재생목록 관리")
+        self.main_layout.addWidget(header_label)
 
         # ===========================
         # [상단 컨트롤 박스]
@@ -164,8 +162,9 @@ class YoutubePlaylistUi(BaseUI):
         add_pl_btn.clicked.connect(self.add_playlist_dialog)
         refresh_list_btn.clicked.connect(self.refresh_combo_box)
 
-        layout.addWidget(control_frame)
+        self.main_layout.addWidget(control_frame)
 
+    def init_table_area(self):
         # ===========================
         # [중간 액션바]
         # ===========================
@@ -183,7 +182,7 @@ class YoutubePlaylistUi(BaseUI):
         sel_unex_btn.clicked.connect(self.select_unextracted)
         mid_bar_layout.addWidget(sel_unex_btn)
 
-        layout.addLayout(mid_bar_layout)
+        self.main_layout.addLayout(mid_bar_layout)
 
         # ===========================
         # [테이블 영역]
@@ -206,8 +205,9 @@ class YoutubePlaylistUi(BaseUI):
         self.table.setSortingEnabled(True)
         self.table.itemChanged.connect(self.check_individual_row_state)
         
-        layout.addWidget(self.table)
-        
+        self.main_layout.addWidget(self.table)
+
+    def init_bottom_panel(self):
         # ===========================
         # [하단 실행 버튼]
         # ===========================
@@ -218,13 +218,14 @@ class YoutubePlaylistUi(BaseUI):
         self.upload_btn.clicked.connect(self.execute_upload)
         bottom_layout.addWidget(self.upload_btn)
         
-        layout.addLayout(bottom_layout)
+        self.main_layout.addLayout(bottom_layout)
 
         # ===========================
-        # [초기화 완료 후 목록 로드]
+        # [MVVM 선언형 바인딩 적용]
         # ===========================
-        # 앱 시작 시 유튜브 API 자동 호출 없이, 로컬 CSV 데이터만 읽어서 목록 채움
-        self._init_combo_box_from_csv()
+        self.bind_loading_button(self.upload_btn, self.viewmodel, 'is_loading', '업로드 중')
+        self.bind_enabled(self.table, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.playlist_combo, self.viewmodel, 'is_loading', invert=True)
 
     def emit_log(self, message):
         GlobalLogger.info(message)
@@ -233,7 +234,7 @@ class YoutubePlaylistUi(BaseUI):
         """앱 시작 시 유튜브 API 호출 없이 로컬 CSV에서만 재생목록 목록을 채웁니다."""
         self.playlist_combo.blockSignals(True)
         self.playlist_combo.clear()
-        playlists = load_csv_data()
+        playlists = self.viewmodel.load_playlists()
         if not playlists:
             self.playlist_combo.addItem("등록된 재생목록 없음")
         else:
@@ -242,7 +243,7 @@ class YoutubePlaylistUi(BaseUI):
         self.playlist_combo.blockSignals(False)
         
     def open_manage_dialog(self):
-        dlg = PlaylistManagerDialog(self)
+        dlg = PlaylistManagerDialog(self.viewmodel, self)
         dlg.exec()
         self.refresh_combo_box()
 
@@ -251,17 +252,10 @@ class YoutubePlaylistUi(BaseUI):
         self.playlist_combo.clear()
         self.playlist_combo.addItem("⏳ 유튜브 업데이트 상태 확인 중...")
         
-        playlists = load_csv_data()
-        
-        if not playlists:
-            self.playlist_combo.clear()
-            self.playlist_combo.addItem("등록된 재생목록 없음")
-            self.playlist_combo.blockSignals(False)
-            return
+        self.viewmodel.start_update_checker()
 
-        self.controller.start_update_checker(playlists)
-
-    def on_checker_finished(self, sorted_playlists):
+    def on_checker_finished(self):
+        sorted_playlists = self.viewmodel.checker_results
         self.playlist_combo.clear()
         
         for pl in sorted_playlists:
@@ -306,13 +300,13 @@ class YoutubePlaylistUi(BaseUI):
         
         if dialog.exec() == QDialog.DialogCode.Accepted and url_input.text():
             text = url_input.text()
-            playlist_id = parse_playlist_id(text)
+            playlist_id = self.viewmodel.parse_playlist_id(text)
             if not playlist_id:
                 QMessageBox.warning(self, "오류", "유효한 YouTube 재생목록 URL이 아닙니다.")
                 return
             
             GlobalLogger.info("재생목록 기본 이름을 유튜브에서 조회 중입니다...")
-            default_name = get_playlist_title(text)
+            default_name = self.viewmodel.get_playlist_title(text)
             
             # 2nd Dialog: Name input
             name_dialog = QDialog(self)
@@ -325,7 +319,7 @@ class YoutubePlaylistUi(BaseUI):
             name_input.setStyleSheet("padding: 8px; border: 1px solid " + COLORS["border_input"] + "; border-radius: 4px;")
             n_layout.addWidget(name_input)
             
-            n_btn_layout = QHBoxLayout()
+            btn_layout = QHBoxLayout()
             n_ok_btn = StyledButton("확인", "primary")
             n_cancel_btn = StyledButton("취소", "secondary")
             n_ok_btn.clicked.connect(name_dialog.accept)
@@ -336,7 +330,7 @@ class YoutubePlaylistUi(BaseUI):
             
             if name_dialog.exec() == QDialog.DialogCode.Accepted and name_input.text().strip():
                 name = name_input.text().strip()
-                add_playlist_to_csv(name, text, playlist_id)
+                self.viewmodel.add_playlist(name, text, playlist_id)
                 GlobalLogger.info(f"새로운 재생목록 '{name}' 추가 완료.")
                 self.refresh_combo_box()
 
@@ -347,9 +341,7 @@ class YoutubePlaylistUi(BaseUI):
             return
 
         self.table.setRowCount(0)
-        self.videos_data.clear()
-        
-        self.controller.start_fetch_playlist(playlist_id)
+        self.viewmodel.start_fetch_playlist(playlist_id)
 
     def toggle_all_rows_smart(self):
         total = self.table.rowCount()
@@ -390,7 +382,7 @@ class YoutubePlaylistUi(BaseUI):
         
     def select_unextracted(self):
         self.table.blockSignals(True)
-        for row, vid in enumerate(self.videos_data):
+        for row, vid in enumerate(self.viewmodel.current_videos):
             item = self.table.item(row, 0)
             if item:
                 if vid["extracted"] == "X" and bool(vid["prefix"]):
@@ -400,8 +392,8 @@ class YoutubePlaylistUi(BaseUI):
         self.table.blockSignals(False)
         self.update_select_all_ui()
 
-    def populate_table(self, videos):
-        self.videos_data = videos
+    def populate_table(self):
+        videos = self.viewmodel.current_videos
         
         self.table.setSortingEnabled(False)
         self.table.setUpdatesEnabled(False)
@@ -453,7 +445,7 @@ class YoutubePlaylistUi(BaseUI):
         for row in range(self.table.rowCount()):
             item = self.table.item(row, 0)
             if item and item.checkState() == Qt.CheckState.Checked:
-                vid_info = self.videos_data[row]
+                vid_info = self.viewmodel.current_videos[row]
                 if not vid_info["prefix"]:
                     GlobalLogger.info(f"경고: '{vid_info['title']}'은(는) 유효한 prefix 포맷이 아니어서 제외됩니다.")
                     continue
@@ -464,22 +456,18 @@ class YoutubePlaylistUi(BaseUI):
         if not target_videos:
             GlobalLogger.info("업로드 가능한 영상이 선택되지 않았습니다.")
             return
-
-        self.upload_btn.start_loading("업로드 중")
         GlobalLogger.info(f"총 {len(target_videos)}개의 영상 추출 및 업로드를 시작합니다...")
         self.global_progress_signal.emit(0, "준비 중...")
         
-        self.controller.start_upload_videos(target_videos)
+        self.viewmodel.start_upload_videos(target_videos)
 
     def on_upload_error(self, title_or_msg, err_msg=None):
         if err_msg is None:
             err_msg = str(title_or_msg)
         GlobalLogger.info(f"업로드 오류: {err_msg}")
-        self.upload_btn.stop_loading()
 
     def on_upload_finished(self):
         GlobalLogger.info("🎉 모든 업로드 작업이 완료되었습니다! '영상 새로고침'을 눌러 상태를 확인하세요.")
-        self.upload_btn.stop_loading()
 
     def create_badge(self, text):
         container = QWidget()

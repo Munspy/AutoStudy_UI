@@ -24,17 +24,11 @@ import utils.pdf_data_util as pdf_data_util
 from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, PreviewScrollArea,
-                                     StyledButton, StyledCheckBox,
-                                     StyledListWidget,
+                                     StyledButton, StyledCheckBox, HeaderLabel,
+                                     StyledListWidget, ask_delete_confirm,
                                      create_pdf_thumbnail_frame)
-from controller.combine_notes_controller import CombineNotesController
+from viewmodel.combine_notes_viewmodel import CombineNotesViewModel
 from utils.pdf_core_util import get_page_image_bytes
-
-# ==========================================
-# 🌟 분리해둔 utils 공구함 및 UI 헬퍼 임포트
-# ==========================================
-# (수정) 순수 바이트를 반환하는 함수로 변경
-
 
 # ==========================================
 # 헬퍼 함수: UI 프레임 조립기
@@ -71,6 +65,32 @@ def build_pdf_frame(page_info, is_empty, is_large=False):
         
     # 2. 통합된 헬퍼 함수를 통해 바이트 데이터로부터 바로 썸네일 프레임 생성
     return create_pdf_thumbnail_frame(image_bytes, "", width, height, is_empty=False)
+
+class PdfPreviewItemWidget(QWidget):
+    """메인 화면 하단에 표시되는 PDF 미리보기(위아래 1쌍) 커스텀 위젯"""
+    def __init__(self, item_data, parent=None):
+        super().__init__(parent)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+        
+        top_page = build_pdf_frame(item_data.get("jul"), is_empty=(item_data.get("jul") is None))
+        bottom_page = build_pdf_frame(item_data.get("yaboot"), is_empty=(item_data.get("yaboot") is None))
+        
+        if item_data.get("type") == "matched":
+            op = QGraphicsOpacityEffect()
+            op.setOpacity(0.4)
+            bottom_page.setGraphicsEffect(op)
+        elif item_data.get("type") == "yaboot_only":
+            bottom_page.setStyleSheet("background-color: white; border: 3px solid #E03E3E; border-radius: 4px;")
+            
+        layout.addWidget(top_page)
+        layout.addWidget(bottom_page)
+        
+        metrics = QLabel(item_data.get("metrics", ""))
+        metrics.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        metrics.setStyleSheet("color: #787774; font-size: 11px; font-weight: bold; background-color: #F1F1EF; padding: 4px; border-radius: 4px;")
+        layout.addWidget(metrics)
 
 # ==========================================
 # (이하 팝업(FullScreenEditDialog) 및 Tab2CombineNotes 클래스 코드는 기존과 완벽히 동일합니다.)
@@ -128,6 +148,8 @@ class FullScreenEditDialog(QDialog):
         
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
+
+
         
         cancel_btn = StyledButton("수정 취소 (Cancel)", "danger")
         cancel_btn.clicked.connect(self.reject)
@@ -247,44 +269,27 @@ class FullScreenEditDialog(QDialog):
                 
         self.render_preview()
 
+
 # ==========================================
-# 기존 메인 탭 UI 개편
+# 깔끔하게 뇌를 비운 메인 탭 UI
 # ==========================================
 class CombineNotesUi(BaseUI):  
-    def __init__(self):
-        super().__init__()
-        self.controller = CombineNotesController()
-        self.controller.ui = self
-        
-        # 컨트롤러의 비동기 시그널 연결 (레이스 컨디션 해결 및 상행로 연동)
-        self.controller.match_list_completed.connect(self.on_matched_groups_ready)
-        self.controller.inspection_completed.connect(self.on_inspection_ready)
-        self.controller.merge_completed.connect(self.on_merge_ready)
-        self.controller.error_signal.connect(self.show_error)
-        self.controller.loading_signal.connect(self.set_loading_state)
+    def __init__(self, parent=None):
+        super().__init__(app_name="CombineNotes", parent=parent)
+        self.viewmodel = CombineNotesViewModel()
+                
+        # 1. 알람(Trigger) 시그널만 받도록 연결 
+        self.viewmodel.matched_groups_changed.connect(self.on_matched_groups_ready)
+        self.viewmodel.inspection_data_changed.connect(self.on_inspection_ready)
+        self.viewmodel.merge_completed.connect(self.on_merge_ready)
+        self.viewmodel.error_occurred.connect(self.show_error)
         
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setStyleSheet("""
-            CombineNotesUi {
-                background-color: #FFFFFF;
-            }
-            QWidget {
-                
-                color: #37352f;
-            }
-            QLabel, QCheckBox {
-                background-color: transparent;
-                border: none;
-            }
-        """)
+        self.setStyleSheet("CombineNotesUi { background-color: #FFFFFF; } QWidget { color: #37352f; } QLabel, QCheckBox { background-color: transparent; border: none; }")
         
-        self.base_data = [] 
-        self.matched_groups = {} 
-        self._pending_action = None
+        # 2. [핵심] UI는 데이터를 소유하지 않음! self.base_data 등 모두 삭제됨.
+        self._pending_action = None 
 
-        # ===========================
-        # [메인 레이아웃 및 여백 설정]
-        # ===========================
         self.main_layout = QVBoxLayout(self)
         self.main_layout.setContentsMargins(28, 28, 28, 28)
         self.main_layout.setSpacing(20)
@@ -300,12 +305,7 @@ class CombineNotesUi(BaseUI):
         # ===========================
         # [상단 헤더 및 폴더 선택 패널]
         # ===========================
-        header_label = QLabel("🔄 줄필기 → 야붙필기 변환 및 검수")
-        header_label.setStyleSheet("""
-            font-size: 24px; font-weight: 800; color: #111111; 
-            padding: 5px 0px 10px 0px; 
-            background: transparent; border: none;
-        """)
+        header_label = HeaderLabel("🔄 줄필기 → 야붙필기 변환 및 검수")
         self.main_layout.addWidget(header_label)
 
         control_frame = CardWidget()
@@ -346,14 +346,14 @@ class CombineNotesUi(BaseUI):
 
         mid_bar_layout.addStretch()
 
-        auto_run_btn = StyledButton("\u26A1\uFE0E 선택 파일 알아서", "rapid")
-        auto_run_btn.clicked.connect(self.run_auto_merge)
+        self.auto_run_btn = StyledButton("⚡︎ 선택 파일 알아서", "rapid")
+        self.auto_run_btn.clicked.connect(self.run_auto_merge)
         
-        manual_run_btn = StyledButton("👀 선택 파일 검수", "check")
-        manual_run_btn.clicked.connect(self.run_manual_inspection)
+        self.manual_run_btn = StyledButton("👀 선택 파일 검수", "check")
+        self.manual_run_btn.clicked.connect(self.run_manual_inspection)
         
-        mid_bar_layout.addWidget(auto_run_btn)
-        mid_bar_layout.addWidget(manual_run_btn)
+        mid_bar_layout.addWidget(self.auto_run_btn)
+        mid_bar_layout.addWidget(self.manual_run_btn)
         
         self.main_layout.addLayout(mid_bar_layout)
 
@@ -380,16 +380,29 @@ class CombineNotesUi(BaseUI):
     def init_bottom_panel(self):
         bottom_layout = QHBoxLayout()
         bottom_layout.addStretch()
-        
+
         self.edit_btn = StyledButton("📌 전체 화면 검수", "check")
         self.edit_btn.clicked.connect(self.open_fullscreen_editor)
         
         self.approve_btn = StyledButton("💾 병합 저장", "save")
         self.approve_btn.clicked.connect(self.execute_final_save) 
+
+        # ===========================
+        # [MVVM 선언형 바인딩 적용]
+        # ===========================
+        self.binder.bind_enabled(self.auto_run_btn, self.viewmodel, 'is_loading', invert=True)
+        self.binder.bind_enabled(self.manual_run_btn, self.viewmodel, 'is_loading', invert=True)
+        self.binder.bind_enabled(self.file_list, self.viewmodel, 'is_loading', invert=True)
+        self.binder.bind_enabled(self.edit_btn, self.viewmodel, 'is_loading', invert=True)
+        self.binder.bind_enabled(self.approve_btn, self.viewmodel, 'is_loading', invert=True)
         
         bottom_layout.addWidget(self.edit_btn)
         bottom_layout.addWidget(self.approve_btn)
         self.main_layout.addLayout(bottom_layout)
+
+# ==========================================
+# 탐색기 열기 및 뷰모델에 폴더 탐색 지시
+# ==========================================
 
     def browse_folder(self):
         folder = QFileDialog.getExistingDirectory(self, "검색할 폴더 선택", self.folder_input.text())
@@ -403,30 +416,11 @@ class CombineNotesUi(BaseUI):
         self.file_list.blockSignals(True)
         self.file_list.clear()
         # 백그라운드 워커 시작 (결과는 on_matched_groups_ready 시그널로 수신)
-        self.controller.start_get_matched_groups(folder_path)
+        self.viewmodel.start_get_matched_groups(folder_path)
 
-    def on_matched_groups_ready(self, matched_groups):
-        self.matched_groups = matched_groups
-        self.file_list.blockSignals(True)
-        self.file_list.clear()
-        
-        for base_name, group in self.matched_groups.items():
-            save_name = group["save_name"]
-            if group["jul"] and group["yaboot"]:
-                display_text = f"🔗 [매칭 성공 → {save_name}] 원본: {base_name}"
-            elif group["jul"]:
-                display_text = f"📄 [줄필기 단독 → {save_name}] 원본: {base_name}"
-            else:
-                display_text = f"📄 [야붙 단독 → {save_name}] 원본: {base_name}"
-
-            item = QListWidgetItem(display_text)
-            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(Qt.CheckState.Checked)
-            item.setData(Qt.ItemDataRole.UserRole, base_name)
-            self.file_list.addItem(item)
-            
-        self.file_list.blockSignals(False)
-        self.update_select_all_ui()
+# ==========================================
+# 리스트의 체크박스 상태에 따라 '전체 선택' 버튼 글씨와 체크 상태를 시각적으로 동기화.
+# ==========================================
 
     def toggle_all_items(self):
         total = self.file_list.count()
@@ -463,6 +457,10 @@ class CombineNotesUi(BaseUI):
             self.select_all_cb.setText("전체 선택")
         self.select_all_cb.blockSignals(False)
 
+# ==========================================
+# 체크된 리스트 항목의 텍스트(ID/경로)를 추출하여 반환.
+# ==========================================
+
     def get_selected_keys(self):
         selected_keys = []
         for i in range(self.file_list.count()):
@@ -470,6 +468,15 @@ class CombineNotesUi(BaseUI):
             if item.checkState() == Qt.CheckState.Checked:
                 selected_keys.append(item.data(Qt.ItemDataRole.UserRole))
         return selected_keys
+
+# ==========================================
+# MVVM 중계 및 렌더링 (Action & Render)
+# ==========================================
+
+
+    # ==========================================
+    # 1. 동작 명령 3형제
+    # ==========================================
 
     def run_manual_inspection(self):
         selected_keys = self.get_selected_keys()
@@ -479,8 +486,8 @@ class CombineNotesUi(BaseUI):
         
         folder_path = self.folder_input.text()
         self._pending_action = 'inspection'
-        # 백그라운드 워커 시작 (결과는 on_inspection_ready 시그널로 수신)
-        self.controller.start_inspection(folder_path, selected_keys, self.matched_groups)
+        # UI는 더이상 matched_groups를 파라미터로 쏴주지 않음 (뷰모델이 알아서 함)
+        self.viewmodel.start_inspection(folder_path, selected_keys)
 
     def run_auto_merge(self):
         selected_keys = self.get_selected_keys()
@@ -490,27 +497,28 @@ class CombineNotesUi(BaseUI):
             
         folder_path = self.folder_input.text()
         self._pending_action = "auto_merge"
-        # 백그라운드 워커 시작 (결과는 on_inspection_ready 시그널로 수신)
-        self.controller.start_inspection(folder_path, selected_keys, self.matched_groups)
+        self.viewmodel.start_inspection(folder_path, selected_keys)
 
-    def on_inspection_ready(self, base_data):
-        self.base_data = base_data
+    def execute_final_save(self):
+        if not self.viewmodel.base_data: # 뷰모델 검사!
+            self.show_error("경고", "저장할 데이터가 없습니다.\n먼저 검수하기를 눌러주세요.")
+            return
+        self.viewmodel.start_merge(self.folder_input.text(), is_drive=True)
+
+    # ==========================================
+    # 2. 알림 수신 및 랜더링
+    # ==========================================
+
+    def on_inspection_ready(self):
+        # 데이터는 뷰모델에 있으므로 화면만 통제함
         if self._pending_action == 'inspection':
             self.render_main_preview()
             self.show_info("알림", "검수 데이터 생성이 완료되었습니다.\n하단의 미리보기를 확인하세요.")
         elif self._pending_action == 'auto_merge':
             folder_path = self.folder_input.text()
-            self.controller.start_merge(self.base_data, folder_path, is_drive=True)
+            self.viewmodel.start_merge(folder_path, is_drive=True)
             
         self._pending_action = None
-
-    def execute_final_save(self):
-        if not self.base_data:
-            self.show_error("경고", "저장할 데이터가 없습니다.\n먼저 검수하기를 눌러주세요.")
-            return
-            
-        folder_path = self.folder_input.text()
-        self.controller.start_merge(self.base_data, folder_path, is_drive=True)
 
     def on_merge_ready(self, saved_files):
         self.show_info(
@@ -519,50 +527,28 @@ class CombineNotesUi(BaseUI):
         )
         self._ask_delete_source_files()
 
-    def _ask_delete_source_files(self):
-        """병합에 사용된 원본 로컬 파일 삭제 여부를 묻고, 확인 시 삭제합니다."""
-        import os
+    def on_matched_groups_ready(self):
+        # 4. 파라미터로 데이터를 받지 않고 뷰모델을 훔쳐봄!
+        self.file_list.blockSignals(True)
+        self.file_list.clear()
+        
+        for base_name, group in self.viewmodel.matched_groups.items():
+            save_name = group["save_name"]
+            if group["jul"] and group["yaboot"]:
+                display_text = f"🔗 [매칭 성공 → {save_name}] 원본: {base_name}"
+            elif group["jul"]:
+                display_text = f"📄 [줄필기 단독 → {save_name}] 원본: {base_name}"
+            else:
+                display_text = f"📄 [야붙 단독 → {save_name}] 원본: {base_name}"
 
-        from PyQt6.QtWidgets import QMessageBox
-
-        # base_data에서 사용된 원본 파일 경로 수집 (중복 제거)
-        source_paths = set()
-        for item in self.base_data:
-            if item.get('jul') and item['jul'].get('path'):
-                source_paths.add(item['jul']['path'])
-            if item.get('yaboot') and item['yaboot'].get('path'):
-                source_paths.add(item['yaboot']['path'])
-
-        if not source_paths:
-            return
-
-        reply = QMessageBox.question(
-            self, "원본 파일 삭제",
-            f"원본 로컬 파일 {len(source_paths)}개를 삭제하시겠습니까?\n\n"
-            "이 작업은 되돌릴 수 없습니다.",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-        )
-        if reply == QMessageBox.StandardButton.Yes:
-            deleted = 0
-            for path in source_paths:
-                try:
-                    if os.path.exists(path):
-                        os.remove(path)
-                        deleted += 1
-                except Exception as e:
-                    GlobalLogger.info(f"파일 삭제 실패: {path} — {e}")
-            GlobalLogger.info(f"원본 파일 {deleted}개 삭제 완료.")
-            self.refresh_file_list(self.folder_input.text())
-
-    def open_fullscreen_editor(self):
-        if not self.base_data:
-            self.show_error("경고", "먼저 '선택 파일 검수하기' 버튼을 눌러주세요.")
-            return
+            item = QListWidgetItem(display_text)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(Qt.CheckState.Checked)
+            item.setData(Qt.ItemDataRole.UserRole, base_name)
+            self.file_list.addItem(item)
             
-        dialog = FullScreenEditDialog(self.base_data, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            self.base_data = pdf_data_util.save_edits(dialog.edit_data)
-            self.render_main_preview()
+        self.file_list.blockSignals(False)
+        self.update_select_all_ui()
 
     def render_main_preview(self):
         while self.preview_layout.count():
@@ -570,30 +556,43 @@ class CombineNotesUi(BaseUI):
             if child.widget():
                 child.widget().deleteLater()
 
-        for item in self.base_data:
-            column = QWidget()
-            layout = QVBoxLayout(column)
-            layout.setContentsMargins(0, 0, 0, 0)
-            layout.setSpacing(10)
+        for item in self.viewmodel.base_data:
+            preview_widget = PdfPreviewItemWidget(item)
+            self.preview_layout.addWidget(preview_widget)
+
+    # ==========================================
+    # 3. 팝업 후 후처리
+    # ==========================================
+
+    def open_fullscreen_editor(self):
+        if not self.viewmodel.base_data:
+            self.show_error("경고", "먼저 '선택 파일 검수하기' 버튼을 눌러주세요.")
+            return
             
-            top_page = build_pdf_frame(item["jul"], is_empty=(item["jul"] is None))
-            bottom_page = build_pdf_frame(item["yaboot"], is_empty=(item["yaboot"] is None))
-            
-            if item["type"] == "matched":
-                op = QGraphicsOpacityEffect(); op.setOpacity(0.4)
-                bottom_page.setGraphicsEffect(op)
-            elif item["type"] == "yaboot_only":
-                bottom_page.setStyleSheet("background-color: white; border: 3px solid #E03E3E; border-radius: 4px;")
-                
-            layout.addWidget(top_page)
-            layout.addWidget(bottom_page)
-            
-            metrics = QLabel(item.get("metrics", ""))
-            metrics.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            metrics.setStyleSheet("color: #787774; font-size: 11px; font-weight: bold; background-color: #F1F1EF; padding: 4px; border-radius: 4px;")
-            layout.addWidget(metrics)
-            
-            self.preview_layout.addWidget(column)
+        # 다이얼로그에는 뷰모델의 데이터를 '복사본'으로 넘겨서 검수하도록 함
+        dialog = FullScreenEditDialog(self.viewmodel.base_data, self)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            # 다이얼로그에서 수정한 데이터를 뷰모델에 다시 덮어씌움
+            self.viewmodel.base_data = pdf_data_util.save_edits(dialog.edit_data)
+            self.render_main_preview()
+
+    def _ask_delete_source_files(self):
+        source_paths = set()
+        # 뷰모델의 데이터를 바탕으로 원본 파일 찾기
+        for item in self.viewmodel.base_data:
+            if item.get('jul') and item['jul'].get('path'):
+                source_paths.add(item['jul']['path'])
+            if item.get('yaboot') and item['yaboot'].get('path'):
+                source_paths.add(item['yaboot']['path'])
+
+        if not source_paths: return
+
+        should_delete = ask_delete_confirm(self, list(source_paths), is_drive=False)
+        
+        if should_delete:
+            self.viewmodel.delete_files(list(source_paths))
+            self.refresh_file_list(self.folder_input.text())
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

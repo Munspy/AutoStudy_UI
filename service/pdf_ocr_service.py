@@ -22,7 +22,7 @@ import pytesseract
 from PIL import Image
 
 from base.base_service import BaseService
-from utils.config import Config
+from core.config import Config
 from utils.pdf_core_util import clean_pdf_page_overflow
 
 # 경로 표준 입력을 위한 타입 정의
@@ -36,15 +36,14 @@ class PdfOcrService(BaseService):
     추출 및 수치화(유사도, 해시값)하는 작업만을 전담합니다.
 
     의존성:
-    - 전역 환경설정인 `utils.config.Config`를 참조하여 Tesseract 엔진 경로를 획득합니다.
+    - 전역 환경설정인 `core.config.Config`를 참조하여 Tesseract 엔진 경로를 획득합니다.
     - 부모 클래스인 `BaseService`를 상속받아 공통 로깅 인터페이스를 사용합니다[cite: 1].
     """
     
     def __init__(self, default_ignore_fonts: Optional[List[str]] = None) -> None:
         """PdfOcrService 객체를 초기화하고 폰트 필터링 캐시를 구성합니다.
 
-        Args:            logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 로그를 
-                상위 레이어(Controller/UI)로 전달하기 위한 콜백 함수. Defaults to None.
+        Args:
             default_ignore_fonts (Optional[List[str]], optional): 텍스트 추출 시 전역적으로 무시할 
                 폰트 이름 키워드 리스트 (예: 필기 앱 워터마크 폰트). Defaults to None.
         """

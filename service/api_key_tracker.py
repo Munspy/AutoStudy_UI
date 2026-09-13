@@ -21,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from utils.config import BASE_DIR, Config
+from core.config import BASE_DIR, Config
 
 PT_TIMEZONE = timezone(timedelta(hours=-8))
 

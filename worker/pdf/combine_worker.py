@@ -1,4 +1,3 @@
-from core.container import AppContainer
 
 """
 PDF 결합(Combine) 관련 워커 모듈입니다.
@@ -10,11 +9,8 @@ PDF 결합(Combine) 관련 워커 모듈입니다.
 import tempfile
 from pathlib import Path
 
-from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
-from utils.auth_util import get_drive_service
-from utils.config import Config
-from utils.drive_api import upload_to_drive
+from core.config import Config
 
 
 class PdfMatchListWorker(BaseWorker):
@@ -38,7 +34,7 @@ class PdfMatchListWorker(BaseWorker):
         Returns:
             dict or None: 병합 가능한 PDF 파일 그룹 매칭 딕셔너리. 취소 시 None.
         """
-        GlobalLogger.info("🔍 지정된 폴더에서 병합할 PDF 파일 그룹을 탐색합니다...")
+        self._log("🔍 지정된 폴더에서 병합할 PDF 파일 그룹을 탐색합니다...")
         
         # ===========================
         # [PDF 탐색 작업 실행]
@@ -46,7 +42,7 @@ class PdfMatchListWorker(BaseWorker):
         # 작업 취소 여부를 확인합니다.
         if self.is_cancelled(): return None
         # 분석 서비스를 통해 매칭된 파일 그룹을 반환합니다.
-        return AppContainer.get_instance().pdf_analysis.get_matched_file_groups(self.folder_path)
+        return self.app.pdf_analysis.get_matched_file_groups(self.folder_path)
 
 class PdfInspectionWorker(BaseWorker):
     """선택한 PDF 파일들의 상세 정보(페이지 수 등)를 분석하는 워커 클래스.
@@ -75,7 +71,7 @@ class PdfInspectionWorker(BaseWorker):
         Returns:
             list or None: 병합 매칭 데이터 리스트. 취소 시 None.
         """
-        GlobalLogger.info("🔎 선택한 PDF 파일들의 실제 페이지 수 및 상세 정보를 분석 중입니다...")
+        self._log("🔎 선택한 PDF 파일들의 실제 페이지 수 및 상세 정보를 분석 중입니다...")
         
         # ===========================
         # [PDF 검수 작업 실행]
@@ -84,10 +80,9 @@ class PdfInspectionWorker(BaseWorker):
         if self.is_cancelled(): return None
         
         # 분석 서비스를 초기화합니다.
-        service = AppContainer.get_instance().pdf_analysis
         
         # 매칭 데이터를 생성하여 반환합니다.
-        return service.generate_matching_data(
+        return self.app.pdf_analysis.generate_matching_data(
             self.folder_path, 
             self.selected_keys, 
             self.matched_groups,
@@ -121,7 +116,7 @@ class PdfCombineSaveWorker(BaseWorker):
         Returns:
             list or None: 생성된 파일명 목록. 취소 시 None.
         """
-        GlobalLogger.info("🚀 검수 완료된 레시피를 바탕으로 PDF 병합을 시작합니다...")
+        self._log("🚀 검수 완료된 레시피를 바탕으로 PDF 병합을 시작합니다...")
         
         # ===========================
         # [PDF 병합 및 저장 실행]
@@ -130,30 +125,27 @@ class PdfCombineSaveWorker(BaseWorker):
         if self.is_cancelled(): return None
         
         # 분석 서비스를 초기화합니다.
-        service = AppContainer.get_instance().pdf_analysis
 
         if self.is_drive:
 
             with tempfile.TemporaryDirectory() as temp_dir:
                 # 1. 임시 폴더에 로컬 저장
-                saved_files = service.execute_merge(self.base_data, temp_dir, cancel_checker=self.is_cancelled)
+                saved_files = self.app.pdf_analysis.execute_merge(self.base_data, temp_dir, cancel_checker=self.is_cancelled)
 
                 if self.is_cancelled(): return None
 
                 # 2. 각 파일을 드라이브로 업로드
-                drive_svc = get_drive_service()
                 for name in saved_files:
                     file_path = Path(temp_dir) / name
-                    upload_to_drive(
+                    self.app.drive_client.upload_to_drive(
                         str(file_path),
                         Config.TARGET_DRIVE_DIR,
                         mime_type='application/pdf',
-                        drive_service=drive_svc
-                    )
-                    GlobalLogger.info(f"☁️ 드라이브 업로드 완료: {name}")
+                                            )
+                    self._log(f"☁️ 드라이브 업로드 완료: {name}")
         else:
             # 기존 로컬 저장 동작
-            saved_files = service.execute_merge(self.base_data, self.folder_path)
+            saved_files = self.app.pdf_analysis.execute_merge(self.base_data, self.folder_path)
 
-        GlobalLogger.info(f"✅ 성공적으로 {len(saved_files)}개의 파일을 병합 및 처리했습니다.")
+        self._log(f"✅ 성공적으로 {len(saved_files)}개의 파일을 병합 및 처리했습니다.")
         return saved_files

@@ -10,26 +10,23 @@ from PyQt6.QtWidgets import (QAbstractSpinBox, QFileDialog, QHBoxLayout,
 from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton, StyledButton,
-                                     StyledCheckBox, StyledDateEdit,
-                                     StyledListWidget)
-from controller.transcript_merge_split_controller import (
-    TranscriptController, generate_merged_filename, generate_split_filenames)
+                                     StyledCheckBox, StyledDateEdit, HeaderLabel,
+                                     StyledListWidget, ask_delete_confirm)
+from viewmodel.transcript_merge_split_viewmodel import TranscriptMergeSplitViewModel
 
 
 class TranscriptMergeSplitUi(BaseUI):
 
-    def __init__(self):
-        super().__init__()
-        self.controller = TranscriptController()
-        self.controller.view = self
+    def __init__(self, parent=None):
+        super().__init__(app_name="TranscriptMergeSplit", parent=parent)
+        self.viewmodel = TranscriptMergeSplitViewModel()
         
         # 기본 시그널 연결
-        self.controller.error_signal.connect(self.show_error)
-        self.controller.loading_signal.connect(self.set_loading_state)
-        self.controller.search_completed.connect(self._on_search_finished)
-        self.controller.files_read_completed.connect(self._on_files_read)
-        self.controller.split_save_completed.connect(self._on_split_save_finished)
-        self.controller.merge_save_completed.connect(self._on_merge_save_finished)
+        self.viewmodel.error_occurred.connect(self.show_error)
+        self.viewmodel.search_completed.connect(self._on_search_finished)
+        self.viewmodel.files_read_completed.connect(self._on_files_read)
+        self.viewmodel.split_save_completed.connect(self._on_split_save_finished)
+        self.viewmodel.merge_save_completed.connect(self._on_merge_save_finished)
         
         self.current_text_edits = []
         self.init_ui()
@@ -42,16 +39,21 @@ class TranscriptMergeSplitUi(BaseUI):
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
         
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(28, 28, 28, 28)
+        self.main_layout.setSpacing(20)
         
+        self.init_top_panel()
+        self.init_file_selection_area()
+        self.init_preview_area()
+        self.init_bottom_panel()
+
+    def init_top_panel(self):
         # ===========================
         # [상단 타이틀 구성]
         # ===========================
-        header_label = QLabel("✂️ 텍스트 스크립트 분할/병합")
-        header_label.setStyleSheet("font-size: 24px; font-weight: 800; color: #111111; padding: 5px 0px 10px 0px;")
-        layout.addWidget(header_label)
+        header_label = HeaderLabel("✂️ 텍스트 스크립트 분할/병합")
+        self.main_layout.addWidget(header_label)
 
         # ===========================
         # [상단 제어 박스 (컨트롤 프레임)]
@@ -113,8 +115,9 @@ class TranscriptMergeSplitUi(BaseUI):
         self.search_btn.clicked.connect(self.populate_file_list)
         control_layout.addWidget(self.search_btn)
         
-        layout.addWidget(control_frame)
+        self.main_layout.addWidget(control_frame)
 
+    def init_file_selection_area(self):
         # ===========================
         # [파일 리스트업 영역]
         # ===========================
@@ -123,7 +126,7 @@ class TranscriptMergeSplitUi(BaseUI):
         self.file_list.setAlternatingRowColors(True)
         self.file_list.setMaximumHeight(100)
         self.file_list.itemSelectionChanged.connect(self.on_file_selection_changed)
-        layout.addWidget(self.file_list)
+        self.main_layout.addWidget(self.file_list)
 
         # ===========================
         # [텍스트 검색 영역]
@@ -141,12 +144,13 @@ class TranscriptMergeSplitUi(BaseUI):
         find_btn = StyledButton("검색", "secondary")
         find_btn.clicked.connect(self.find_text)
         search_layout.addWidget(find_btn)
-        layout.addWidget(self.search_bar_widget)
+        self.main_layout.addWidget(self.search_bar_widget)
 
         from PyQt6.QtGui import QKeySequence, QShortcut
         shortcut = QShortcut(QKeySequence("Ctrl+F"), self)
         shortcut.activated.connect(self.search_input.setFocus)
 
+    def init_preview_area(self):
         # ===========================
         # [미리보기 영역]
         # ===========================
@@ -162,13 +166,14 @@ class TranscriptMergeSplitUi(BaseUI):
         self.preview_layout.setSpacing(15)
         self.preview_layout.setAlignment(Qt.AlignmentFlag.AlignLeft)
         self.scroll_area.setWidget(self.preview_container)
-        layout.addWidget(self.scroll_area, stretch=1)
+        self.main_layout.addWidget(self.scroll_area, stretch=1)
 
+    def init_bottom_panel(self):
         # ===========================
         # [하단 상태별 동적 UI 패널]
         # ===========================
         self.bottom_stack = QStackedWidget()
-        layout.addWidget(self.bottom_stack)
+        self.main_layout.addWidget(self.bottom_stack)
 
         # 상태 0: 대기
         wait_widget = QWidget()
@@ -227,6 +232,13 @@ class TranscriptMergeSplitUi(BaseUI):
         
         self.bottom_stack.setCurrentIndex(0)
 
+        # ===========================
+        # [MVVM 선언형 바인딩 적용]
+        # ===========================
+        self.bind_enabled(self.search_btn, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.file_list, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.bottom_stack, self.viewmodel, 'is_loading', invert=True)
+
     # --- 실작동 함수들 ---
     def toggle_search_mode(self, state):
         if state == 2:
@@ -253,6 +265,13 @@ class TranscriptMergeSplitUi(BaseUI):
         self.file_list.clear()
         self.clear_preview()
         self.bottom_stack.setCurrentIndex(0)
+
+        # ===========================
+        # [MVVM 선언형 바인딩 적용]
+        # ===========================
+        self.bind_enabled(self.search_btn, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.file_list, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.bottom_stack, self.viewmodel, 'is_loading', invert=True)
         
         if self.drive_check.isChecked():
             start_date = self.start_date.date().toString("yyyy-MM-dd")
@@ -262,7 +281,7 @@ class TranscriptMergeSplitUi(BaseUI):
             GlobalLogger.info(f"☁️ 구글 드라이브 검색 요청: {start_date} ~ {end_date}")
             
             # 워커 실행
-            self.controller.execute_drive_search(start_date, end_date)
+            self.viewmodel.execute_drive_search(start_date, end_date)
             return
 
         folder_path = self.folder_input.text()
@@ -271,14 +290,15 @@ class TranscriptMergeSplitUi(BaseUI):
             return
 
         try:
-            files = self.controller.get_local_text_files(folder_path)
+            files = self.viewmodel.get_local_text_files(folder_path)
             for f in files: self.file_list.addItem(f)
         except Exception as e:
             QMessageBox.critical(self, "오류", str(e))
 
-    def _on_search_finished(self, files):
-        for f in files: self.file_list.addItem(f)
-        GlobalLogger.info(f"☁️ 총 {len(files)}개의 드라이브 파일을 성공적으로 불러왔습니다.")
+    def _on_search_finished(self):
+        for f in self.viewmodel.files:
+            self.file_list.addItem(f)
+        GlobalLogger.info(f"☁️ 총 {len(self.viewmodel.files)}개의 드라이브 파일을 성공적으로 불러왔습니다.")
         self.search_btn.stop_loading()
 
     def on_file_selection_changed(self):
@@ -292,6 +312,13 @@ class TranscriptMergeSplitUi(BaseUI):
         if count == 0:
             self.bottom_stack.setCurrentIndex(0)
             return
+
+        # ===========================
+        # [MVVM 선언형 바인딩 적용]
+        # ===========================
+        self.bind_enabled(self.search_btn, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.file_list, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.bottom_stack, self.viewmodel, 'is_loading', invert=True)
             
         self.status_label.setText("파일을 불러오는 중입니다... 잠시만 기다려주세요.")
         self.bottom_stack.setCurrentIndex(0) 
@@ -299,21 +326,24 @@ class TranscriptMergeSplitUi(BaseUI):
         filenames = [item.text() for item in selected_items]
         
         # 워커 실행
-        self.controller.execute_read_files(filenames, folder_path, is_drive)
+        self.viewmodel.execute_read_files(filenames, folder_path, is_drive)
 
-    def _on_files_read(self, count, filenames, contents):
+    def _on_files_read(self):
+        filenames = self.viewmodel.loaded_filenames
+        contents = self.viewmodel.loaded_contents
+        count = len(filenames)
         if count == 1:
             filename = filenames[0]
             content = contents[0]
             self.add_text_edit(filename, content, mode="split")
-            split_names = generate_split_filenames(filename)
-            self.split_name_1.setText(split_names[0])
-            self.split_name_2.setText(split_names[1])
+            n1, n2 = self.viewmodel.recommended_split_names
+            self.split_name_1.setText(n1)
+            self.split_name_2.setText(n2)
             self.bottom_stack.setCurrentIndex(1)
         else:
             for fname, content in zip(filenames, contents):
                 self.add_text_edit(fname, content, mode="merge", min_width=350)
-            self.merge_name_input.setText(generate_merged_filename(filenames))
+            self.merge_name_input.setText(self.viewmodel.recommended_merged_name)
             self.bottom_stack.setCurrentIndex(2)
 
     def add_text_edit(self, title, content, mode="split", min_width=None):
@@ -394,7 +424,7 @@ class TranscriptMergeSplitUi(BaseUI):
         GlobalLogger.info(f"[{filename}] 분할 저장을 시작합니다...")
         
         # 워커 실행
-        self.controller.execute_split_save(folder_path, filename, text_content, name1, name2, is_drive)
+        self.viewmodel.execute_split_save(folder_path, filename, text_content, name1, name2, is_drive)
 
     def _on_split_save_finished(self, msg):
         QMessageBox.information(self, "완료", msg)
@@ -407,20 +437,27 @@ class TranscriptMergeSplitUi(BaseUI):
             
             paths_or_ids = []
             if is_drive:
-                file_id = self.controller.drive_files_cache.get(fname)
+                file_id = self.viewmodel.drive_files_cache.get(fname)
                 if file_id:
                     paths_or_ids.append(file_id)
             else:
                 folder_path = self.folder_input.text()
                 paths_or_ids.append(os.path.join(folder_path, fname))
                 
-            from base.base_ui_components import prompt_delete_original_helper
-            prompt_delete_original_helper(
+            # [리팩토링] 1. UI: 사용자에게 팝업으로 의향만 묻기
+            should_delete = ask_delete_confirm(
                 parent_widget=self,
                 file_paths_or_ids=paths_or_ids,
-                is_drive=is_drive,
-                log_callback=GlobalLogger.info
+                is_drive=is_drive
             )
+
+            # [리팩토링] 2. ViewModel: 동의했을 경우 실제 삭제 로직 위임
+            if should_delete:
+                GlobalLogger.info(f"원본 파일 삭제 요청: {paths_or_ids}")
+                self.viewmodel.delete_files(
+                    file_paths_or_ids=paths_or_ids,
+                    is_drive=is_drive
+                )
 
         self.populate_file_list()
 
@@ -440,7 +477,7 @@ class TranscriptMergeSplitUi(BaseUI):
         GlobalLogger.info(f"{files_to_merge} 파일 병합을 시작합니다...")
         
         # 워커 실행
-        self.controller.execute_merge_save(folder_path, files_to_merge, merged_content, custom_name, is_drive)
+        self.viewmodel.execute_merge_save(folder_path, files_to_merge, merged_content, custom_name, is_drive)
         
     def _on_merge_save_finished(self, res):
         msg, new_filename = res
@@ -453,21 +490,27 @@ class TranscriptMergeSplitUi(BaseUI):
             filenames = [item.text() for item in selected_items]
             paths_or_ids = []
             
+            # 삭제할 대상(ID 또는 경로) 추출
             if is_drive:
                 for fname in filenames:
-                    file_id = self.controller.drive_files_cache.get(fname)
+                    file_id = self.viewmodel.drive_files_cache.get(fname)
                     if file_id: paths_or_ids.append(file_id)
             else:
                 folder_path = self.folder_input.text()
                 paths_or_ids = [os.path.join(folder_path, fname) for fname in filenames]
                 
-            from base.base_ui_components import prompt_delete_original_helper
-            prompt_delete_original_helper(
+            should_delete = ask_delete_confirm(
                 parent_widget=self,
                 file_paths_or_ids=paths_or_ids,
-                is_drive=is_drive,
-                log_callback=GlobalLogger.info
+                is_drive=is_drive
             )
+            
+            if should_delete:
+                GlobalLogger.info(f"원본 파일 삭제 요청: {paths_or_ids}")
+                self.viewmodel.delete_files(
+                    file_paths_or_ids=paths_or_ids,
+                    is_drive=is_drive
+                )
             
         self.populate_file_list()
 

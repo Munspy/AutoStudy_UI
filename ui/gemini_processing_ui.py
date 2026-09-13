@@ -18,10 +18,8 @@ from PyQt6.QtWidgets import (QApplication, QCheckBox, QHBoxLayout, QHeaderView,
 from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (CardWidget, LoadingButton, StyledCheckBox,
-                                     StyledDateEdit, StyledTableWidget)
-from controller.gemini_processing_controller import GeminiProcessingController
-from service.api_key_tracker import api_mgr
-from utils.config import Config
+                                     StyledDateEdit, StyledTableWidget, HeaderLabel)
+from viewmodel.gemini_processing_viewmodel import GeminiProcessingViewModel
 
 # 키 상태 정의 상수
 STATE_READY = "READY"        # 🟢 대기 중
@@ -124,28 +122,22 @@ class GeminiProcessingUi(BaseUI):
     병렬 처리 작업을 스케줄링하는 역할을 합니다.
     
     Attributes:
-        controller (GeminiProcessingController): 작업을 처리할 컨트롤러 인스턴스.
+        viewmodel (GeminiProcessingViewModel): 작업을 처리할 뷰모델 인스턴스.
         api_keys (list): 등록된 API 키 목록.
         models (list): 사용 가능한 모델 목록.
         badge_widgets (dict): API 키와 모델 조합에 따른 상태 뱃지 위젯 매핑.
     """
 
-    def __init__(self):
-        """GeminiProcessingUi 인스턴스를 초기화합니다.
+    def __init__(self, parent=None):
+        """GeminiProcessingUi 인스턴스를 초기화합니다."""
+        super().__init__(app_name="GeminiProcessing", parent=parent)
+        self.viewmodel = GeminiProcessingViewModel()
+        self.viewmodel.scan_completed.connect(self.handle_scan_result)
+        self.viewmodel.cell_update_signal.connect(self.update_task_cell)
+        self.viewmodel.error_occurred.connect(self.handle_scan_error)
         
-        Args:
-            task_manager (optional): 백그라운드 작업을 관리하는 태스크 매니저. 기본값은 None.
-        """
-        super().__init__()
-        self.controller = GeminiProcessingController()
-        self.controller.ui = self
-        self.controller.scan_completed.connect(self.handle_scan_result)
-        self.controller.cell_update_signal.connect(self.update_task_cell)
-        self.controller.error_signal.connect(self.handle_scan_error)
-        self.controller.loading_signal.connect(self.handle_loading_state)
-
-        self.api_keys = [f"KEY_{i+1}" for i in range(len(Config.GEMINI_KEYS))]
-        self.models = Config.GEMINI_MODELS
+        self.api_keys = self.viewmodel.api_keys
+        self.models = self.viewmodel.models
         
         self.badge_widgets = {}
         self.init_ui()
@@ -164,13 +156,19 @@ class GeminiProcessingUi(BaseUI):
             QCheckBox { background-color: transparent; border: none; }
         """)
         
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(28, 28, 28, 28)
+        self.main_layout.setSpacing(20)
         
-        header_label = QLabel("🧠 Gemini AI 스크립트 교정 / 요약 / Anki 생성")
-        header_label.setStyleSheet("font-size: 22px; font-weight: 800; color: #111111; padding-bottom: 5px;")
-        layout.addWidget(header_label)
+        self.init_top_panel()
+        self.init_table_area()
+        self.init_bottom_panel()
+        
+        self.populate_real_data()
+
+    def init_top_panel(self):
+        header_label = HeaderLabel("🧠 Gemini AI 스크립트 교정 / 요약 / Anki 생성")
+        self.main_layout.addWidget(header_label)
 
         # ===========================
         # [상단 키 상태 및 조회 영역]
@@ -228,8 +226,9 @@ class GeminiProcessingUi(BaseUI):
         right_action_layout.addLayout(scan_row_layout)
         
         top_layout.addLayout(right_action_layout)
-        layout.addWidget(top_frame)
+        self.main_layout.addWidget(top_frame)
 
+    def init_table_area(self):
         # ===========================
         # [중간 컨트롤 바]
         # ===========================
@@ -238,7 +237,7 @@ class GeminiProcessingUi(BaseUI):
         self.select_all_cb.clicked.connect(self.toggle_all_items)
         mid_bar_layout.addWidget(self.select_all_cb)
         mid_bar_layout.addStretch()
-        layout.addLayout(mid_bar_layout)
+        self.main_layout.addLayout(mid_bar_layout)
 
         # ===========================
         # [작업 테이블 영역]
@@ -258,8 +257,9 @@ class GeminiProcessingUi(BaseUI):
         self.table.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeMode.Stretch)
         self.table.horizontalHeader().setSectionResizeMode(6, QHeaderView.ResizeMode.Stretch)
         
-        layout.addWidget(self.table, stretch=1)
+        self.main_layout.addWidget(self.table, stretch=1)
 
+    def init_bottom_panel(self):
         # ===========================
         # [하단 버튼 영역]
         # ===========================
@@ -270,8 +270,14 @@ class GeminiProcessingUi(BaseUI):
         self.auto_run_btn.clicked.connect(self.execute_auto_run)
         bottom_layout.addWidget(self.auto_run_btn)
         
-        layout.addLayout(bottom_layout)
-        self.populate_real_data()
+        self.main_layout.addLayout(bottom_layout)
+
+        # ===========================
+        # [MVVM 선언형 바인딩 적용]
+        # ===========================
+        self.bind_loading_button(self.auto_run_btn, self.viewmodel, 'is_loading', '실행 중')
+        self.bind_loading_button(self.scan_btn, self.viewmodel, 'is_loading', '조회 중')
+        self.bind_enabled(self.table, self.viewmodel, 'is_loading', invert=True)
 
     def toggle_force_rerun(self, checked):
         self.date_picker.setVisible(checked)
@@ -280,13 +286,11 @@ class GeminiProcessingUi(BaseUI):
         for key_name in self.api_keys:
             for model_name in self.models:
                 badge = self.badge_widgets[key_name][model_name]
+                info = self.viewmodel.get_combo_status(key_name, model_name)
+                status = info["status"]
                 
-                # 정규식이나 이름 매핑 없이 백엔드의 반환값을 직관적으로 사용
-                status, extra = api_mgr.check_combo_status(key_name, model_name)
-                
-                if status == "COOLDOWN":
-                    total_cd = Config.MODEL_LOCK_DURATION_503 if extra > api_mgr.cooldown_seconds else api_mgr.cooldown_seconds
-                    badge.set_cooldown(extra, total=total_cd)
+                if status == STATE_COOLDOWN:
+                    badge.set_cooldown(info["remaining_cd"], total=info["total_cd"])
                 elif status in [STATE_READY, STATE_BUSY, STATE_DAILY_LIMIT]:
                     badge.set_state(status)
                 else:
@@ -345,11 +349,15 @@ class GeminiProcessingUi(BaseUI):
         target_date = self.date_picker.date()
         target_mmdd = target_date.toString("MMdd") # 예: "0409"
         
-        self.controller.start_scan(is_force_rerun, target_mmdd)
+        self.viewmodel.is_force_rerun = is_force_rerun
+        self.viewmodel.target_mmdd = target_mmdd
+        self.viewmodel.start_scan()
 
-    def handle_scan_result(self, real_data, is_force_rerun):
+    def handle_scan_result(self):
         # UI 상태 복구 및 테이블 렌더링
         self.scan_btn.stop_loading()
+        real_data = self.viewmodel.scan_results
+        is_force_rerun = self.viewmodel.is_force_rerun
         self.render_table_data(real_data, is_force_rerun)
         
         if is_force_rerun:
@@ -519,13 +527,9 @@ class GeminiProcessingUi(BaseUI):
         # 워커 스레드를 실행하여 UI 멈춤 방지
         if task_queue:
             self.auto_run_btn.start_loading("작업 진행 중")
-            self.controller.start_tasks(task_queue)
+            self.viewmodel.start_tasks(task_queue)
         else:
             GlobalLogger.info("실행할 작업이 선택되지 않았습니다.")
-
-    def handle_loading_state(self, is_loading):
-        if not is_loading:
-            self.auto_run_btn.stop_loading()
 
     def update_task_cell(self, row, col, status):
         """작업 진행 상태에 따라 테이블 셀을 업데이트"""

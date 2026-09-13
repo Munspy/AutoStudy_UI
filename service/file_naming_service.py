@@ -10,7 +10,7 @@ Controller, DriveSyncService, Worker 등 다른 계층들이 파일의 논리적
 """
 
 import re
-from utils.constants import FileSuffix, Extensions
+from core.constants import FileSuffix, Extensions
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set
 
@@ -29,11 +29,7 @@ class FileNamingService(BaseService):
     """
     
     def __init__(self) -> None:
-        """FileNamingService 객체를 초기화하고 성능 최적화를 위한 정규식 패턴을 사전 컴파일합니다.
-
-        Args:            logger_callback (Optional[Callable[[str], None]], optional): 로그 메시지를 UI나 상위 레이어로 
-                전달하기 위한 콜백 함수입니다. Defaults to None.
-        """
+        """FileNamingService 객체를 초기화하고 성능 최적화를 위한 정규식 패턴을 사전 컴파일합니다."""
         # ===========================
         # [메인 비즈니스 로직]
         # ===========================

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 """구글 드라이브 동기화 및 학습 자료 파이프라인 상태 관리 서비스.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
@@ -14,13 +16,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from base.base_service import BaseService
 # 분리된 도메인 서비스 임포트
-from service.file_naming_service import FileNamingService
-from service.pipeline_status_service import PipelineStatusService
-from service.timetable_service import TimetableService
-from service.youtube_playlist_service import YoutubePlaylistService
-from utils.auth_util import get_drive_service
-from utils.config import Config
-from utils.drive_api import get_all_drive_files
+from core.config import Config
 from utils.file_util import list_local_files
 from utils.filename_util import normalize_text
 
@@ -33,22 +29,10 @@ class DriveSyncService(BaseService):
     Controller가 복잡한 상태 취합 로직에 관여하지 않도록 캡슐화(Encapsulation)합니다.
     """
 
-    @property
-    def drive_service(self):
-        from utils.auth_util import get_drive_service
-        return get_drive_service()
-    
-    def __init__(self, naming_service, pipeline_service, yt_service, timetable_service) -> None:
+    def __init__(self):
         """DriveSyncService를 초기화하고 필요한 의존성 객체들을 주입받아 생성합니다."""
         super().__init__()
-        # self.target_folder_id: str = "1LGpUait4f5AxSnb5zhmPIMYAE96ipJue"
         self.target_folder_id: str = Config.TARGET_DRIVE_DIR
-        
-        # 도메인 서비스 인스턴스화
-        self.naming_service = naming_service
-        self.pipeline_service = pipeline_service
-        self.yt_service = yt_service
-        self.timetable_service = timetable_service
         
         # 시험 기준 카테고리 캐시
         self._exam_categories_cache: Optional[List[Tuple[str, str]]] = None
@@ -69,22 +53,18 @@ class DriveSyncService(BaseService):
 
         def is_lesson_folder_name(name: str) -> bool:
             clean = name.strip()
-            return bool(re.match(r'^\d{4}[-_]\d+', clean) or self.naming_service.extract_lesson_id(clean))
+            return bool(re.match(r'^\d{4}[-_]\d+', clean) or self.app.file_naming.extract_lesson_id(clean))
 
         try:
             root_id = Config.extract_drive_id(self.target_folder_id)
             if not root_id:
                 return []
 
-            # -------------------------------------------------------------
+            service = self.app.drive_client._get_service()
+
             # [1단계 폴더 조회: API 호출 1회]
-            # -------------------------------------------------------------
             l1_query = f"'{root_id}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-            res = self.drive_service.files().list(
-                q=l1_query,
-                pageSize=1000,
-                fields="files(id, name)"
-            ).execute()
+            res = service.files().list(q=l1_query, pageSize=1000, fields="files(id, name)").execute()
             l1_folders = res.get('files', [])
 
             # 날짜_교시 형태 폴더(0414_34 등)는 1단계에서 즉시 제외
@@ -95,17 +75,10 @@ class DriveSyncService(BaseService):
             categories: List[Tuple[str, str]] = []
             chunk_map = {f['id']: f['name'] for f in valid_l1_folders}
 
-            # -------------------------------------------------------------
-            # [2단계 폴더 조회: API 호출 1회 (최대 50개 부모 폴더 통합 쿼리)]
-            # -------------------------------------------------------------
+            # [2단계 폴더 조회: API 호출 1회 — IN 쿼리로 통합]
             parents_q = " or ".join([f"'{f['id']}' in parents" for f in valid_l1_folders[:50]])
             l2_query = f"({parents_q}) and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
-            
-            res_l2 = self.drive_service.files().list(
-                q=l2_query,
-                pageSize=1000,
-                fields="files(id, name, parents)"
-            ).execute()
+            res_l2 = service.files().list(q=l2_query, pageSize=1000, fields="files(id, name, parents)").execute()
             l2_folders = res_l2.get('files', [])
 
             # 2단계 폴더 매핑 및 날짜_교시 제외
@@ -141,15 +114,21 @@ class DriveSyncService(BaseService):
         self, 
         local_path: str = "", 
         target_folder_id: Optional[str] = None,
-        name_filter: Optional[str] = None
+        name_filter: Optional[str] = None,
+        force_refresh: bool = False
     ) -> Tuple[List[Dict[str, Any]], List[str], List[str]]:
-        """구글 드라이브와 로컬 시스템의 모든 파일 목록을 스캔하여 수집합니다."""
+        """구글 드라이브와 로컬 시스템의 모든 파일 목록을 스캔하여 수집합니다.
+        
+        기본적으로 Changes API 기반 디스크 캐시를 사용하여 첫 실행 이후에는 
+        수십 밀리초~수백 밀리초 내에 초고속으로 변경분만 반영합니다.
+        """
         folder_id = target_folder_id or self.target_folder_id
         try:
-            drive_files: List[Dict[str, Any]] = get_all_drive_files(
+            if force_refresh:
+                self.app.drive_client.invalidate_drive_cache(folder_id)
+            drive_files: List[Dict[str, Any]] = self.app.drive_client.get_all_drive_files_cached(
                 folder_id, 
                 name_filter=name_filter, 
-                drive_service=self.drive_service
             )
             drive_filenames: List[str] = [normalize_text(f.get('name', '')) for f in drive_files]
         except Exception as e:
@@ -173,7 +152,7 @@ class DriveSyncService(BaseService):
         lesson_ids = set()
         
         for f in filenames:
-            lesson_id: Optional[str] = self.naming_service.extract_lesson_id(f)
+            lesson_id: Optional[str] = self.app.file_naming.extract_lesson_id(f)
             if not lesson_id:
                 continue
                 
@@ -199,24 +178,23 @@ class DriveSyncService(BaseService):
     def get_lesson_file_flags(self, lesson_id: str, filenames: List[str]) -> Dict[str, bool]:
         """해당 교시(Lesson ID)에 대해 모든 파이프라인 파일의 존재 여부만 True/False로 수집합니다."""
         return {
-            "final_pdf": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "final_pdf"),
-            "yaboot": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "yaboot"),
-            "jul": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "jul"),
-            "script": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "script"),
-            "audio": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "audio"),
-            "corrected_txt": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "corrected_txt"),
-            "summary_txt": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "summary_txt"),
-            "anki": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "anki"),
-            "scripted_pdf": self.pipeline_service.check_lesson_file_status(filenames, lesson_id, "scripted_pdf"),
+            "final_pdf":        self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "final_pdf"),
+            "yaboot":           self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "yaboot"),
+            "jul":              self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "jul"),
+            "script":           self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "script"),
+            "audio":            self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "audio"),
+            "corrected_txt":    self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "corrected_txt"),
+            "summary_txt":      self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "summary_txt"),
+            "anki":             self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "anki"),
+            "scripted_pdf":     self.app.pipeline_status.check_lesson_file_status(filenames, lesson_id, "scripted_pdf"),
         }
 
     def preload_metadata(self, force_refresh: bool = False) -> None:
         """시간표(timetable) 및 유튜브 메타데이터를 백그라운드에서 사전 로드합니다."""
         try:
-            self.timetable_service.fetch_all_timetable_metadata(
+            self.app.timetable.fetch_all_timetable_metadata(
                 force_refresh=force_refresh, 
-                drive_service=self.drive_service
-            )
+                            )
         except Exception as e:
             self._log(f"⚠️ timetable 사전 로드 실패: {e}")
 
@@ -229,17 +207,16 @@ class DriveSyncService(BaseService):
         script_status = "O (완료)" if flags.get("script") else ("Whisper AI 전사 필요" if flags.get("audio") else "영상 없음")
 
         # 1. 드라이브 최상단 timetable 스프레드시트 데이터 우선 조회
-        tt_info = self.timetable_service.find_timetable_info_for_lesson(
+        tt_info = self.app.timetable.find_timetable_info_for_lesson(
             lesson_id, 
-            drive_service=self.drive_service
-        )
+                    )
         tt_prof = tt_info.get("professor", "").strip() if tt_info else ""
         tt_lec = tt_info.get("lecture_name", "").strip() if tt_info else ""
 
         # 2. timetable에 교수명 또는 강의명이 누락된 경우 유튜브 메타데이터로 폴백
         default_lec = f"강의_{lesson_id}"
         if not tt_prof or not tt_lec or tt_prof == "-":
-            yt_info = self.yt_service.find_youtube_info_for_lesson(lesson_id)
+            yt_info = self.app.yt_playlist.find_youtube_info_for_lesson(lesson_id)
             professor = tt_prof if (tt_prof and tt_prof != "-") else yt_info.get("professor", "-")
             lecture_name = tt_lec if (tt_lec and tt_lec != default_lec) else yt_info.get("lecture_name", default_lec)
         else:
@@ -264,11 +241,11 @@ class DriveSyncService(BaseService):
     # =========================================================================
     def format_llm_pipeline_data(self, lesson_id: str, flags: Dict[str, bool]) -> Tuple[Dict[str, Any], bool]:
         """존재 유무 플래그를 바탕으로 3번 탭(LLM UI) 테이블용 데이터와 전체 완료 여부를 반환합니다."""
-        has_final_pdf = flags.get("final_pdf", False)
-        has_script_txt = flags.get("script", False)
-        has_corrected = flags.get("corrected_txt", False)
-        has_summary = flags.get("summary_txt", False)
-        anki_done = flags.get("anki", False)
+        has_final_pdf   = flags.get("final_pdf", False)
+        has_script_txt  = flags.get("script", False)
+        has_corrected   = flags.get("corrected_txt", False)
+        has_summary     = flags.get("summary_txt", False)
+        anki_done       = flags.get("anki", False)
 
         is_all_completed = has_final_pdf and has_script_txt and has_corrected and has_summary and anki_done
 

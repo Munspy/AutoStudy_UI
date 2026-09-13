@@ -81,6 +81,8 @@ class Config:
         # 매칭되지 않은 경우 원본 그대로 반환 (이미 ID 형식일 가능성)
         return id_or_url
 
+    PROJECT_NAME: str = "AutoStudy"
+
     GOOGLE_API_SCOPES: List[str] = [
         'https://www.googleapis.com/auth/drive',
         'https://www.googleapis.com/auth/youtube.readonly'
@@ -111,7 +113,7 @@ class Config:
     NOTION_DATABASE_ID: Optional[str] = os.getenv("NOTION_DATABASE_ID")
     TESSERACT_CMD: Optional[str] = os.getenv("TESSERACT_CMD")
 
-    # [개선 1] SSOT(단일 진실 공급원): 모델 리스트 및 API 쿨타임을 전역 설정으로 이관
+    # SSOT(단일 진실 공급원): 모델 리스트 및 API 쿨타임을 전역 설정
     API_COOLDOWN_SECONDS: float = 15.0
     MODEL_LOCK_DURATION_503: float = 240.0  # 503 발생 시 해당 모델 전역 잠금 시간 (초)
     GEMINI_MODELS: List[str] = [

@@ -336,3 +336,243 @@ class AnkiGenerationService(BaseService):
             self._log(f"📦 [APKG 저장] {Path(result_path).name} 완료")
             
         return result_path
+    # ==========================================
+    # 5. Anki 덱 병합 (Merge) 비즈니스 로직
+    # ==========================================
+    def _get_folder_path(self, file_parents: list[str], root_id: str) -> list[str]:
+        path = []
+        current_parent_id = file_parents[0] if file_parents else None
+        while current_parent_id and current_parent_id != root_id:
+            if current_parent_id in self._folder_cache:
+                res = self._folder_cache[current_parent_id]
+            else:
+                res = self.app.drive_client.get_drive_file_info(current_parent_id)
+                self._folder_cache[current_parent_id] = res
+                
+            path.append(res.get('name', 'Unknown'))
+            parents = res.get('parents')
+            current_parent_id = parents[0] if parents else None
+        return list(reversed(path))
+
+    
+
+    def merge_apkg_files(self, checked_lessons: list[str], output_path: str, cancel_checker=None):
+        """체크된 수업들의 _통합본.apkg를 다운로드하고, 폴더 구조에 맞춰 덱 이름을 상속 변경한 뒤 하나로 병합하여 로컬에 저장합니다."""
+        import tempfile
+        import zipfile
+        import shutil
+        import os
+        import json
+        import sqlite3
+        import random
+        from core.config import Config
+
+        def gen_id(): return random.randrange(1 << 30, 1 << 31)
+
+        root_id = Config.TARGET_DRIVE_DIR
+        
+        self._log(f"📂 체크된 수업 폴더에서 _통합본.apkg 파일들을 검색합니다...")
+        
+        # 최적화: get_all_drive_files를 이용해 모든 파일/폴더를 긁은 후 로컬에서 필터링
+        all_root_items = self.app.drive_client.get_all_drive_files(root_id)
+        
+        apkg_files_by_lesson = {}
+        for lesson in checked_lessons:
+            if cancel_checker and cancel_checker():
+                return None
+                
+            # 해당 교시 이름이 포함된 폴더들 찾기
+            lesson_folders = [item for item in all_root_items if lesson in item.get('name', '') and item.get('mimeType') == 'application/vnd.google-apps.folder']
+            
+            if not lesson_folders:
+                self._log(f"   ⚠️ [{lesson}] 폴더를 찾을 수 없습니다.")
+                continue
+                
+            lesson_folder_id = lesson_folders[0]['id']
+            # 폴더 내의 파일들 가져오기
+            sub_items = self.app.drive_client.get_all_drive_files(lesson_folder_id, name_filter='_통합본.apkg')
+            matched_files = [item for item in sub_items if '_통합본.apkg' in item.get('name', '')]
+            
+            if matched_files:
+                matched_files[0]['parents'] = [lesson_folder_id]
+                apkg_files_by_lesson[lesson] = matched_files[0]
+            else:
+                self._log(f"   ⚠️ [{lesson}] 폴더 내에 '_통합본.apkg' 파일이 없습니다.")
+
+        if not apkg_files_by_lesson:
+            return None
+
+        # 임시 작업 디렉토리 생성 (미디어 파일 병합용)
+        media_temp_dir = tempfile.mkdtemp(prefix="anki_media_")
+        master_decks = {}
+        master_models = {}
+        media_files_list = []
+
+        try:
+            for lesson, apkg_file in apkg_files_by_lesson.items():
+                if cancel_checker and cancel_checker():
+                    break
+
+                if apkg_file['name'] == '_통합본.apkg':
+                    self._log(f"   ➔ [{lesson}] '기본' 폴더 대상 건너뜀")
+                    continue
+
+                # 폴더 계층 구조 추출
+                parents = apkg_file.get('parents', [])
+                folder_path_parts = self._get_folder_path(parents, root_id)
+                # 마지막 최하위 폴더명은 기존 덱 이름과 중복되므로 제외합니다
+                if folder_path_parts:
+                    folder_path_parts = folder_path_parts[:-1]
+                
+                folder_prefix = "::".join(folder_path_parts) if folder_path_parts else "기본"
+
+                self._log(f"   ➔ [{lesson}] 다운로드 및 데이터베이스 파싱 중 (경로: {folder_prefix})...")
+                
+                # 메모리에 다운로드 후 임시 파일로 저장 (sqlite3 및 zipfile 처리를 위해)
+                with self.app.drive_client.in_memory_download_from_drive(apkg_file['id']) as io_stream:
+                    with tempfile.NamedTemporaryFile(suffix=".apkg", delete=False) as temp_apkg:
+                        temp_apkg.write(io_stream.getvalue())
+                        temp_apkg_path = temp_apkg.name
+
+                if cancel_checker and cancel_checker():
+                    break
+
+                extract_dir = None
+                try:
+                    # 압축 풀기
+                    extract_dir = tempfile.mkdtemp(prefix="anki_extract_")
+                    with zipfile.ZipFile(temp_apkg_path, 'r') as zf:
+                        zf.extractall(extract_dir)
+
+                    db_path = os.path.join(extract_dir, 'collection.anki2')
+                    if not os.path.exists(db_path):
+                        self._log(f"   ❌ [{lesson}] 올바른 apkg 형식이 아닙니다 (DB 없음).")
+                        continue
+
+                    # 미디어 매핑 (파일 이름 '0', '1' -> 실제 파일명)
+                    media_map_path = os.path.join(extract_dir, 'media')
+                    media_map = {}
+                    if os.path.exists(media_map_path):
+                        with open(media_map_path, 'r', encoding='utf-8') as mf:
+                            media_map = json.load(mf)
+                    
+                    # 미디어 파일 복사 및 수집
+                    for key_str, real_name in media_map.items():
+                        src_media_file = os.path.join(extract_dir, key_str)
+                        if os.path.exists(src_media_file):
+                            dst_media_file = os.path.join(media_temp_dir, real_name)
+                            shutil.copy(src_media_file, dst_media_file)
+                            media_files_list.append(dst_media_file)
+
+                    conn = sqlite3.connect(db_path)
+                    cursor = conn.cursor()
+
+                    # col 테이블에서 모델과 덱 가져오기
+                    cursor.execute("SELECT models, decks FROM col LIMIT 1")
+                    col_row = cursor.fetchone()
+                    if not col_row:
+                        continue
+                    
+                    models_dict = json.loads(col_row[0])
+                    decks_dict = json.loads(col_row[1])
+
+                    # 모델 파싱
+                    mid_mapping = {} # 기존 mid -> genanki.Model
+                    for mid_str, m_data in models_dict.items():
+                        m_name = m_data.get('name', 'Model')
+                        # 중복 모델 이름 처리 방지 (모델 ID 자체를 유지하거나 해싱)
+                        m_id = m_data.get('id', gen_id())
+                        if m_name not in master_models:
+                            fields = [{'name': f.get('name')} for f in m_data.get('flds', [])]
+                            templates = [{'name': t.get('name'), 'qfmt': t.get('qfmt'), 'afmt': t.get('afmt')} for t in m_data.get('tmpls', [])]
+                            css = m_data.get('css', '')
+                            
+                            model = genanki.Model(
+                                m_id,
+                                m_name,
+                                fields=fields,
+                                templates=templates,
+                                css=css
+                            )
+                            master_models[m_name] = model
+                        mid_mapping[mid_str] = master_models[m_name]
+
+                    # 덱 파싱 (이름 변환)
+                    did_to_deck = {}
+                    for did_str, d_data in decks_dict.items():
+                        old_name = d_data.get('name', 'Default')
+                        # 'Default' 같은 기본 덱은 필터링하거나 변환
+                        if old_name.lower() == 'default':
+                            new_name = folder_prefix
+                        else:
+                            new_name = f"{folder_prefix}::{old_name}"
+                        
+                        if new_name not in master_decks:
+                            d_id = gen_id()
+                            deck = genanki.Deck(d_id, new_name)
+                            master_decks[new_name] = deck
+                        
+                        did_to_deck[did_str] = master_decks[new_name]
+
+                    # 노트 및 카드 추출
+                    cursor.execute("SELECT id, mid, flds, tags FROM notes")
+                    notes = cursor.fetchall()
+                    
+                    for n in notes:
+                        n_id, mid, flds, tags_str = n
+                        mid_str = str(mid)
+                        if mid_str not in mid_mapping:
+                            continue
+                            
+                        # 이 노트의 카드들이 속한 덱 찾기 (첫번째 카드 기준)
+                        cursor.execute("SELECT did FROM cards WHERE nid = ? LIMIT 1", (n_id,))
+                        c_row = cursor.fetchone()
+                        if not c_row:
+                            continue
+                            
+                        did_str = str(c_row[0])
+                        target_deck = did_to_deck.get(did_str)
+                        if not target_deck:
+                            continue
+
+                        flds_list = flds.split('')
+                        # 태그 파싱
+                        tags = [t for t in tags_str.split(' ') if t] if tags_str else []
+                        
+                        note = genanki.Note(
+                            model=mid_mapping[mid_str],
+                            fields=flds_list,
+                            tags=tags,
+                            guid=n_id
+                        )
+                        target_deck.add_note(note)
+                        
+                    conn.close()
+
+                except Exception as e:
+                    self._log(f"   ❌ [{lesson}] 파싱 실패: {e}")
+                finally:
+                    if os.path.exists(temp_apkg_path):
+                        os.unlink(temp_apkg_path)
+                    if extract_dir:
+                        shutil.rmtree(extract_dir, ignore_errors=True)
+
+            if cancel_checker and cancel_checker():
+                return None
+
+            if master_decks:
+                import genanki
+                self._log(f"💾 패키징 중... (총 {len(master_decks)}개의 덱 병합)")
+                package = genanki.Package(list(master_decks.values()))
+                
+                # 중복 미디어 파일 제거
+                unique_media = list(set(media_files_list))
+                package.media_files = unique_media
+                
+                package.write_to_file(output_path)
+                return "Anki 덱 병합 및 저장이 완료되었습니다."
+            else:
+                return "병합할 Anki 덱 데이터가 없습니다."
+        finally:
+            shutil.rmtree(media_temp_dir, ignore_errors=True)
+

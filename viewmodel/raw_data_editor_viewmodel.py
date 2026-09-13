@@ -1,39 +1,32 @@
-"""Raw Data 편집기 탭의 백엔드 로직을 처리하는 컨트롤러 모듈입니다.
+"""Raw Data 편집기 탭의 백엔드 로직을 처리하는 ViewModel 모듈입니다.
 
 UI(RawDataEditorUi)와 연동되어 구글 드라이브 검색, 파일 다운로드, 
-텍스트 파싱, PyMuPDF를 활용한 PDF 페이지 고속 렌더링 등을 제어합니다.
+텍스트 파싱, PyMuPDF를 활용한 PDF 페이지 고속 렌더링 등을 제어하고 상태를 관리합니다.
 """
 from typing import Dict
 
 import pymupdf
-from PyQt6.QtCore import QObject, pyqtSignal
+from PyQt6.QtCore import pyqtSignal
 
 from core.logger import GlobalLogger
-from base.base_controller import BaseController
-from utils.auth_util import get_drive_service
-from utils.config import Config
-# Moved from inline
+from base.base_viewmodel import BaseViewModel
+from core.config import Config
 from utils.text_util import parse_slide_text
 from worker.raw_data_worker import RawDataApplyWorker, RawDataLoadWorker
 
 
-class RawDataEditorController(BaseController):
+class RawDataEditorViewModel(BaseViewModel):
+    """Raw Data 에디터 상태 및 작업을 관리하는 ViewModel 클래스."""
 
     # 고유 시그널 정의
-    pdf_page_rendered = pyqtSignal(bytes, int, int) # image_bytes, current, total
+    pdf_page_rendered = pyqtSignal(bytes, int, int)  # image_bytes, current, total
     text_loaded = pyqtSignal(str)
-    loading_started = pyqtSignal()
-    loading_finished = pyqtSignal()
-    apply_started = pyqtSignal()
-    apply_finished = pyqtSignal(bool)
+    apply_completed = pyqtSignal(bool)
 
-    """Raw Data 에디터 작업을 관리하는 컨트롤러 클래스."""
-    
-    def __init__(self):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
         
         # 내부 상태
-        pass # drive_service removed
         self.pdf_doc = None
         self.text_dict: Dict[int, str] = {}
         self.original_text_dict: Dict[int, str] = {}
@@ -48,15 +41,9 @@ class RawDataEditorController(BaseController):
         GlobalLogger.info(message)
 
     def search_and_load(self, date_str: str, period_str: str):
-        self.loading_started.emit()
-        
-        from core.container import AppContainer
-
         worker = RawDataLoadWorker(date_str, period_str)
         worker.finished_signal.connect(self._on_load_finished)
-        worker.error_signal.connect(self._on_load_error)
-        
-        AppContainer.get_instance().task_manager.add_task(worker)
+        self.start_worker(worker)
 
     def _on_load_finished(self, result: dict):
         try:
@@ -70,7 +57,10 @@ class RawDataEditorController(BaseController):
             self.text_file_name = text_file['name']
             
             if self.pdf_doc:
-                self.pdf_doc.close()
+                try:
+                    self.pdf_doc.close()
+                except Exception:
+                    pass
             
             self.pdf_doc = pymupdf.open(stream=pdf_bytes, filetype="pdf")
             self.total_pages = len(self.pdf_doc)
@@ -82,12 +72,7 @@ class RawDataEditorController(BaseController):
             self._render_and_emit_page(self.current_page)
         except Exception as e:
             self.log(f"❌ 데이터 파싱 중 오류: {str(e)}")
-        finally:
-            self.loading_finished.emit()
-
-    def _on_load_error(self, error_msg: str):
-        self.log(f"❌ 로딩 중 오류 발생: {error_msg}")
-        self.loading_finished.emit()
+            self.emit_error("오류", f"데이터 파싱 중 오류: {str(e)}")
 
     def _parse_text_content(self, text: str):
         self.text_dict = parse_slide_text(text)
@@ -125,18 +110,11 @@ class RawDataEditorController(BaseController):
 
     def apply_all_changes(self):
         if not self.text_file_id:
-            self.log("❌ 오류: 업로드할 원본 텍스트 파일 정보가 없습니다.")
-            self.apply_finished.emit(False)
+            self.emit_error("오류", "업로드할 원본 텍스트 파일 정보가 없습니다.")
+            self.apply_completed.emit(False)
             return
-        
-        from core.container import AppContainer
             
         self.log("🚀 전체 텍스트 조합 및 구글 드라이브 업로드 준비 중...")
-        self.apply_started.emit()
-        
-        # [BUG-FIX] self.drive_service → 제거
-        # RawDataApplyWorker는 내부 @property drive_service를 통해 독립적으로 인증하므로
-        # 외부에서 drive_service를 전달할 필요가 없음 (self.drive_service는 이 컨트롤러에 없음)
         worker = RawDataApplyWorker(
             self.text_dict, self.total_pages, 
             self.text_file_id, self.text_file_name, 
@@ -146,14 +124,7 @@ class RawDataEditorController(BaseController):
         def _on_apply_success(res):
             if isinstance(res, str):
                 self.text_file_id = res
-            self.apply_finished.emit(True)
+            self.apply_completed.emit(True)
             
         worker.finished_signal.connect(_on_apply_success)
-        worker.error_signal.connect(self._on_apply_error)
-        
-        AppContainer.get_instance().task_manager.add_task(worker)
-
-    def _on_apply_error(self, error_msg: str):
-        self.log(f"❌ 최종 반영 중 오류 발생: {error_msg}")
-        self.apply_finished.emit(False)
-
+        self.start_worker(worker)

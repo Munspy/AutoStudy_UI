@@ -1,20 +1,11 @@
-from typing import Callable, Optional
-
 from base.base_service import BaseService
-from utils.auth_util import get_drive_service
-from utils.config import Config
-from utils.drive_api import get_all_drive_files, move_drive_file
+from core.config import Config
 
 
 class FolderManagementService(BaseService):
     """구글 드라이브 내 교시별 전용 폴더 트리 탐색, 생성 및 파일 자동 이동을 전담하는 도메인 서비스."""
 
-    @property
-    def drive_service(self):
-        from utils.auth_util import get_drive_service
-        return get_drive_service()
-
-    def __init__(self) -> None:
+    def __init__(self):
         super().__init__()
         self.root_folder_id = Config.TARGET_DRIVE_DIR
 
@@ -30,12 +21,11 @@ class FolderManagementService(BaseService):
             # 부모 정보 가져오기
             if current_id not in parents_cache:
                 try:
-                    file_info = self.drive_service.files().get(
-                        fileId=current_id, fields='parents'
-                    ).execute()
+                    file_info = self.app.drive_client.get_drive_file_info(current_id)
                     parents = file_info.get('parents', [])
                     parents_cache[current_id] = parents[0] if parents else None
-                except Exception:
+                except Exception as e:
+                    self._log(f"⚠️ 부모 폴더 조회 중 오류: {e}")
                     parents_cache[current_id] = None
                     
             parent_id = parents_cache[current_id]
@@ -59,7 +49,7 @@ class FolderManagementService(BaseService):
         self._log(f"📁 [{lesson_id}] 관련 파일 수집 및 전용 폴더 구성 시작...")
         
         # 1. 관련된 모든 파일 찾기
-        all_files = get_all_drive_files(self.root_folder_id, drive_service=self.drive_service)
+        all_files = self.app.drive_client.get_all_drive_files(self.root_folder_id)
         
         related_files = []
         import re
@@ -109,7 +99,7 @@ class FolderManagementService(BaseService):
         # [검증 로직 추가] deepest_parent_id 폴더 자체가 이미 lesson_id를 포함하는지 확인 (중첩 생성 방지)
         if not existing_target_folder_id and deepest_parent_id != self.root_folder_id:
             try:
-                parent_info = self.drive_service.files().get(fileId=deepest_parent_id, fields='name, mimeType').execute()
+                parent_info = self.app.drive_client.get_drive_file_info(deepest_parent_id)
                 if parent_info.get('mimeType') == 'application/vnd.google-apps.folder':
                     parent_name = parent_info.get('name', '')
                     # 부모 폴더 이름에 lesson_id가 포함되어 있다면 하위에 또 만들지 않음
@@ -126,15 +116,7 @@ class FolderManagementService(BaseService):
         else:
             # 폴더 생성 로직
             self._log(f"📂 [{lesson_id}] 폴더가 없어 깊이가 가장 깊은 위치에 새로 생성합니다.")
-            file_metadata = {
-                'name': lesson_id.strip(),
-                'mimeType': 'application/vnd.google-apps.folder',
-                'parents': [deepest_parent_id]
-            }
-            folder = self.drive_service.files().create(
-                body=file_metadata, fields='id'
-            ).execute()
-            target_folder_id = folder.get('id')
+            target_folder_id = self.app.drive_client.create_folder(lesson_id, deepest_parent_id)
 
         # 3. 파일들 이동
         moved_count = 0
@@ -142,7 +124,7 @@ class FolderManagementService(BaseService):
             f_parents = f.get('parents', [])
             if not f_parents or f_parents[0] != target_folder_id:
                 try:
-                    move_drive_file(f['id'], target_folder_id, drive_service=self.drive_service)
+                    self.app.drive_client.move_drive_file(f['id'], target_folder_id)
                     moved_count += 1
                 except Exception as e:
                     self._log(f"⚠️ 파일 이동 실패 ({f['name']}): {e}")

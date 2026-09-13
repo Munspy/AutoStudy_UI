@@ -14,72 +14,38 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from base.base_service import BaseService
-from utils.auth_util import get_drive_service
-from utils.config import BASE_DIR, Config
-from utils.drive_api import in_memory_download_from_drive
+from core.config import BASE_DIR, Config
 
 
 class TimetableService(BaseService):
     """드라이브의 timetable 스프레드시트 파싱 및 수업 메타데이터 매칭 전담 서비스."""
 
-    @property
-    def drive_service(self):
-        from utils.auth_util import get_drive_service
-        return get_drive_service()
-
     CACHE_FILE: Path = BASE_DIR / "timetable_cache.json"
 
-    def __init__(self) -> None:
+    def __init__(self):
         """TimetableService를 초기화합니다."""
         super().__init__()
         self._timetable_cache: Optional[Dict[str, Dict[str, str]]] = None
 
-    def fetch_timetable_file_id(self, drive_service: Any = None) -> Optional[str]:
-        """드라이브 최상단(TARGET_DRIVE_DIR) 폴더에서 timetable 스프레드시트 파일의 ID를 조회합니다.
-
-        Args:
-            drive_service (Any, optional): Google Drive API 서비스 객체.
-
-        Returns:
-            Optional[str]: 조회된 파일의 ID 또는 None.
-        """
-        if drive_service is None:
-            drive_service = get_drive_service()
-
+    def fetch_timetable_file_id(self) -> Optional[str]:
+        """드라이브 최상단(TARGET_DRIVE_DIR) 폴더에서 timetable 스프레드시트 파일의 ID를 조회합니다."""
         target_folder = Config.TARGET_DRIVE_DIR
-        query = (
-            f"'{target_folder}' in parents and "
-            f"name contains 'timetable' and "
-            f"trashed = false"
-        )
-
         try:
-            results = drive_service.files().list(
-                q=query,
-                spaces='drive',
-                fields='files(id, name, mimeType)'
-            ).execute()
-
-            files = results.get('files', [])
+            files = self.app.drive_client.get_all_drive_files(target_folder, name_filter='timetable')
             if not files:
-                self._log("⚠️ 드라이브 최상단 폴더에서 'timetable' 파일을 찾지 못했습니다.")
                 return None
-
-            # 스프레드시트 타입 우선 선택
-            for f in files:
-                if f.get('mimeType') == 'application/vnd.google-apps.spreadsheet':
-                    return f.get('id')
-
-            # 스프레드시트가 아닌 경우(예: CSV 등) 첫 번째 파일 ID 반환
-            return files[0].get('id')
+            
+            # spreadsheet 또는 csv 파일 우선 탐색
+            sheet_files = [f for f in files if 'spreadsheet' in f.get('mimeType', '') or f.get('name', '').endswith('.csv')]
+            return sheet_files[0]['id'] if sheet_files else files[0]['id']
+            
         except Exception as e:
-            self._log(f"⚠️ timetable 파일 검색 중 오류 발생: {e}")
+            self._log(f"❌ timetable 파일 검색 실패: {str(e)}")
             return None
 
     def fetch_all_timetable_metadata(
         self,
-        force_refresh: bool = False,
-        drive_service: Any = None
+        force_refresh: bool = False
     ) -> Dict[str, Dict[str, str]]:
         """드라이브의 timetable 스프레드시트에서 모든 교시 메타데이터를 조회하여 캐시 및 반환합니다.
 
@@ -105,10 +71,8 @@ class TimetableService(BaseService):
                 self._log(f"⚠️ timetable 캐시 파일 읽기 실패: {e}")
 
         # 3. 드라이브에서 직접 조회
-        if drive_service is None:
-            drive_service = get_drive_service()
 
-        file_id = self.fetch_timetable_file_id(drive_service=drive_service)
+        file_id = self.fetch_timetable_file_id()
         if not file_id:
             self._timetable_cache = {}
             return self._timetable_cache
@@ -116,7 +80,7 @@ class TimetableService(BaseService):
         cache_map: Dict[str, Dict[str, str]] = {}
         try:
             self._log("📥 드라이브 timetable 스프레드시트 다운로드 및 동기화 중...")
-            with in_memory_download_from_drive(file_id, mime_type='text/csv', drive_service=drive_service) as fh:
+            with self.app.drive_client.in_memory_download_from_drive(file_id, mime_type='text/csv') as fh:
                 content = fh.read().decode('utf-8-sig', errors='replace')
                 reader = csv.DictReader(io.StringIO(content))
 
@@ -183,8 +147,7 @@ class TimetableService(BaseService):
     def find_timetable_info_for_lesson(
         self,
         lesson_id: str,
-        timetable_map: Optional[Dict[str, Dict[str, str]]] = None,
-        drive_service: Any = None
+        timetable_map: Optional[Dict[str, Dict[str, str]]] = None
     ) -> Dict[str, str]:
         """주어진 교시 ID(예: 0209_12, 0209_1 등)에 대응하는 시간표 메타데이터를 지능적으로 검색합니다.
 
@@ -197,7 +160,7 @@ class TimetableService(BaseService):
             Dict[str, str]: 일치하는 메타데이터 {'professor', 'lecture_name', 'subject', 'exam_round'} 또는 {}.
         """
         if timetable_map is None:
-            timetable_map = self.fetch_all_timetable_metadata(drive_service=drive_service)
+            timetable_map = self.fetch_all_timetable_metadata()
 
         if not timetable_map:
             return {}

@@ -15,9 +15,7 @@ from pathlib import Path
 from typing import Callable, List, Optional, Tuple, Union
 
 from base.base_service import BaseService
-from utils.auth_util import get_drive_service
-from utils.config import Config
-from utils.drive_api import upload_to_drive
+from core.config import Config
 from utils.pdf_core_util import merge_pdfs, split_pdf_two_parts
 
 # 모던 파이썬 타입 힌팅 적용
@@ -35,16 +33,8 @@ class PdfOperationService(BaseService):
     - 부모 클래스: `BaseService` (공통 로깅 인터페이스 상속)
     """
 
-    @property
-    def drive_service(self):
-        from utils.auth_util import get_drive_service
-        return get_drive_service()
-    def __init__(self) -> None:
-        """PdfOperationService를 초기화하고 Google Drive 서비스 객체를 준비합니다.
-
-        Args:            logger_callback (Optional[Callable[[str], None]], optional): 비동기 작업 중 
-                발생하는 상태 메시지를 UI 등 상위 계층으로 전달하기 위한 콜백 함수. Defaults to None.
-        """
+    def __init__(self):
+        """PdfOperationService를 초기화하고 Google Drive 클라이언트 객체를 준비합니다."""
         # ===========================
         # [메인 비즈니스 로직]
         # ===========================
@@ -119,8 +109,8 @@ class PdfOperationService(BaseService):
                     upload_folder_id = drive_folder_id if drive_folder_id else self.target_folder_id
                     
                     self._log(f"☁️ 구글 드라이브에 분할된 파일을 업로드 중입니다... (대상: {upload_folder_id})")
-                    upload_to_drive(str(temp_out1), upload_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
-                    upload_to_drive(str(temp_out2), upload_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
+                    self.app.drive_client.upload_to_drive(str(temp_out1), upload_folder_id, mime_type='application/pdf')
+                    self.app.drive_client.upload_to_drive(str(temp_out2), upload_folder_id, mime_type='application/pdf')
                     msg = f"✅ 드라이브 업로드 성공! ({out1_name}, {out2_name})"
                     self._log(msg)
                     return True, msg
@@ -164,7 +154,6 @@ class PdfOperationService(BaseService):
 
                 if is_drive:
                     self._log(f"📥 구글 드라이브에서 {len(paths_to_merge)}개 PDF 다운로드 중...")
-                    from utils.drive_api import download_from_drive
                     for idx, item in enumerate(paths_to_merge, 1):
                         if cancel_checker and cancel_checker():
                             return False, "⚠️ 사용자에 의해 작업이 취소되었습니다."
@@ -175,7 +164,7 @@ class PdfOperationService(BaseService):
                         else:
                             temp_dl_path = temp_p / f"dl_{idx}.pdf"
                             try:
-                                download_from_drive(file_id=p_str, save_path=str(temp_dl_path), drive_service=self.drive_service)
+                                self.app.drive_client.download_from_drive(file_id=p_str, save_path=str(temp_dl_path))
                                 local_paths_to_merge.append(str(temp_dl_path))
                             except Exception as dl_e:
                                 self._log(f"⚠️ 드라이브 파일 다운로드 실패 ({p_str}): {dl_e}")
@@ -209,7 +198,7 @@ class PdfOperationService(BaseService):
                 # 3. 드라이브 업로드 처리
                 if is_drive:
                     self._log("☁️ 구글 드라이브에 병합된 파일을 업로드 중입니다...")
-                    upload_to_drive(str(temp_merged_path), self.target_folder_id, mime_type='application/pdf', drive_service=self.drive_service)
+                    self.app.drive_client.upload_to_drive(str(temp_merged_path), self.target_folder_id, mime_type='application/pdf')
                     msg_parts.append(f"드라이브 업로드({save_name})")
                 
                 msg = "✅ 성공! " + " / ".join(msg_parts)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 """YouTube 재생목록 메타데이터 조회 및 분석 서비스 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
@@ -21,9 +23,7 @@ import yt_dlp
 from googleapiclient.errors import HttpError
 
 from base.base_service import BaseService
-from service.file_naming_service import FileNamingService
-from utils.auth_util import get_youtube_service
-from utils.config import BASE_DIR
+from core.config import BASE_DIR
 
 PathLike = Union[str, Path]
 
@@ -45,16 +45,10 @@ class YoutubePlaylistService(BaseService):
     # ===========================
     # [초기화]
     # ===========================
-    def __init__(self, naming_service) -> None:
-        """YoutubePlaylistService 인스턴스를 초기화하고 의존성을 주입받습니다.
-
-        Args:
-            logger_callback (Optional[Callable[[str], None]], optional): 비동기 스레드 실행 시 
-                진행 상황과 오류를 메인 UI 스레드로 전달하기 위한 콜백. Defaults to None.
-        """
+    def __init__(self):
+        """YoutubePlaylistService 인스턴스를 초기화하고 의존성을 주입받습니다."""
         super().__init__()
         # 도메인 식별자 추출을 위해 FileNamingService 인스턴스 초기화
-        self.naming_service = naming_service
         self._youtube_cache: Optional[Dict[str, Dict[str, str]]] = None
 
     # ===========================
@@ -156,21 +150,8 @@ class YoutubePlaylistService(BaseService):
         Raises:
             Exception: 재생목록이 비공개이거나 삭제된 경우, 혹은 API 통신 실패 및 할당량 초과 시 예외가 발생합니다.[cite: 1]
         """
-        youtube_service = get_youtube_service()
         try:
-            # 재생목록의 snippet 및 contentDetails 요청
-            res = (
-                youtube_service.playlists()
-                .list(part="snippet,contentDetails", id=playlist_id)
-                .execute()
-            )
-            items = res.get("items", [])
-            
-            # 유효성 검사: 재생목록 존재 여부 확인
-            if not items:
-                raise ValueError("재생목록을 찾을 수 없거나 비공개/삭제된 상태입니다.")
-
-            item = items[0]
+            item = self.app.youtube_client.get_playlist_metadata(playlist_id)
             return {
                 "id": playlist_id,
                 "title": item["snippet"]["title"],
@@ -182,9 +163,8 @@ class YoutubePlaylistService(BaseService):
         except Exception as e:
             raise Exception(f"❌ 재생목록 정보 조회 실패 ({playlist_id}): {str(e)}")
 
-    def fetch_playlist_videos(self, playlist_id: str, existing_prefixes: set, naming_service, cancel_checker=None) -> List[Dict]:
+    def fetch_playlist_videos(self, playlist_id: str, existing_prefixes: set, cancel_checker=None) -> List[Dict]:
         """YouTube API를 통해 재생목록 내의 모든 영상 목록을 순회(Pagination)하며 조회하고 포맷팅합니다."""
-        youtube_service = get_youtube_service()
         videos = []
         next_page_token = None
         
@@ -193,10 +173,7 @@ class YoutubePlaylistService(BaseService):
                 break
 
             # 재생목록 내부 아이템 조회 (페이지네이션)
-            pl_request = youtube_service.playlistItems().list(
-                part='snippet', playlistId=playlist_id, maxResults=50, pageToken=next_page_token
-            )
-            pl_response = pl_request.execute()
+            pl_response = self.app.youtube_client.get_playlist_items_page(playlist_id, next_page_token)
 
             vid_ids = []
             for item in pl_response.get('items', []):
@@ -206,13 +183,9 @@ class YoutubePlaylistService(BaseService):
 
             if not vid_ids: break
 
-            # 조회된 비디오 ID들을 콤마로 연결하여 한 번에 재생 시간 조회
-            ids_string = ','.join([v[0] for v in vid_ids])
-            vid_request = youtube_service.videos().list(part='contentDetails', id=ids_string)
-            vid_response = vid_request.execute()
-
-            # 비디오 ID별 duration 매핑 테이블 생성
-            duration_map = {v['id']: v['contentDetails'].get('duration', '') for v in vid_response.get('items', [])}
+            # 조회된 비디오 ID들을 한 번에 재생 시간 조회
+            just_ids = [v[0] for v in vid_ids]
+            duration_map = self.app.youtube_client.get_videos_duration_map(just_ids)
 
             for vid, title in vid_ids:
                 if cancel_checker and cancel_checker(): break
@@ -220,7 +193,7 @@ class YoutubePlaylistService(BaseService):
                 # 내부 헬퍼 함수 적용
                 length_str = self._parse_iso_duration(duration_iso)
                 # 제목으로부터 lesson_id 추출
-                prefix = naming_service.extract_lesson_id(title)
+                prefix = self.app.file_naming.extract_lesson_id(title)
                 
                 # 드라이브 상태와 교차 검증하여 상태 마킹
                 extracted_status = "O" if prefix and prefix in existing_prefixes else "X"
@@ -276,53 +249,20 @@ class YoutubePlaylistService(BaseService):
     # ===========================
     # [드라이브 파일 교차 검증]
     # ===========================
-    def get_existing_prefixes_in_drive(self, drive_service: Any, folder_id: str) -> Set[str]:
-        """구글 드라이브에 이미 전사 대상 오디오나 작업 폴더가 존재하는지 파이프라인 식별자 단위로 교차 검증합니다.
-
-        유튜브에서 영상을 다운로드하기 전, "이미 과거에 다운로드해서 드라이브에 올렸거나, 처리 중인 파일이 있는가?"를 
-        검사하는 멱등성(Idempotency) 보장 로직입니다. 
-        타겟 구글 드라이브 폴더를 1회 스캔하여 파일명(혹은 폴더명)에서 `lesson_id`를 모두 파싱해낸 뒤, 
-        고유한 집합(Set)으로 반환합니다. 이는 `fetch_playlist_videos` 내부에서 각 영상의 추출 여부를 
-        "O" 또는 "X"로 마킹(Tagging)하는 데 직접적인 참조 데이터로 쓰입니다.
-
-        Args:
-            drive_service (Any): 인증이 완료된 구글 드라이브 API 서비스 객체.[cite: 1]
-            folder_id (str): 스캔 대상이 될 구글 드라이브 최상위 폴더 ID.[cite: 1]
-
-        Returns:
-            Set[str]: 드라이브 내에서 발견된 처리 완료(혹은 진행 중) 파일들의 고유 교시 식별자(`lesson_id`) 집합. 
-                스캔 중 예외 발생 시 빈 Set을 반환하여 시스템 다운을 방지합니다.[cite: 1]
-        """
+    def get_existing_prefixes_in_drive(self, folder_id: str) -> Set[str]:
+        """구글 드라이브에 이미 전사 대상 오디오나 작업 폴더가 존재하는지 파이프라인 식별자 단위로 교차 검증합니다."""
+        prefixes = set()
         try:
-            # 타겟 폴더 내 휴지통이 아닌 파일들 스캔 쿼리
-            query = f"'{folder_id}' in parents and trashed=false"
-            results = drive_service.files().list(q=query, fields="files(id, name, mimeType)", pageSize=1000).execute()
-            items = results.get('files', [])
-            
-            existing_prefixes = set()
-            media_extensions = ('.wav', '.mp3', '.m4a', '.mp4', '.mkv', '.webm', '.avi')
-            
-            # 조회된 각 드라이브 파일들을 순회하며 prefix 수집
-            for item in items:
-                file_name = item.get('name', '')
-                mime_type = item.get('mimeType', '')
-                
-                # 파일명에서 lesson_id 추출
-                prefix = self.naming_service.extract_lesson_id(file_name)
-                
-                if not prefix:
-                    continue
-                
-                # 추출된 prefix와 파일명/확장자가 매칭되면 기존에 존재하는 것으로 판별
-                if mime_type == 'application/vnd.google-apps.folder' and file_name == prefix:
-                    existing_prefixes.add(prefix)
-                elif file_name.lower().endswith(media_extensions):
-                    existing_prefixes.add(prefix)
-                    
-            return existing_prefixes
+            # 타겟 폴더 내 휴지통이 아닌 파일들 스캔
+            items = self.app.drive_client.get_all_drive_files(folder_id)
+            for f in items:
+                name = f.get("name", "")
+                prefix = self.app.file_naming.extract_lesson_id(name)
+                if prefix:
+                    prefixes.add(prefix)
         except Exception as e:
-            self._log(f"⚠️ 드라이브 기존 파일 검증 중 오류 발생: {str(e)}")
-            return set()
+            self._log(f"⚠️ 드라이브 파일 조회 중 오류 (교차 검증 실패): {e}")
+        return prefixes
 
     # ===========================
     # [유튜브 동영상 제목 파싱 및 교수/강의명 추출]
@@ -395,8 +335,8 @@ class YoutubePlaylistService(BaseService):
                     self._youtube_cache = json.load(f)
                     self._log(f"🔍 유튜브 메타데이터 캐시 로드 완료 (총 {len(self._youtube_cache)}개 교시)")
                     return self._youtube_cache
-            except Exception:
-                pass
+            except Exception as e:
+                self._log(f"⚠️ 처리 중 무시된 오류: {e}")
 
         cache_map: Dict[str, Dict[str, str]] = {}
         playlists_csv = BASE_DIR / "playlists.csv"
@@ -406,10 +346,8 @@ class YoutubePlaylistService(BaseService):
             self._youtube_cache = {}
             return self._youtube_cache
 
-        try:
-            youtube = get_youtube_service()
-        except Exception as e:
-            self._log(f"⚠️ YouTube API 서비스 인증 실패: {e}. 기본 메타데이터를 사용합니다.")
+        if not self.app.youtube_client.verify_auth():
+            self._log(f"⚠️ YouTube API 서비스 인증 실패. 기본 메타데이터를 사용합니다.")
             self._youtube_cache = {}
             return self._youtube_cache
 
@@ -463,7 +401,7 @@ class YoutubePlaylistService(BaseService):
             with open(self.CACHE_FILE, 'w', encoding='utf-8') as f:
                 json.dump(cache_map, f, ensure_ascii=False, indent=2)
             self._log(f"💾 유튜브 메타데이터 캐시 저장 완료 (총 {len(cache_map)}개 교시 식별)")
-        except Exception:
-            pass
+        except Exception as e:
+            self._log(f"⚠️ 처리 중 무시된 오류: {e}")
 
         return self._youtube_cache

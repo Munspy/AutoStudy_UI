@@ -25,7 +25,7 @@ from pylatexenc.latex2text import LatexNodes2Text
 from xhtml2pdf import pisa
 
 from base.base_service import BaseService
-from utils.config import Config
+from core.config import Config
 from utils.pdf_core_util import clean_pdf_page_overflow
 
 _pdf_rendering_lock = threading.Lock()

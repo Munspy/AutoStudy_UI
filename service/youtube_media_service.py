@@ -15,12 +15,12 @@ import tempfile
 from typing import Any, Callable, Optional
 
 import yt_dlp
-from googleapiclient.http import MediaFileUpload
 
-from utils.auth_util import get_drive_service
 
 
 class YoutubeMediaService(BaseService):
+    def __init__(self):
+        super().__init__()
     """유튜브 음원 추출(yt-dlp) 및 구글 드라이브 업로드를 전담하는 서비스 클래스.
 
     단일 책임 원칙(SRP)에 따라 이 클래스는 재생목록의 메타데이터를 관리하거나 
@@ -35,9 +35,7 @@ class YoutubeMediaService(BaseService):
     # ===========================
     # [오디오 다운로드 및 업로드]
     # ===========================
-    def download_and_upload_audio(self, url: str, prefix: str, drive_folder_id: str, drive_service: Optional[Any] = None, cancel_checker: Optional[Callable[[], bool]] = None) -> None:
-        if drive_service is None:
-            drive_service = get_drive_service()
+    def download_and_upload_audio(self, url: str, prefix: str, drive_folder_id: str, cancel_checker: Optional[Callable[[], bool]] = None) -> None:
         
         # 임시 디렉토리를 생성하여 변환 후 찌꺼기 파일 자동 삭제 보장
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -68,9 +66,5 @@ class YoutubeMediaService(BaseService):
             if not os.path.exists(temp_wav_path):
                 raise FileNotFoundError(f"변환 실패 (파일 미생성): {prefix}")
 
-            # 구글 드라이브 업로드를 위한 메타데이터 및 미디어 본문 설정
-            file_metadata = {'name': f'{prefix}.wav', 'parents': [drive_folder_id]}
-            media = MediaFileUpload(temp_wav_path, mimetype='audio/wav', resumable=True)
-            
-            # 업로드 실행 (업로드 자체는 일시정지/취소가 제한적이나 API 완료 후 worker loop에서 중단됨)
-            drive_service.files().create(body=file_metadata, media_body=media).execute()
+            # 구글 드라이브 업로드 실행
+            self.app.drive_client.upload_to_drive(temp_wav_path, drive_folder_id, mime_type='audio/wav', new_file_name=f'{prefix}.wav')

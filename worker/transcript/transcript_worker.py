@@ -1,13 +1,8 @@
 import os
 from datetime import datetime
 
-from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
-from core.container import AppContainer
-from utils.auth_util import get_drive_service
-from utils.config import Config
-from utils.drive_api import (get_all_drive_files,
-                             in_memory_download_from_drive, upload_to_drive)
+from core.config import Config
 
 
 class TranscriptDriveSearchWorker(BaseWorker):
@@ -24,9 +19,8 @@ class TranscriptDriveSearchWorker(BaseWorker):
         # ===========================
         # [드라이브 파일 목록 가져오기]
         # ===========================
-        drive_service = get_drive_service()
         target_folder_id = Config.TARGET_DRIVE_DIR
-        all_files = get_all_drive_files(target_folder_id, drive_service=drive_service)
+        all_files = self.app.drive_client.get_all_drive_files(target_folder_id)
         
         # 시작 및 종료 날짜를 월일(MMDD) 형식으로 변환합니다.
         start_mmdd = datetime.strptime(self.start_date, "%Y-%m-%d").strftime("%m%d")
@@ -36,8 +30,7 @@ class TranscriptDriveSearchWorker(BaseWorker):
         txt_files = [f for f in all_files if f.get('name', '').lower().endswith('.txt')]
         
         # 명명 규칙 서비스를 사용하여 날짜 범위 내의 파일만 다시 필터링합니다.
-        naming_service = AppContainer.get_instance().file_naming
-        filtered_dicts = naming_service.filter_files_by_date_range(txt_files, start_mmdd, end_mmdd)
+        filtered_dicts = self.app.file_naming.filter_files_by_date_range(txt_files, start_mmdd, end_mmdd)
         
         # ===========================
         # [캐시 및 결과 목록 생성]
@@ -70,7 +63,6 @@ class TranscriptReadWorker(BaseWorker):
         # [파일 내용 읽기 루프]
         # ===========================
         contents = []
-        drive_service = get_drive_service() if self.is_drive else None
         
         for fname in self.filenames:
             if self.is_cancelled(): break
@@ -81,7 +73,7 @@ class TranscriptReadWorker(BaseWorker):
                 if not file_id:
                     self.error_signal.emit(f"드라이브에서 '{fname}'을 찾을 수 없습니다.")
                     return None
-                with in_memory_download_from_drive(file_id, drive_service=drive_service) as fh:
+                with self.app.drive_client.in_memory_download_from_drive(file_id) as fh:
                     c = fh.read().decode('utf-8', errors='replace')
             else:
                 # 로컬 파일 읽기
@@ -110,8 +102,7 @@ class TranscriptSplitSaveWorker(BaseWorker):
         # ===========================
         # [텍스트 분할 및 로컬 저장]
         # ===========================
-        text_service = AppContainer.get_instance().text_processing
-        parts = text_service.split_text_content(self.text_content)
+        parts = self.app.text_processing.split_text_content(self.text_content)
         
         saved_paths = []
         for fname, content in zip([self.name1, self.name2], parts):
@@ -126,12 +117,11 @@ class TranscriptSplitSaveWorker(BaseWorker):
         # [드라이브 업로드 처리]
         # ===========================
         if self.is_drive:
-            GlobalLogger.info("☁️ 드라이브 자동 업로드를 진행합니다...")
-            drive_service = get_drive_service()
+            self._log("☁️ 드라이브 자동 업로드를 진행합니다...")
             target_folder_id = Config.TARGET_DRIVE_DIR
             for path in saved_paths:
                 if self.is_cancelled(): break
-                upload_to_drive(path, target_folder_id, mime_type='text/plain', drive_service=drive_service)
+                self.app.drive_client.upload_to_drive(path, target_folder_id, mime_type='text/plain')
             msg += "\n(드라이브 업로드도 완료되었습니다!)"
             
         return msg
@@ -166,9 +156,8 @@ class TranscriptMergeSaveWorker(BaseWorker):
         # [드라이브 업로드 처리]
         # ===========================
         if self.is_drive:
-            GlobalLogger.info("☁️ 드라이브 자동 업로드를 진행합니다...")
-            drive_service = get_drive_service()
-            upload_to_drive(save_path, Config.TARGET_DRIVE_DIR, mime_type='text/plain', drive_service=drive_service)
+            self._log("☁️ 드라이브 자동 업로드를 진행합니다...")
+            self.app.drive_client.upload_to_drive(save_path, Config.TARGET_DRIVE_DIR, mime_type='text/plain')
             msg += "\n\n(드라이브 업로드도 완료되었습니다!)"
             
         return msg, new_filename

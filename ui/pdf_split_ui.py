@@ -12,27 +12,23 @@ from base.base_ui import BaseUI
 from base.base_ui_components import (COLORS, CardWidget, LoadingButton,
                                      PreviewScrollArea, StyledButton,
                                      StyledCheckBox, StyledDateEdit,
-                                     StyledListWidget)
-from controller.pdf_split_controller import PdfSplitController
+                                     StyledListWidget, ask_delete_confirm,
+                                     HeaderLabel)
+from viewmodel.pdf_split_viewmodel import PdfSplitViewModel
 
 
 class PdfSplitUi(BaseUI):
-    def __init__(self):
-        super().__init__()
-        self.controller = PdfSplitController()
+    def __init__(self, parent=None):
+        super().__init__(app_name="PdfSplit", parent=parent)
+        self.viewmodel = PdfSplitViewModel()
         
-        self.controller.file_list_ready.connect(self.on_file_list_ready)
-        self.controller.preview_ready.connect(self.on_preview_ready)
-        self.controller.page_rendered.connect(self.on_page_rendered)
-        self.controller.split_completed.connect(self.on_split_completed)
-        self.controller.error_signal.connect(self.show_error)
+        self.viewmodel.file_list_ready.connect(self.on_file_list_ready)
+        self.viewmodel.preview_ready.connect(self.on_preview_ready)
+        self.viewmodel.page_rendered.connect(self.on_page_rendered)
+        self.viewmodel.split_completed.connect(self.on_split_completed)
+        self.viewmodel.error_occurred.connect(self.show_error)
         
-        self.file_paths = {}
-        self.local_path = None
-        self.total_pages = 0
         self.page_images = []
-        self._selected_path_or_id = None   # 원본 파일 삭제를 위한 추적
-        self._selected_is_drive = False
         
         self.init_ui()
 
@@ -44,19 +40,24 @@ class PdfSplitUi(BaseUI):
             QLabel, QCheckBox { background-color: transparent; border: none; }
         """)
         
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(28, 28, 28, 28)
+        self.main_layout.setSpacing(20)
         
+        self.init_top_panel()
+        self.init_file_selection_area()
+        self.init_preview_area()
+        self.init_bottom_panel()
+
+        # 드라이브 업로드를 기본값으로 설정
+        self.drive_check.setChecked(True)
+
+    def init_top_panel(self):
         # ===========================
         # [상단 타이틀 구성]
         # ===========================
-        header_label = QLabel("✂️ PDF Split (다중 교시 분할)")
-        header_label.setStyleSheet("""
-            font-size: 24px; font-weight: 800; color: #111111; 
-            padding: 5px 0px 10px 0px; 
-        """)
-        layout.addWidget(header_label)
+        header_label = HeaderLabel("✂️ PDF Split (다중 교시 분할)")
+        self.main_layout.addWidget(header_label)
 
         # ===========================
         # [상단 제어 박스 (컨트롤 프레임)]
@@ -118,8 +119,9 @@ class PdfSplitUi(BaseUI):
         self.search_btn.clicked.connect(self.start_fetch_files)
         control_layout.addWidget(self.search_btn)
         
-        layout.addWidget(control_frame)
+        self.main_layout.addWidget(control_frame)
 
+    def init_file_selection_area(self):
         # ===========================
         # [파일 리스트업 영역]
         # ===========================
@@ -130,14 +132,16 @@ class PdfSplitUi(BaseUI):
         self.file_list.setMaximumHeight(120)
         self.file_list.itemClicked.connect(self.on_file_selected)
         file_selection_layout.addWidget(self.file_list)
-        layout.addLayout(file_selection_layout)
+        self.main_layout.addLayout(file_selection_layout)
 
+    def init_preview_area(self):
         # ===========================
         # [미리보기 영역]
         # ===========================
         self.scroll_area = PreviewScrollArea()
-        layout.addWidget(self.scroll_area, stretch=1)
-        
+        self.main_layout.addWidget(self.scroll_area, stretch=1)
+
+    def init_bottom_panel(self):
         # ===========================
         # [하단 저장 영역]
         # ===========================
@@ -169,12 +173,19 @@ class PdfSplitUi(BaseUI):
         
         save_btn = StyledButton("💾 분할 저장", "save")
         save_btn.clicked.connect(self.start_split)
+        
+        # ===========================
+        # [MVVM 선언형 바인딩 적용]
+        # ===========================
+        self.bind_enabled(save_btn, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.search_btn, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.file_list, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.split_input, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.save_name_1, self.viewmodel, 'is_loading', invert=True)
+        self.bind_enabled(self.save_name_2, self.viewmodel, 'is_loading', invert=True)
         bottom_layout.addWidget(save_btn)
 
-        layout.addLayout(bottom_layout)
-
-        # 드라이브 업로드를 기본값으로 설정
-        self.drive_check.setChecked(True)
+        self.main_layout.addLayout(bottom_layout)
 
 
     def toggle_search_mode(self, state):
@@ -185,7 +196,6 @@ class PdfSplitUi(BaseUI):
             self.local_widget.show()
             self.drive_widget.hide()
         self.file_list.clear()
-        self.file_paths.clear()
         self.clear_preview()
 
     def browse_folder(self):
@@ -198,54 +208,27 @@ class PdfSplitUi(BaseUI):
         start_str = self.start_date.date().toString("MMdd")
         end_str = self.end_date.date().toString("MMdd")
         self.file_list.clear()
-        self.file_paths.clear()
         self.clear_preview()
-        self.controller.start_fetch_file_list(is_drive, target_dir, start_str, end_str)
+        self.viewmodel.start_fetch_file_list(is_drive, target_dir, start_str, end_str)
 
-    def on_file_list_ready(self, file_paths):
-        self.file_paths = file_paths
-        for text in self.file_paths.keys():
+    def on_file_list_ready(self):
+        self.file_list.clear()
+        for text in self.viewmodel.file_paths.keys():
             self.file_list.addItem(QListWidgetItem(text))
 
     def on_file_selected(self, item):
         self.clear_preview()
         filename = item.text()
-        path_or_id = self.file_paths.get(filename)
         is_drive = self.drive_check.isChecked()
-        if not path_or_id: return
+        self.viewmodel.select_file(filename, is_drive)
         
-        # 원본 파일 정보 추적 (분할 완료 후 삭제에 사용)
-        self._selected_path_or_id = path_or_id
-        self._selected_is_drive = is_drive
-        
-        self.controller.start_prepare_preview(path_or_id, is_drive)
-        
-        # 파일명 추천 로직
-        import os
-        import re
-        base, ext = os.path.splitext(filename)
-        m = re.search(r'(\d+)_([1-9])([1-9])(.*)', base)
-        m2 = re.search(r'(\d+)_([1-9]),([1-9])(.*)', base)
-        
-        if m:
-            n1 = f"{m.group(1)}_{m.group(2)}{m.group(4)}{ext}"
-            n2 = f"{m.group(1)}_{m.group(3)}{m.group(4)}{ext}"
-        elif m2:
-            n1 = f"{m2.group(1)}_{m2.group(2)}{m2.group(4)}{ext}"
-            n2 = f"{m2.group(1)}_{m2.group(3)}{m2.group(4)}{ext}"
-        else:
-            n1 = f"{base}_Part 1{ext}"
-            n2 = f"{base}_Part 2{ext}"
-            
+        n1, n2 = self.viewmodel.recommended_save_names
         self.save_name_1.setText(n1)
         self.save_name_2.setText(n2)
 
-    def on_preview_ready(self, result):
-        self.local_path = result['local_path']
-        self.total_pages = result['total_pages']
-        
-        # UI 프리징 방지를 위해 백그라운드 워커에서 렌더링 시작
-        self.controller.start_render_pages(self.local_path, self.total_pages)
+    def on_preview_ready(self):
+        # 미리보기가 준비되면 기존 페이지를 지우고 새로 그려질 준비를 함
+        self.clear_preview()
 
     def on_page_rendered(self, page_idx, img_data):
         img = QImage.fromData(img_data)
@@ -295,42 +278,32 @@ class PdfSplitUi(BaseUI):
             )
 
     def clear_preview(self):
-        self.local_path = None
-        self.total_pages = 0
         self.page_images = []
         self.scroll_area.clear()
 
     def start_split(self):
-        self.controller.start_split_and_save(
-            local_path=self.local_path,
-            total_pages=self.total_pages,
+        self.viewmodel.start_split_and_save(
             split_page_text=self.split_input.text(),
             out1_name=self.save_name_1.text(),
             out2_name=self.save_name_2.text(),
-            is_drive=True,  # 출력은 항상 드라이브 업로드 수행
-            target_dir=self.folder_input.text(),
-            original_id=self._selected_path_or_id,
-            original_is_drive=self._selected_is_drive
+            target_dir=self.folder_input.text()
         )
 
     def on_split_completed(self, msg):
-        QMessageBox.information(self, "완료", msg)
+        # 1. 완료 안내 및 UI 초기화
+        self.show_info("완료", msg)
         self.save_name_1.clear()
         self.save_name_2.clear()
         self.split_input.clear()
-        self._ask_delete_source_file()
+        
+        # 2. 원본 삭제 프로세스 진행 (선택된 파일이 있는 경우)
+        if self.viewmodel.selected_path_or_id:
+            should_delete = ask_delete_confirm(
+                parent_widget=self,
+                file_paths_or_ids=[self.viewmodel.selected_path_or_id],
+                is_drive=self.viewmodel.selected_is_drive
+            )
+            if should_delete:
+                self.viewmodel.delete_selected_file()
 
-    def _ask_delete_source_file(self):
-        """분할에 사용된 원본 파일 삭제 여부를 묻고, 확인 시 삭제합니다."""
-        if not self._selected_path_or_id:
-            return
-
-        from base.base_ui_components import prompt_delete_original_helper
-        prompt_delete_original_helper(
-            parent_widget=self,
-            file_paths_or_ids=[self._selected_path_or_id],
-            is_drive=self._selected_is_drive,
-            log_callback=GlobalLogger.info
-        )
-        self._selected_path_or_id = None
-        self._selected_is_drive = False
+        self.start_fetch_files()

@@ -13,8 +13,8 @@ from core.logger import GlobalLogger
 from base.base_ui import BaseUI
 from base.base_ui_components import (CardWidget, LabeledInput, LoadingButton,
                                      SearchLineEdit, StyledButton,
-                                     StyledDateEdit)
-from controller.raw_data_editor_controller import RawDataEditorController
+                                     StyledDateEdit, HeaderLabel)
+from viewmodel.raw_data_editor_viewmodel import RawDataEditorViewModel
 
 
 class ResizablePixmapLabel(QLabel):
@@ -43,18 +43,15 @@ class ResizablePixmapLabel(QLabel):
 class RawDataEditorUi(BaseUI):
     """raw data 직접수정을 위한 UI 클래스."""
     
-    def __init__(self=None, parent=None):
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(app_name="RawDataEditor", parent=parent)
         
-        self.controller = RawDataEditorController()
+        self.viewmodel = RawDataEditorViewModel()
         
-        # 컨트롤러 시그널 연결
-        self.controller.pdf_page_rendered.connect(self.update_pdf_viewer)
-        self.controller.text_loaded.connect(self.update_text_editor)
-        self.controller.loading_started.connect(lambda: self.btn_search.start_loading())
-        self.controller.loading_finished.connect(lambda: self.btn_search.stop_loading())
-        self.controller.apply_started.connect(lambda: self.btn_apply.start_loading())
-        self.controller.apply_finished.connect(lambda success: self.btn_apply.stop_loading())
+        self.viewmodel.pdf_page_rendered.connect(self.update_pdf_viewer)
+        self.viewmodel.text_loaded.connect(self.update_text_editor)
+        self.viewmodel.error_occurred.connect(self.show_error)
+        self.viewmodel.apply_completed.connect(self.on_apply_completed)
         
         self.init_ui()
 
@@ -67,14 +64,18 @@ class RawDataEditorUi(BaseUI):
             QLabel { background-color: transparent; border: none; }
         """)
 
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(28, 28, 28, 28)
-        layout.setSpacing(20)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(28, 28, 28, 28)
+        self.main_layout.setSpacing(20)
 
+        self.init_top_panel()
+        self.init_content_area()
+        self.init_bottom_panel()
+
+    def init_top_panel(self):
         # 제목
-        header_label = QLabel("📝 Raw Data 편집 (드라이브 연동)")
-        header_label.setStyleSheet("font-size: 24px; font-weight: 800; color: #111111; padding: 5px 0px 10px 0px;")
-        layout.addWidget(header_label)
+        header_label = HeaderLabel("📝 Raw Data 편집 (드라이브 연동)")
+        self.main_layout.addWidget(header_label)
 
         # ===========================
         # [상단 컨트롤 영역 (날짜, 교시 입력)]
@@ -110,13 +111,14 @@ class RawDataEditorUi(BaseUI):
         control_layout.addLayout(btn_layout)
         control_layout.addStretch()
 
-        layout.addWidget(control_frame)
+        self.main_layout.addWidget(control_frame)
 
+    def init_content_area(self):
         # ===========================
         # [메인 에디터 영역 (Splitter)]
         # ===========================
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
-        layout.addWidget(self.splitter, stretch=1)
+        self.main_layout.addWidget(self.splitter, stretch=1)
 
         # 1. 좌측 PDF 뷰어 영역 (꽉 차게 보이도록 설정)
         pdf_container = QWidget()
@@ -145,6 +147,7 @@ class RawDataEditorUi(BaseUI):
         # Splitter 비율 설정 (5:5)
         self.splitter.setSizes([600, 600])
 
+    def init_bottom_panel(self):
         # ===========================
         # [하단 네비게이션 및 액션 버튼]
         # ===========================
@@ -180,7 +183,14 @@ class RawDataEditorUi(BaseUI):
         bottom_layout.addWidget(self.btn_save_local)
         bottom_layout.addWidget(self.btn_apply)
         
-        layout.addLayout(bottom_layout)
+        self.main_layout.addLayout(bottom_layout)
+
+        # ===========================
+        # [MVVM 선언형 바인딩 적용]
+        # ===========================
+        self.bind_loading_button(self.btn_search, self.viewmodel, 'is_loading', '조회 중')
+        self.bind_loading_button(self.btn_apply, self.viewmodel, 'is_loading', '반영 중')
+        self.bind_enabled(self.btn_search, self.viewmodel, 'is_loading', invert=True)
 
     def search_and_load(self):
         """입력된 날짜와 교시로 파일 검색 및 로딩을 시작합니다."""
@@ -190,7 +200,7 @@ class RawDataEditorUi(BaseUI):
             GlobalLogger.info("날짜와 교시를 모두 입력해주세요.")
             return
             
-        self.controller.search_and_load(date_str, period_str)
+        self.viewmodel.search_and_load(date_str, period_str)
         self.text_edit.clear()
         self.pdf_label.setPixmap(QPixmap())
         self.pdf_label.setText("로딩 중...")
@@ -219,34 +229,40 @@ class RawDataEditorUi(BaseUI):
         """텍스트 에디터 내용 변경 이벤트 처리."""
 
     def on_prev_page(self):
-        if self.controller.pdf_doc:
+        if self.viewmodel.pdf_doc:
             self.on_save_local(silent=True)
-            self.controller.change_page(-1)
+            self.viewmodel.change_page(-1)
 
     def on_next_page(self):
-        if self.controller.pdf_doc:
+        if self.viewmodel.pdf_doc:
             self.on_save_local(silent=True)
-            self.controller.change_page(1)
+            self.viewmodel.change_page(1)
 
     def on_save_local(self, silent=False):
         """수정된 텍스트를 컨트롤러 메모리에 임시 저장합니다."""
         text = self.text_edit.toPlainText()
-        self.controller.save_current_page_text(text)
+        self.viewmodel.save_current_page_text(text)
         if not silent:
             GlobalLogger.info("현재 페이지 변경사항이 임시 저장되었습니다.")
 
     def on_discard(self):
         """가장 처음 드라이브에서 가져왔던 원본 텍스트 상태로 복구합니다."""
-        self.controller.reload_current_page_text()
+        self.viewmodel.reload_current_page_text()
         GlobalLogger.info("가장 처음 다운로드 받은 원본 상태로 복구되었습니다.")
 
     def on_apply(self):
         """모든 변경사항을 하나로 합쳐 드라이브에 업로드합니다."""
-        if not self.controller.pdf_doc:
+        if not self.viewmodel.pdf_doc:
             GlobalLogger.info("먼저 파일을 불러오세요.")
             return
             
         # 현재 화면에 수정 중인 사항도 저장
         self.on_save_local(silent=True)
             
-        self.controller.apply_all_changes()
+        self.viewmodel.apply_all_changes()
+
+    def on_apply_completed(self, success: bool):
+        if success:
+            self.show_info("성공", "구글 드라이브에 최종 수정 사항이 반영되었습니다.")
+        else:
+            self.show_error("오류", "최종 반영 중 오류가 발생했습니다.")

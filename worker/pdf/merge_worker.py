@@ -1,4 +1,3 @@
-from core.container import AppContainer
 
 """
 PDF 병합(Merge) 관련 워커 모듈입니다.
@@ -7,7 +6,6 @@ PDF 병합(Merge) 관련 워커 모듈입니다.
 `PdfMergeWorker` 클래스를 제공합니다. 구글 드라이브와 로컬 경로로
 병합된 PDF를 저장하는 기능과 연동됩니다.
 """
-from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
 
 
@@ -32,13 +30,12 @@ class PdfMergeWorker(BaseWorker):
         Returns:
             str or None: 성공 시 결과 메시지. 실패 시 None.
         """
-        GlobalLogger.info("🚀 PDF 병합 작업을 백그라운드에서 시작합니다...")
+        self._log("🚀 PDF 병합 작업을 백그라운드에서 시작합니다...")
         
         # ===========================
         # [서비스 초기화 및 작업 데이터 설정]
         # ===========================
         # PDF 조작 서비스를 초기화합니다.
-        operation_service = AppContainer.get_instance().pdf_operation
         
         # 작업 데이터를 변수에 할당합니다.
         paths_to_merge = self.task['paths_to_merge']
@@ -57,7 +54,7 @@ class PdfMergeWorker(BaseWorker):
         if self.is_cancelled(): return None
 
         # 지정된 파일들을 병합하고 저장합니다.
-        success, msg = operation_service.merge_and_save(
+        success, msg = self.app.pdf_operation.merge_and_save(
             paths_to_merge=paths_to_merge,
             save_name=save_name,
             is_drive=is_drive,

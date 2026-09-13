@@ -10,10 +10,8 @@ import os
 from typing import Any, Callable, List, Optional, Set
 
 from base.base_service import BaseService
-from utils.auth_util import get_drive_service
-from utils.config import Config
-from utils.constants import FileSuffix, Extensions
-from utils.drive_api import get_all_drive_files
+from core.config import Config
+from core.constants import FileSuffix, Extensions
 from utils.filename_util import normalize_text
 
 
@@ -28,33 +26,17 @@ class WhisperService(BaseService):
     - 이 서비스의 결과물은 Controller나 Whisper를 구동하는 하위 Worker 계층으로 전달됩니다.
     """
 
-    @property
-    def drive_service(self):
-        from utils.auth_util import get_drive_service
-        return get_drive_service()
     
     # [최적화 1] 매직 스트링 상수화 및 중복 제거
     AUDIO_EXTENSIONS = ('.wav', '.m4a', '.mp3', '.mp4', '.aac', '.flac')
     INDICATOR_EXTENSIONS = (f'_{FileSuffix.TRANSCRIPT_RAW}.txt', f'_{FileSuffix.TRANSCRIPT_CORRECTED}.txt', f'_{FileSuffix.SUMMARY_TXT}.txt', f'_{FileSuffix.SCRIPTED}{Extensions.PDF}')
     
     # ===========================
-    # [초기화 및 설정]
+    # [인스턴스 초기화]
     # ===========================
-    def __init__(
-        self, 
-        drive_service: Optional[Any] = None
-    ) -> None:
-        """WhisperService 인스턴스를 초기화하고 드라이브 API 통신 환경을 설정합니다.
-
-        Args:
-            drive_service (Optional[Any], optional): 외부에서 주입할 수 있는 인증된 Google Drive API 서비스 객체. 
-                테스트 용이성(DI)을 위해 제공되며, None일 경우 기본 인증 유틸리티를 통해 자동 생성합니다. Defaults to None.
-            logger_callback (Optional[Callable[[str], None]], optional): 비동기 스레드 환경에서 
-                발생하는 스캔 진행 상태 로그를 UI로 안전하게 전달하기 위한 콜백 함수. Defaults to None.
-        """
+    def __init__(self):
+        """WhisperService 인스턴스를 초기화하고 드라이브 API 통신 환경을 설정합니다."""
         super().__init__()
-        # [최적화 3] 의존성 주입(DI) 허용으로 유연성 및 테스트 용이성 확보
-
         self.target_folder_id: str = Config.TARGET_DRIVE_DIR
 
     # ===========================
@@ -81,7 +63,7 @@ class WhisperService(BaseService):
         """
         self._log("📂 대상 폴더의 모든 파일을 탐색 중입니다...")
         # 구글 드라이브 타겟 폴더의 모든 파일을 조회
-        all_files = get_all_drive_files(self.target_folder_id, drive_service=self.drive_service)
+        all_files = self.app.drive_client.get_all_drive_files(self.target_folder_id)
         
         audio_files: List[str] = []
         completed_bases: Set[str] = set()

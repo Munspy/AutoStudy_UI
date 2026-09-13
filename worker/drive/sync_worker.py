@@ -1,6 +1,4 @@
-from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
-from core.container import AppContainer
 
 
 class DriveSyncWorker(BaseWorker):
@@ -39,21 +37,20 @@ class DriveSyncWorker(BaseWorker):
         # [서비스 초기화]
         # ===========================
         # 1. 서비스 초기화 (인증 및 타겟 폴더 획득은 서비스 내부에서 처리)
-        GlobalLogger.info("구글 드라이브 인증 및 폴더 정보를 가져오는 중입니다...")
-        sync_service = AppContainer.get_instance().drive_sync
+        self._log("구글 드라이브 인증 및 폴더 정보를 가져오는 중입니다...")
 
         # ===========================
         # [파일 스캔 및 취소 확인]
         # ===========================
         # 2. 파일 전체 스캔
-        GlobalLogger.info("로컬 및 드라이브의 파일 목록을 스캔하고 있습니다...")
+        self._log("로컬 및 드라이브의 파일 목록을 스캔하고 있습니다...")
         
-        target_folder = sync_service.target_folder_id
+        target_folder = self.app.drive_sync.target_folder_id
         if self.search_mode == "EXAM" and self.filter_value:
             target_folder = self.filter_value
 
         # 로컬 경로와 드라이브를 스캔하여 파일 리스트를 가져옵니다.
-        drive_files, drive_filenames, local_files = sync_service.fetch_all_files(
+        drive_files, drive_filenames, local_files = self.app.drive_sync.fetch_all_files(
             self.local_path,
             target_folder_id=target_folder
         )
@@ -67,7 +64,7 @@ class DriveSyncWorker(BaseWorker):
         # [교시 데이터 추출]
         # ===========================
         # 3. 고유 교시(Lesson ID) 추출
-        GlobalLogger.info("파일 데이터 분석 및 수업 교시를 추출하는 중...")
+        self._log("파일 데이터 분석 및 수업 교시를 추출하는 중...")
         # 시험 기준 검색 시 해당 드라이브 폴더의 파일들만 기준으로 교시 추출
         if self.search_mode == "EXAM":
             source_filenames = drive_filenames
@@ -75,7 +72,7 @@ class DriveSyncWorker(BaseWorker):
             source_filenames = drive_filenames + local_files
 
         # 정렬된 교시 리스트를 추출합니다.
-        sorted_lessons = sync_service.extract_and_filter_lessons(
+        sorted_lessons = self.app.drive_sync.extract_and_filter_lessons(
             source_filenames, 
             self.search_mode, 
             self.filter_value
@@ -85,29 +82,29 @@ class DriveSyncWorker(BaseWorker):
         # [테이블 렌더링용 데이터 조립]
         # ===========================
         # 4. 테이블 렌더링용 데이터 조립 (시간표 및 메타데이터 사전 로드)
-        sync_service.preload_metadata()
+        self.app.drive_sync.preload_metadata()
         table_data = []
         total_lessons = len(sorted_lessons)
         
         for index, lesson_id in enumerate(sorted_lessons):
             # 🛑 루프 중간 취소 요청 확인
             if self.is_cancelled():
-                GlobalLogger.info("작업이 사용자에 의해 중단되었습니다.")
+                self._log("작업이 사용자에 의해 중단되었습니다.")
                 break
                 
             # 📈 진행률 및 로그 업데이트
-            GlobalLogger.info(f"[{index + 1}/{total_lessons}] 교시 데이터({lesson_id}) 상태 판별 중...")
+            self._log(f"[{index + 1}/{total_lessons}] 교시 데이터({lesson_id}) 상태 판별 중...")
             progress = int(((index + 1) / total_lessons) * 100)
             self.progress_signal.emit(progress, "상태 판별 중...")
 
             # 1단계: 순수 존재 유무 데이터 수집 -> 2단계: DriveSync UI용 데이터 조립
-            flags = sync_service.get_lesson_file_flags(lesson_id, drive_filenames)
-            lesson_data = sync_service.format_drive_sync_data(lesson_id, flags)
+            flags = self.app.drive_sync.get_lesson_file_flags(lesson_id, drive_filenames)
+            lesson_data = self.app.drive_sync.format_drive_sync_data(lesson_id, flags)
             table_data.append(lesson_data)
 
         # 취소되지 않았다면 완료 메시지를 출력합니다.
         if not self.is_cancelled():
-            GlobalLogger.info("✅ 모든 데이터 분석이 완료되었습니다.")
+            self._log("✅ 모든 데이터 분석이 완료되었습니다.")
             
         return table_data
 

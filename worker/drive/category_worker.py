@@ -1,6 +1,4 @@
-from core.logger import GlobalLogger
 from base.base_worker import BaseWorker
-from core.container import AppContainer
 
 
 class ExamCategoryFetchWorker(BaseWorker):
@@ -11,10 +9,9 @@ class ExamCategoryFetchWorker(BaseWorker):
         self.force_refresh = force_refresh
         
     def do_work(self):
-        GlobalLogger.info("구글 드라이브에서 시험 기준(과목/차수) 폴더 목록을 조회합니다...")
-        sync_service = AppContainer.get_instance().drive_sync
+        self._log("구글 드라이브에서 시험 기준(과목/차수) 폴더 목록을 조회합니다...")
         if self.is_cancelled():
             return []
-        categories = sync_service.fetch_exam_categories(force_refresh=self.force_refresh)
+        categories = self.app.drive_sync.fetch_exam_categories(force_refresh=self.force_refresh)
         return categories
 

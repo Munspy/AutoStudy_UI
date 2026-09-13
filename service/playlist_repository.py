@@ -1,6 +1,6 @@
 """유튜브 재생목록 메타데이터 영속성 관리 저장소 모듈.
 
-이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.[cite: 1]
+이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
 구체적으로는 데이터 접근 및 영속성(Persistence)을 전담하는 저장소(Repository) 패턴을 구현하고 있습니다.
 
 Whisper AI 기반 음성 변환을 위해 원본 미디어를 유튜브에서 다운로드하거나, 
@@ -36,8 +36,6 @@ class PlaylistRepository(BaseService):
     ) -> None:
         """PlaylistRepository 인스턴스를 초기화하고 스레드 락 및 데이터베이스 파일을 준비합니다.        Args:
             csv_file_path (str, optional): 재생목록 데이터를 영속화할 로컬 CSV 파일의 경로. 기본값은 "playlists.csv"입니다.
-            logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 로컬 DB 접근 로그를 
-                메인 UI 스레드로 안전하게 전달하기 위한 콜백 함수. Defaults to None.
         """
         # [최적화 2] BaseService 초기화로 로깅 시스템 활성화
         super().__init__()

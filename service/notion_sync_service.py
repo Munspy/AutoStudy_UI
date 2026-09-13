@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, List, Optional
 from notion_client import Client
 
 from base.base_service import BaseService
-from utils.config import Config
+from core.config import Config
 
 
 class NotionSyncService(BaseService):
@@ -28,19 +28,13 @@ class NotionSyncService(BaseService):
     대해서는 알지 못하며 오직 텍스트 직렬화 및 클라우드 동기화에만 집중합니다.
     
     의존성:
-    - 전역 환경설정인 `utils.config.Config`를 참조하여 'NOTION_TOKEN'을 획득합니다.
+    - 전역 환경설정인 `core.config.Config`를 참조하여 'NOTION_TOKEN'을 획득합니다.
     - 외부 라이브러리인 `notion_client.Client`를 사용하여 공식 API 통신을 대리합니다.
     - 상위 Controller 또는 비동기 Worker로부터 LLM 요약 결과물(Markdown 문자열)을 주입받아 동작합니다.
     """
 
     def __init__(self, auth_token: Optional[str] = None) -> None:
-        """NotionSyncService 인스턴스를 초기화합니다.
-
-        Args:            auth_token (Optional[str], optional): 명시적으로 주입할 Notion API 토큰. 
-                생략될 경우 Config에서 전역 토큰을 자동으로 가져옵니다. Defaults to None.
-            logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 중 발생하는 
-                로그를 UI로 전달하기 위한 콜백 함수. Defaults to None.
-        """
+        """NotionSyncService 인스턴스를 초기화합니다."""
         # ===========================
         # [메인 비즈니스 로직]
         # ===========================

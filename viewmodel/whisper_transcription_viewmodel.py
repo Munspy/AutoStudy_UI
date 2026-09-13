@@ -7,12 +7,12 @@ UI(Tab6WhisperTranscription)와 연동되어 음성 파일 탐색과
 from PyQt6.QtCore import pyqtSignal
 
 from core.logger import GlobalLogger
-from base.base_controller import BaseController
+from base.base_viewmodel import BaseViewModel
 from worker.transcript.whisper_worker import (WhisperExecutionWorker,
                                               WhisperScannerWorker)
 
 
-class WhisperTranscriptionController(BaseController):
+class WhisperTranscriptionViewModel(BaseViewModel):
     """Whisper 전사 작업의 스캔 및 실행을 제어하는 클래스입니다.
 
     BaseController를 상속받으며 외부 자원을 사용하는 전사 워커들을 큐에 등록하여
@@ -26,26 +26,25 @@ class WhisperTranscriptionController(BaseController):
     # ===========================
     # [시그널 정의]
     # ===========================
-    # 📡 [신규] UI 중계용 전용 안테나 (handle_result 대체)
-    scan_completed = pyqtSignal(list)
-    execution_completed = pyqtSignal()  # 결과 데이터가 필요하다면 pyqtSignal(타입)으로 수정 가능
+    scan_completed = pyqtSignal()
+    execution_completed = pyqtSignal()
 
-    def __init__(self):
-        # 상속받은 컨트롤러 초기화 로직 실행
-        super().__init__()
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.incomplete_files: list[str] = []
 
     # ===========================
     # [워커 관리]
     # ===========================
     def scan_drive(self):
-        """드라이브 스캔 실행 (상대적으로 가볍고 즉각적인 UI 갱신이 필요하므로 단일 작업 유지)"""
-        # 위스퍼 스캔이 왜 따로 있는 거...? 그럴 필요가 있나?
-        # 스캔 워커 생성
+        """드라이브 스캔 실행"""
         worker = WhisperScannerWorker()
-        # 스캔이 완료되면 scan_completed 시그널 연결
-        worker.finished_signal.connect(self.scan_completed.emit)
-        # 백그라운드 워커 실행
+        worker.finished_signal.connect(self._on_scan_completed)
         self.start_worker(worker)
+
+    def _on_scan_completed(self, files: list):
+        self.incomplete_files = files or []
+        self.scan_completed.emit()
 
     def execute_whisper(self, selected_files):
         """선택된 파일들에 대해 Whisper 실행 (Mac mini 원격 자원 사용)"""

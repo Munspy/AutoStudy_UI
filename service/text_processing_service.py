@@ -29,13 +29,7 @@ class TextProcessingService(BaseService):
     # [초기화]
     # ===========================
     def __init__(self) -> None:
-        """TextProcessingService 인스턴스를 초기화합니다.
-
-        Args:
-            logger_callback (Optional[Callable[[str], None]], optional): 비동기 스레드 등에서 
-                발생한 문자열 처리 결과 및 오류 로그를 메인 UI 스레드로 전달하기 위한 콜백 함수. 
-                Defaults to None.
-        """
+        """TextProcessingService 인스턴스를 초기화합니다."""
         # [최적화 2] BaseService 초기화를 통해 로깅 시스템 통합
         super().__init__()
 

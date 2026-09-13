@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 """파이프라인 상태 점검 및 메타데이터 추적 서비스 모듈.
 
 이 모듈은 AutoStudy_UI 프로젝트의 전체 아키텍처 중 **Service(서비스) 계층**에 속합니다.
@@ -10,13 +12,11 @@
 """
 
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal
 
 from base.base_service import BaseService
-from service.file_naming_service import FileNamingService
-from utils.config import Config
-from utils.constants import FileSuffix, Extensions
-from utils.drive_api import get_all_drive_files
+from core.config import Config
+from core.constants import FileSuffix, Extensions
 from utils.filename_util import normalize_text
 
 # [최적화 1] 매직 스트링 제거를 위한 Literal 타입 정의 (IDE 자동완성 및 타입 체크 지원)
@@ -37,28 +37,9 @@ class PipelineStatusService(BaseService):
     - 클라우드 파일 검사를 위해 `utils.drive_api`를 통해 Google Drive API와 통신합니다.
     """
 
-    @property
-    def drive_service(self):
-        from utils.auth_util import get_drive_service
-        return get_drive_service()
-    
-    def __init__(
-        # ===========================
-        # [메인 비즈니스 로직]
-        # ===========================
-        # 입력값을 바탕으로 핵심 로직을 수행합니다.
-        self, naming_service, drive_service=None
-    ) -> None:
-        """PipelineStatusService 인스턴스를 초기화합니다.        Args:
-            drive_service (Optional[Any], optional): 인증된 구글 드라이브 API 서비스 리소스 객체. Defaults to None.
-            logger_callback (Optional[Callable[[str], None]], optional): 비동기 처리 로그를 메인 UI로 
-                전달하기 위한 콜백 함수. 하위 `FileNamingService`에도 동일하게 주입됩니다. Defaults to None.
-        """
-        # [최적화 2] BaseService 초기화 누락 수정으로 일관된 로깅 시스템 활성화
+    def __init__(self):
+        """PipelineStatusService 인스턴스를 초기화합니다."""
         super().__init__()
-        # 하위 서비스에도 로깅 콜백 주입
-        self.naming_service = naming_service
-
     def check_lesson_file_status(
         # ===========================
         # [메인 비즈니스 로직]
@@ -92,35 +73,35 @@ class PipelineStatusService(BaseService):
             
         # 2. 개별 필기본(야붙/줄필기) 존재 여부
         elif file_type == "yaboot": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.YABOOT + Extensions.PDF))
+            return bool(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.YABOOT + Extensions.PDF))
         elif file_type == "jul": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.JUL + Extensions.PDF))
+            return bool(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.JUL + Extensions.PDF))
             
         # 3. Whisper 음성 스크립트 존재 여부 (교정 전/후 모두 인정)
         elif file_type == "script":
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_RAW + Extensions.TXT)) or \
-                   bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_CORRECTED + Extensions.TXT))
+            return bool(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_RAW + Extensions.TXT)) or \
+                   bool(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_CORRECTED + Extensions.TXT))
                    
         # 4. 원본 오디오 미디어 파일 존재 여부
         elif file_type == "audio":
             audio_exts = Extensions.AUDIO
-            return any(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, ext) for ext in audio_exts)
+            return any(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, ext) for ext in audio_exts)
             
         # 5. Anki 생성 완료 여부
         elif file_type == "anki": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.ANKI_PACKAGE + Extensions.APKG))
+            return bool(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.ANKI_PACKAGE + Extensions.APKG))
             
         # 6. 스크립트가 병합된 최종 PDF 존재 여부
         elif file_type == "scripted_pdf": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.SCRIPTED + Extensions.PDF))
+            return bool(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.SCRIPTED + Extensions.PDF))
             
         # 7. LLM 요약본 파일 존재 여부
         elif file_type == "summary_txt": 
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.SUMMARY_TXT + Extensions.TXT))
+            return bool(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.SUMMARY_TXT + Extensions.TXT))
             
         # 8. LLM 교정본 파일 존재 여부
         elif file_type in ("corrected_txt", "corrected"):
-            return bool(self.naming_service.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_CORRECTED + Extensions.TXT))
+            return bool(self.app.file_naming.find_file_by_lesson(file_list, target_lesson_id, FileSuffix.TRANSCRIPT_CORRECTED + Extensions.TXT))
             
         return False
 
@@ -152,12 +133,8 @@ class PipelineStatusService(BaseService):
         Raises:
             ValueError: 인스턴스 초기화 시 구글 드라이브 서비스가 주입되지 않은 상태로 호출될 경우.
         """
-        # [최적화 3] 지연 임포트 제거 (상단 임포트로 통합)
-        if not self.drive_service:
-            raise ValueError("드라이브 서비스가 초기화되지 않았습니다.")
-            
         target_folder_id = Config.TARGET_DRIVE_DIR
-        all_files = get_all_drive_files(target_folder_id, drive_service=self.drive_service)        
+        all_files = self.app.drive_client.get_all_drive_files(target_folder_id)        
 
         start_mmdd = datetime.strptime(start_date_str, "%Y-%m-%d").strftime("%m%d")
         end_mmdd = datetime.strptime(end_date_str, "%Y-%m-%d").strftime("%m%d")
@@ -166,4 +143,4 @@ class PipelineStatusService(BaseService):
         ext_filtered = [f for f in all_files if f.get('name', '').lower().endswith(file_extension)]
         
         # 2차: FileNamingService에 날짜 필터링 위임
-        return self.naming_service.filter_files_by_date_range(ext_filtered, start_mmdd, end_mmdd)
+        return self.app.file_naming.filter_files_by_date_range(ext_filtered, start_mmdd, end_mmdd)

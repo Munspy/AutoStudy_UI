@@ -15,6 +15,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (QApplication, QListWidget, QMainWindow,
                              QProgressBar, QSplitter, QStackedWidget,
                              QTextEdit, QVBoxLayout, QWidget)
+from PyQt6.QtGui import QFont
 
 from core.container import AppContainer
 from core.logger import GlobalLogger
@@ -106,13 +107,14 @@ class AutomationDashboard(QMainWindow):
         # 하단 진행률 및 로그 패널용 위젯과 레이아웃 생성
         self.bottom_panel = QWidget()
         self.bottom_layout = QVBoxLayout(self.bottom_panel)
+
         # 위쪽 마진을 주어 상단 영역과의 간격 확보
         self.bottom_layout.setContentsMargins(0, 10, 0, 0)
         
         # 전체 진행률을 나타내는 프로그레스 바 생성 및 추가
         self.progress_bar = QProgressBar()
-        self.progress_bar.setValue(0) # 진행률 100으로 초기화
-        self.bottom_layout.addWidget(self.progress_bar)
+        self.progress_bar.setValue(0) # 진행률 0으로 초기화
+        self.bottom_layout.addWidget(self.progress_bar) # bottom_layout에 붙이기
         
         # 시스템 로그를 출력할 텍스트 에디터 생성
         self.log_viewer = QTextEdit()
@@ -121,7 +123,7 @@ class AutomationDashboard(QMainWindow):
         # 시스템 콘솔과 같은 스타일 적용
         self.log_viewer.setStyleSheet("background-color: #1e1e1e; color: #00ff00; font-family: Menlo;")
         self.log_viewer.append("시스템이 초기화되었습니다. 대기 중...")
-        self.bottom_layout.addWidget(self.log_viewer)
+        self.bottom_layout.addWidget(self.log_viewer) # bottom_layout에 붙이기
         
         # 구성된 하단 패널을 메인 레이아웃에 추가 (비중 2 설정)
         self.main_layout.addWidget(self.bottom_panel, stretch=2)
@@ -129,7 +131,7 @@ class AutomationDashboard(QMainWindow):
         # ===========================
         # [4. 글로벌 태스크 매니저 및 탭 초기화]
         # ===========================
-        self.global_task_manager = AppContainer.get_instance().task_manager # C-확장 모듈(PyMuPDF/OpenSSL) 및 LLM 최적 병렬 수
+        self.global_task_manager = AppContainer.get_instance().task_manager
         self.global_task_manager.queue_progress_signal.connect(self.update_global_progress)
         self.global_task_manager.queue_finished_signal.connect(self.on_queue_finished)
         
@@ -204,12 +206,12 @@ class AutomationDashboard(QMainWindow):
         self.stacked_widget.addWidget(self.tab9)
 
 
+# 단독으로 실행되면
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setStyle("Fusion") 
+    app.setStyle("Fusion")          # 무난한 Fusion theme
     
     # OS별 폰트 동적 적용 (맥은 Apple SD, 윈도우는 맑은 고딕)
-    from PyQt6.QtGui import QFont
     if sys.platform == "darwin":
         font_family = "Apple SD Gothic Neo"
         font_size = 13

@@ -83,15 +83,32 @@ class BaseWorker(QThread):
             if self._is_running:
                 self.error_signal.emit(str(e))
 
+    @property
+    def app(self):
+        """자식 워커들이 DI 컨테이너(AppContainer)에 접근하기 위한 글로벌 단축키입니다.
+        예: self.app.drive_client
+        """
+        from core.container import AppContainer
+        return AppContainer.get_instance()
+
+    def _log(self, msg: str):
+        """내부 로직 중 발생하는 메시지를 로깅합니다.
+        
+        GlobalLogger를 통해 중앙 UI로 즉시 메시지를 방송합니다.
+        
+        Args:
+            msg (str): 출력할 로그 메시지.
+        """
+        GlobalLogger.info(msg)
+
     def do_work(self):
         """실제 비즈니스 로직을 작성하는 공간입니다. 하위 클래스에서 반드시 오버라이딩해야 합니다.
 
         실제로 스레드가 어떤 작업을 수행할지 정의하기 위해 하위 클래스에서 구현해야 합니다.
         
         [설계 가이드]
-        이 안에서 `BaseService` 객체를 생성할 때, 
-        `service = MyService(logger_callback=GlobalLogger.info)` 처럼
-        워커의 시그널 발사 메서드 자체를 콜백으로 전달하면 로깅이 완벽하게 연결됩니다.
+        워커 내에서 `AppContainer.get_instance().some_service.do_something()`과 같이
+        컨테이너를 통해 서비스를 호출하고, 로깅 시에는 `self._log()`를 사용하세요.
 
         Args:
             None
